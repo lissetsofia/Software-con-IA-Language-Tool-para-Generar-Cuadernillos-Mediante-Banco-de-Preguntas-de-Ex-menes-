@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Login</title>
+  </head>
+  <body>
+    <h2>Login</h2>
+    <input type="text" id="usuario" placeholder="Usuario" /><br />
+    <input type="password" id="clave" placeholder="Contraseña" /><br />
+    <button onclick="login()">Ingresar</button>
+
+    <script>
+      async function login() {
+        const usuario = document.getElementById("usuario").value;
+        const clave = document.getElementById("clave").value;
+
+        try {
+          const res = await window.api.login(usuario, clave);
+          alert(res.mensaje);
+        } catch (err) {
+          alert("Error al conectar con el backend.");
+          console.error(err);
+        }
+      }
+    </script>
+  </body>
+</html>
