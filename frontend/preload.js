@@ -1,12 +1,22 @@
-const { contextBridge } = require('electron')
+const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld('api', {
+contextBridge.exposeInMainWorld("api", {
   login: async (usuario, clave) => {
-    const res = await fetch('http://localhost:5050/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario, clave })
-    })
-    return res.json()
-  }
-})
+    const res = await fetch("http://localhost:5050/login", {
+      // <---- ⚠️ PUERTO Y RUTA
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ usuario, clave }),
+    });
+
+    const data = await res.json();
+
+    if (data.status === "ok") {
+      ipcRenderer.send("login-exitoso"); // opcional para abrir otra ventana
+    }
+
+    return data;
+  },
+});
