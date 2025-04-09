@@ -1,6 +1,6 @@
-CREATE DATABASE mi_app;
+CREATE DATABASE banco_preguntas;
 
-USE mi_app;
+USE banco_preguntas;
 
 CREATE TABLE usuarios (
     id INT AUTO_INCREMENT PRIMARY KEY,

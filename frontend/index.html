@@ -1,5 +1,9 @@
 <!DOCTYPE html>
 <html>
+  <link
+    rel="stylesheet"
+    href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
+  />
   <head>
     <title>Login</title>
   </head>
@@ -16,7 +20,7 @@
 
         try {
           const res = await window.api.login(usuario, clave);
-          alert(res.mensaje);
+          //alert(res.mensaje);
         } catch (err) {
           alert("Error al conectar con el backend.");
           console.error(err);
