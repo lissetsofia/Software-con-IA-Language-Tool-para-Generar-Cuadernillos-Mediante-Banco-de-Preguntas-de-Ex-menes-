@@ -4,7 +4,7 @@ def get_connection():
     return mysql.connector.connect(
         host="127.0.0.1",
         user="root",
-        password="",
+        password="root",
         database="banco_preguntas"
     )
     # Test directo (solo para prueba)
