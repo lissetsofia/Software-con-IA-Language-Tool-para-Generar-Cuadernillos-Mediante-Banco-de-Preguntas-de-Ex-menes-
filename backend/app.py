@@ -16,10 +16,10 @@ def login():
     cursor.close()
     conn.close()
 
-    #if user:
-    #    return jsonify({"status": "ok", "mensaje": "Login correcto"})
-    #else:
-     #   return jsonify({"status": "error", "mensaje": "Credenciales inválidas"}), 401
+    if user:
+       return jsonify({"status": "ok", "mensaje": "Login correcto"})
+    else:
+        return jsonify({"status": "error", "mensaje": "Credenciales inválidas"}), 401
 
 @app.route("/probar-conexion")
 def probar_conexion():

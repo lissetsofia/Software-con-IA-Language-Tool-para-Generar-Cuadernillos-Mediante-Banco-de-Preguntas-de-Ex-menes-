@@ -20,6 +20,7 @@
   "homepage": "https://github.com/lissetsofia/Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-#readme",
   "dependencies": {
     "bootstrap": "^5.3.5",
+    "bootstrap-icons": "^1.11.3",
     "electron": "^27.3.11"
   },
   "devDependencies": {
