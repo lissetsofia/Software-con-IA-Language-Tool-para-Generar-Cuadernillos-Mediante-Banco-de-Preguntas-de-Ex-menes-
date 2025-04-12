@@ -1,94 +1,103 @@
+<!-- frontend/index.html -->
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Login</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+  <meta charset="UTF-8" />
+  <title>Mi App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css" />
+  <link rel="stylesheet" href="./login.css" />
+</head>
+<body class="bg-light d-flex flex-column min-vh-100">
 
-    <!-- Bootstrap CSS -->
-    <link
-      rel="stylesheet"
-      href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
-    />
-    <!-- Bootstrap Icons (opcional para íconos) -->
-    <link
-      rel="stylesheet"
-      href="../node_modules/bootstrap-icons/font/bootstrap-icons.css"
-    />
+  <div id="header"></div>
 
-    <link rel="stylesheet" href="login.css">
-  </head>
-  <body
-    class="bg-light d-flex justify-content-center align-items-center vh-100"
-  >
-    <div
-      class="card login-card shadow p-4"
-      style="width: 100%; max-width: 400px"
-    >
-      <div class="text-center mb-3">
-        <i class="bi bi-person-circle fs-1 text-success"></i>
-      </div>
-      <h2 class="text-center mb-3">Iniciar Sesión</h2>
+  <main class="flex-fill container py-4">
+    <div id="contenido"></div>
+  </main>
 
-      <div id="alerta" class="alert alert-danger d-none" role="alert">
-        Usuario o contraseña incorrectos.
-      </div>
+  <div id="footer"></div>
 
-      <div class="mb-3">
-        <label for="usuario" class="form-label">Usuario</label>
-        <input
-          type="text"
-          id="usuario"
-          class="form-control"
-          placeholder="Usuario"
-          required
-        />
-      </div>
-      <div class="mb-3">
-        <label for="clave" class="form-label">Contraseña</label>
-        <input
-          type="password"
-          id="clave"
-          class="form-control"
-          placeholder="Contraseña"
-          required
-        />
-      </div>
-       <div class="d-grid">
-        <button onclick="login()" class="btn btn-success"><i class="bi bi-box-arrow-in-right me-2"></i>Ingresar</button>
-      </div>
-      <br>
-      <p class="text-muted text-center mt-3 mb-0" style="font-size: 0.85rem;">
-        © 2025 - Sistema de Exámenes Inteligente
-      </p>
-      </div>
-    </div>
+  <script>
+    // 👉 Cargar fragmentos HTML
+    async function include(id, path) {
+      const res = await fetch(path);
+      const html = await res.text();
+      document.getElementById(id).innerHTML = html;
 
-    <script>
-      async function login() {
-        const usuario = document.getElementById("usuario").value;
-        const clave = document.getElementById("clave").value;
-        const alerta = document.getElementById("alerta");
-
-        try {
-          const res = await window.api.login(usuario, clave);
-          if (res && res.exito) {
-            alerta.classList.add("d-none");
-            window.location.href = "home.html";
-          } else {
-            alerta.textContent =
-              res.mensaje || "Usuario o contraseña incorrectos.";
-            alerta.classList.remove("d-none");
-            setTimeout(() => {
-              alerta.classList.add("d-none");
-            }, 4000);
+      // Si se carga login.html, conectar el botón
+      if (path.includes("login.html")) {
+        setTimeout(() => {
+          const boton = document.getElementById("btnLogin");
+          if (boton) {
+            boton.addEventListener("click", login);
           }
-        } catch (err) {
-          alerta.textContent = "Error al conectar con el backend.";
-          alerta.classList.remove("d-none");
-          console.error(err);
-        }
+        }, 100);
       }
-    </script>
-  </body>
+    }
+
+    // 👉 Función de login
+    async function login() {
+      const usuario = document.getElementById("usuario").value;
+      const clave = document.getElementById("clave").value;
+      const alerta = document.getElementById("alerta");
+
+      try {
+        const res = await window.api.login(usuario, clave);
+        if (res && res.exito) {
+          alerta.classList.add("d-none");
+          // Esperar al evento del backend
+        } else {
+          alerta.textContent = res.mensaje || "Usuario o contraseña incorrectos.";
+          alerta.classList.remove("d-none");
+          setTimeout(() => {
+            alerta.classList.add("d-none");
+          }, 4000);
+        }
+      } catch (err) {
+        alerta.textContent = "Error al conectar con el backend.";
+        alerta.classList.remove("d-none");
+        console.error(err);
+      }
+    }
+
+    // 👉 Escuchar evento de login exitoso
+    window.api.onLoginExitoso(() => {
+      include("contenido", "./home.html");
+    });
+
+    // 👉 Cargar componentes iniciales
+    include("header", "./components/header.html");
+    include("footer", "./components/footer.html");
+    include("contenido", "./login.html");
+
+    // 👉 Manejo de navegación interna (desde home.html)
+    document.addEventListener("click", (e) => {
+      // Botones de navegación en el panel
+      if (e.target && e.target.matches(".nav-link")) {
+        document.querySelectorAll(".nav-link").forEach(btn => btn.classList.remove("active"));
+        e.target.classList.add("active");
+      }
+
+      // Botón de logout
+      if (e.target && e.target.id === "btnLogout") {
+        include("contenido", "./login.html");
+      }
+    });
+
+    // 👉 Función usada dentro del contenido dinámico (como home.html)
+    function mostrar(seccion) {
+      const contenedor = document.getElementById("contenido-interno");
+      if (!contenedor) return;
+
+      if (seccion === "home") {
+        contenedor.innerHTML = "<p>Sección: Home</p>";
+      } else if (seccion === "configuracion") {
+        contenedor.innerHTML = "<p>Sección: Configuración (próximamente)</p>";
+      }
+    }
+  </script>
+
+</body>
 </html>

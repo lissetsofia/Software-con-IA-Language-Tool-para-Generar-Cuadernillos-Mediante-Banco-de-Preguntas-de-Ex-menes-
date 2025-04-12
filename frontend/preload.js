@@ -19,4 +19,5 @@ contextBridge.exposeInMainWorld("api", {
 
     return data;
   },
+  onLoginExitoso: (callback) => ipcRenderer.on("login-exitoso", callback),
 });

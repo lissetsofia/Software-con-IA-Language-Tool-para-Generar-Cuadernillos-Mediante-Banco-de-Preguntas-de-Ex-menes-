@@ -1,4 +1,3 @@
-//const { app, BrowserWindow } = require("electron");
 const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("path");
 
@@ -6,12 +5,11 @@ const path = require("path");
 app.disableHardwareAcceleration();
 
 let win;
-let homeWin;
 
 function crearVentana() {
   win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1000,
+    height: 700,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -20,39 +18,19 @@ function crearVentana() {
     },
   });
 
-  win.loadFile("index.html");
-}
-
-function crearVentanaHome() {
-  homeWin = new BrowserWindow({
-    width: 800,
-    height: 600,
-    webPreferences: {
-      contextIsolation: true,
-    },
-  });
-  console.log("Mostrando home...");
-  homeWin.loadFile("home.html").then(() => {
-    if (win && !win.isDestroyed()) {
-      win.close(); // Cierra login solo después de abrir home
-    }
-  });
-
-  /*homeWin.loadFile("home.html");
-
-  if (win && !win.isDestroyed()) {
-    win.close(); // Cierra la ventana de login si existe
-  }*/
+  win.loadFile(path.join(__dirname, "index.html"));
 }
 
 app.whenReady().then(crearVentana);
 
+// 👉 Ya no abrimos otra ventana, solo enviamos un mensaje al frontend
 ipcMain.on("login-exitoso", () => {
-  crearVentanaHome();
+  if (win && win.webContents) {
+    win.webContents.send("login-exitoso");
+  }
 });
 
 app.on("window-all-closed", () => {
-  // Solo salir si NO estamos en macOS
   if (process.platform !== "darwin") {
     app.quit();
   }
