@@ -1,43 +1,49 @@
-<!-- frontend/index.html -->
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <title>Mi App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Bootstrap y estilos -->
   <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css" />
-  <link rel="stylesheet" href="./login.css" />
+  <link rel="stylesheet" href="./css/index.css" />
 </head>
-<body class="bg-light d-flex flex-column min-vh-100">
+<body>
 
+  <!-- Header -->
   <div id="header"></div>
 
-  <main class="flex-fill container py-4">
+  <!-- Contenido principal -->
+  <main class="container py-4">
     <div id="contenido"></div>
   </main>
 
+  <!-- Footer -->
   <div id="footer"></div>
 
+  <!-- Script principal -->
   <script>
-    // 👉 Cargar fragmentos HTML
     async function include(id, path) {
       const res = await fetch(path);
       const html = await res.text();
       document.getElementById(id).innerHTML = html;
 
-      // Si se carga login.html, conectar el botón
-      if (path.includes("login.html")) {
+      // Mostrar u ocultar header/footer si es login
+      const esLogin = path.includes("login.html");
+      document.getElementById("header").style.display = esLogin ? "none" : "block";
+      document.getElementById("footer").style.display = esLogin ? "none" : "block";
+
+      // Activar login si se cargó login.html
+      if (esLogin) {
         setTimeout(() => {
           const boton = document.getElementById("btnLogin");
-          if (boton) {
-            boton.addEventListener("click", login);
-          }
+          if (boton) boton.addEventListener("click", login);
         }, 100);
       }
     }
 
-    // 👉 Función de login
     async function login() {
       const usuario = document.getElementById("usuario").value;
       const clave = document.getElementById("clave").value;
@@ -47,13 +53,10 @@
         const res = await window.api.login(usuario, clave);
         if (res && res.exito) {
           alerta.classList.add("d-none");
-          // Esperar al evento del backend
         } else {
           alerta.textContent = res.mensaje || "Usuario o contraseña incorrectos.";
           alerta.classList.remove("d-none");
-          setTimeout(() => {
-            alerta.classList.add("d-none");
-          }, 4000);
+          setTimeout(() => alerta.classList.add("d-none"), 4000);
         }
       } catch (err) {
         alerta.textContent = "Error al conectar con el backend.";
@@ -62,31 +65,28 @@
       }
     }
 
-    // 👉 Escuchar evento de login exitoso
+    // Evento de login exitoso
     window.api.onLoginExitoso(() => {
       include("contenido", "./home.html");
     });
 
-    // 👉 Cargar componentes iniciales
+    // Cargar elementos al iniciar
     include("header", "./components/header.html");
     include("footer", "./components/footer.html");
     include("contenido", "./login.html");
 
-    // 👉 Manejo de navegación interna (desde home.html)
+    // Navegación y logout
     document.addEventListener("click", (e) => {
-      // Botones de navegación en el panel
-      if (e.target && e.target.matches(".nav-link")) {
+      if (e.target?.matches(".nav-link")) {
         document.querySelectorAll(".nav-link").forEach(btn => btn.classList.remove("active"));
         e.target.classList.add("active");
       }
 
-      // Botón de logout
-      if (e.target && e.target.id === "btnLogout") {
+      if (e.target?.id === "btnLogout") {
         include("contenido", "./login.html");
       }
     });
 
-    // 👉 Función usada dentro del contenido dinámico (como home.html)
     function mostrar(seccion) {
       const contenedor = document.getElementById("contenido-interno");
       if (!contenedor) return;
@@ -97,7 +97,14 @@
         contenedor.innerHTML = "<p>Sección: Configuración (próximamente)</p>";
       }
     }
+
+    function activarMenu(elemento) {
+      document.querySelectorAll(".nav-link").forEach(link => link.classList.remove("active"));
+      elemento.classList.add("active");
+    }
   </script>
 
+  <!-- Bootstrap JS -->
+  <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

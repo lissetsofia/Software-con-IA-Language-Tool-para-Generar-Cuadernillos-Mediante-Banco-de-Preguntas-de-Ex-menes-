@@ -1,3 +1,39 @@
-<nav class="navbar navbar-dark bg-dark px-3">
-    <span class="navbar-brand mb-0 h1">Mi App</span>
-  </nav>
+<nav class="navbar navbar-expand-lg bg-white shadow-sm px-4">
+  <div class="container-fluid">
+    <!-- Branding -->
+    <a class="navbar-brand fw-bold text-success" href="#" onclick="mostrar('home'); activarMenu(this)">
+      <i class="bi bi-house-door-fill me-1"></i>Mi App
+    </a>
+
+    <!-- Botón hamburguesa -->
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menuNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <!-- Menú horizontal -->
+    <div class="collapse navbar-collapse justify-content-center" id="menuNav">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link px-3 active" href="#" onclick="mostrar('home'); activarMenu(this)">
+            <i class="bi bi-house-door-fill me-1"></i>HOME
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link px-3" href="#" onclick="activarMenu(this)">
+            <i class="bi bi-journal-text me-1"></i>Generación de Banco de Preguntas
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link px-3" href="#" onclick="activarMenu(this)">
+            <i class="bi bi-spellcheck me-1"></i>Corrector Ortográfico
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link px-3" href="#" onclick="activarMenu(this)">
+            <i class="bi bi-shuffle me-1"></i>Aleatorización de Alternativas
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>

@@ -1,0 +1,123 @@
+/* =======================
+   FONDO GENERAL
+========================== */
+html, body {
+  height: 100% !important;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #93cdf3, #c8e6f8) !important;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+/* =======================
+   TARJETA LOGIN
+========================== */
+.login-card {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeIn 0.8s ease-out forwards;
+  transition: box-shadow 0.3s ease;
+  border-radius: 14px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+.login-card:hover {
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.15);
+}
+
+/* =======================
+   INPUTS
+========================== */
+.form-control {
+  background-color: #f8f9fa;
+  border-color: #ced4da;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus {
+  border-color: #5dbf92;
+  box-shadow: 0 0 0 0.2rem rgba(93, 191, 146, 0.25);
+}
+
+/* =======================
+   BOTONES PERSONALIZADOS
+========================== */
+.btn-custom {
+  background-color: #5dbf92;
+  color: white;
+  border: none;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.btn-custom:hover {
+  background-color: #4da87f;
+  transform: translateY(-1px);
+}
+
+.btn-outline-danger {
+  transition: transform 0.2s ease;
+}
+
+.btn-outline-danger:hover {
+  transform: translateY(-1px);
+}
+
+/* =======================
+   NAVBAR Y FOOTER
+========================== */
+.navbar {
+  background-color: #ffffff;
+  border-bottom: 1px solid #dee2e6;
+}
+
+footer {
+  background-color: #343a40;
+  color: white;
+}
+
+/* =======================
+   NAVBAR ENLACES ACTIVOS Y HOVER
+========================== */
+.navbar .nav-link {
+  color: #333;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+}
+
+.navbar .nav-link:hover {
+  background-color: #e6f5ef;
+  color: #333;
+  border-radius: 10px;
+}
+
+.navbar .nav-link.active {
+  background-color: #5dbf92;
+  color: white !important;
+  border-radius: 10px;
+}
+
+/* =======================
+   NAV PILLS HOME (por si se usa)
+========================== */
+.nav-pills .nav-link {
+  background-color: #5dbf92;
+  color: white;
+}
+
+.nav-pills .nav-link.active {
+  background-color: #4da87f;
+}
+
+/* =======================
+   ANIMACIÓN INICIAL LOGIN
+========================== */
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
