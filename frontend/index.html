@@ -10,13 +10,13 @@
   <link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css" />
   <link rel="stylesheet" href="./css/index.css" />
 </head>
-<body>
+<body class="d-flex flex-column min-vh-100">
 
   <!-- Header -->
   <div id="header"></div>
 
   <!-- Contenido principal -->
-  <main class="container py-4">
+  <main class="container py-4 flex-grow-1">
     <div id="contenido"></div>
   </main>
 
@@ -30,18 +30,20 @@
       const html = await res.text();
       document.getElementById(id).innerHTML = html;
 
-      // Mostrar u ocultar header/footer si es login
       const esLogin = path.includes("login.html");
-      document.getElementById("header").style.display = esLogin ? "none" : "block";
-      document.getElementById("footer").style.display = esLogin ? "none" : "block";
+      if (id === "contenido") {
+        document.getElementById("header").style.display = esLogin ? "none" : "block";
+        document.getElementById("footer").style.display = esLogin ? "none" : "block";
 
-      // Activar login si se cargó login.html
-      if (esLogin) {
-        setTimeout(() => {
-          const boton = document.getElementById("btnLogin");
-          if (boton) boton.addEventListener("click", login);
-        }, 100);
+        if (esLogin) {
+          setTimeout(() => {
+            const boton = document.getElementById("btnLogin");
+            if (boton) boton.addEventListener("click", login);
+          }, 100);
+        }
       }
+
+      return Promise.resolve();
     }
 
     async function login() {
@@ -65,27 +67,25 @@
       }
     }
 
-    // Evento de login exitoso
     window.api.onLoginExitoso(() => {
+      include("header", "./components/header.html");
+      include("footer", "./components/footer.html");
       include("contenido", "./home.html");
+
+      const homeLink = [...document.querySelectorAll(".nav-link")]
+        .find(el => el.textContent.trim() === "HOME");
+      activarMenu(homeLink);
     });
 
-    // Cargar elementos al iniciar
-    include("header", "./components/header.html");
-    include("footer", "./components/footer.html");
-    include("contenido", "./login.html");
+    function cargarPagina(ruta, elemento) {
+      include("contenido", `./${ruta}`);
+      activarMenu(elemento);
+    }
 
-    // Navegación y logout
-    document.addEventListener("click", (e) => {
-      if (e.target?.matches(".nav-link")) {
-        document.querySelectorAll(".nav-link").forEach(btn => btn.classList.remove("active"));
-        e.target.classList.add("active");
-      }
-
-      if (e.target?.id === "btnLogout") {
-        include("contenido", "./login.html");
-      }
-    });
+    function activarMenu(elemento) {
+      document.querySelectorAll(".nav-link").forEach(link => link.classList.remove("active"));
+      if (elemento) elemento.classList.add("active");
+    }
 
     function mostrar(seccion) {
       const contenedor = document.getElementById("contenido-interno");
@@ -98,13 +98,22 @@
       }
     }
 
-    function activarMenu(elemento) {
-      document.querySelectorAll(".nav-link").forEach(link => link.classList.remove("active"));
-      elemento.classList.add("active");
-    }
+    include("contenido", "./login.html");
+
+    document.addEventListener("click", (e) => {
+      if (e.target?.matches(".nav-link")) {
+        activarMenu(e.target);
+      }
+
+      if (e.target?.id === "btnLogout") {
+        include("contenido", "./login.html").then(() => {
+          document.getElementById("header").style.display = "none";
+          document.getElementById("footer").style.display = "none";
+        });
+      }
+    });
   </script>
 
-  <!-- Bootstrap JS -->
   <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

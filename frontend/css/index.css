@@ -11,7 +11,7 @@ html, body {
 }
 
 /* =======================
-   TARJETA LOGIN
+   TARJETA LOGIN / HOME
 ========================== */
 .login-card {
   opacity: 0;
@@ -53,6 +53,7 @@ html, body {
 
 .btn-custom:hover {
   background-color: #4da87f;
+  color: white;
   transform: translateY(-1px);
 }
 
@@ -62,6 +63,13 @@ html, body {
 
 .btn-outline-danger:hover {
   transform: translateY(-1px);
+}
+
+/* =======================
+   ICONOS PERSONALIZADOS
+========================== */
+.icon-verde {
+  color: #5dbf92;
 }
 
 /* =======================
@@ -75,6 +83,8 @@ html, body {
 footer {
   background-color: #343a40;
   color: white;
+  padding: 0.5rem;
+  text-align: center;
 }
 
 /* =======================
@@ -101,7 +111,7 @@ footer {
 }
 
 /* =======================
-   NAV PILLS HOME (por si se usa)
+   NAV PILLS HOME (si usas tabs)
 ========================== */
 .nav-pills .nav-link {
   background-color: #5dbf92;
@@ -119,5 +129,27 @@ footer {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* =======================
+   MENÚ SIEMPRE VISIBLE
+========================== */
+.navbar .nav {
+  flex-wrap: nowrap;
+}
+
+/* =======================
+   RESPONSIVE MENÚ SCROLLABLE EN MÓVIL
+========================== */
+@media (max-width: 768px) {
+  .navbar .nav {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 0.5rem;
+  }
+
+  .navbar .nav-link {
+    flex-shrink: 0;
   }
 }
