@@ -23,10 +23,11 @@ function crearVentana() {
 
 app.whenReady().then(crearVentana);
 
-// 👉 Ya no abrimos otra ventana, solo enviamos un mensaje al frontend
+// ✅ Ahora cuando el login es exitoso, maximiza la ventana
 ipcMain.on("login-exitoso", () => {
-  if (win && win.webContents) {
-    win.webContents.send("login-exitoso");
+  if (win && !win.isDestroyed()) {
+    win.maximize(); // 🔥 Maximizar la ventana
+    win.webContents.send("login-exitoso"); // (opcional) Seguir enviando mensaje si quieres
   }
 });
 

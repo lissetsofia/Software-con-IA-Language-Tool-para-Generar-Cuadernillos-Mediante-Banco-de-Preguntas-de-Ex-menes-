@@ -1,4 +1,4 @@
-/* =======================
+/* ======================= 
    FONDO GENERAL
 ========================== */
 html, body {
@@ -76,8 +76,7 @@ html, body {
    NAVBAR Y FOOTER
 ========================== */
 .navbar {
-  background-color: #ffffff;
-  border-bottom: 1px solid #dee2e6;
+  background-color: #343a40;
 }
 
 footer {
@@ -88,26 +87,69 @@ footer {
 }
 
 /* =======================
-   NAVBAR ENLACES ACTIVOS Y HOVER
+   NAVBAR (HEADER)
 ========================== */
-.navbar .nav-link {
-  color: #333;
-  font-weight: 500;
-  transition: all 0.3s ease;
+.navbar-gris-claro {
+  background-color: #343a40 !important;
+  min-height: 80px;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
   display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+/* =======================
+   NAVBAR CENTRADO
+========================== */
+.navbar .nav {
+  margin: 0 auto;
+  gap: 2rem; /* 🔥 Más separación entre los menús */
+  flex-wrap: nowrap;
   align-items: center;
 }
 
-.navbar .nav-link:hover {
-  background-color: #e6f5ef;
-  color: #333;
-  border-radius: 10px;
+/* =======================
+   ENLACES DEL MENÚ
+========================== */
+.navbar .nav-link {
+  border-radius: 12px;
+  padding: 0.9rem 2rem; /* 🔥 Más espacio horizontal */
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+  min-width: 260px; /* 🔥 Más ancho */
+  font-size: 1.2rem; /* 🔥 Más grande */
+  font-weight: 700;
+  box-shadow: 0 0 0 transparent;
+  transition: all 0.3s ease;
+  color: white !important;
+  text-shadow: 1px 1px 2px black;
 }
 
+/* =======================
+   ENLACES ACTIVOS
+========================== */
 .navbar .nav-link.active {
   background-color: #5dbf92;
-  color: white !important;
-  border-radius: 10px;
+  color: #fff !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  text-shadow: none;
+}
+
+/* =======================
+   HOVER ENLACES
+========================== */
+.navbar .nav-link:hover {
+  background-color: #4da87f;
+  color: #fff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  text-shadow: none;
 }
 
 /* =======================
@@ -130,13 +172,6 @@ footer {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-/* =======================
-   MENÚ SIEMPRE VISIBLE
-========================== */
-.navbar .nav {
-  flex-wrap: nowrap;
 }
 
 /* =======================
