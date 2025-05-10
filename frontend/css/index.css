@@ -49,6 +49,7 @@ html, body {
   color: white;
   border: none;
   transition: background-color 0.3s ease, transform 0.2s ease;
+  cursor: pointer;
 }
 
 .btn-custom:hover {
@@ -57,6 +58,35 @@ html, body {
   transform: translateY(-1px);
 }
 
+/* Botón “Acerca del Software” */
+.btn-acerca {
+  background-color: #5dbf92;
+  color: white;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-acerca:hover {
+  background-color: #4da87f;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* =======================
+   ACCESIBILIDAD BOTONES
+========================== */
+button, .btn {
+  cursor: pointer;
+}
+
+/* =======================
+   BOTÓN OUTLINE ROJO
+========================== */
 .btn-outline-danger {
   transition: transform 0.2s ease;
 }
@@ -106,7 +136,7 @@ footer {
 ========================== */
 .navbar .nav {
   margin: 0 auto;
-  gap: 2rem; /* 🔥 Más separación entre los menús */
+  gap: 2rem;
   flex-wrap: nowrap;
   align-items: center;
 }
@@ -116,14 +146,12 @@ footer {
 ========================== */
 .navbar .nav-link {
   border-radius: 12px;
-  padding: 0.9rem 2rem; /* 🔥 Más espacio horizontal */
+  padding: 0.9rem 2rem;
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
-  min-width: 260px; /* 🔥 Más ancho */
-  font-size: 1.2rem; /* 🔥 Más grande */
+  font-size: 1.2rem;
   font-weight: 700;
   box-shadow: 0 0 0 transparent;
   transition: all 0.3s ease;
@@ -153,7 +181,7 @@ footer {
 }
 
 /* =======================
-   NAV PILLS HOME (si usas tabs)
+   NAV PILLS HOME
 ========================== */
 .nav-pills .nav-link {
   background-color: #5dbf92;
@@ -165,7 +193,7 @@ footer {
 }
 
 /* =======================
-   ANIMACIÓN INICIAL LOGIN
+   ANIMACIÓN INICIAL
 ========================== */
 @keyframes fadeIn {
   to {
@@ -175,7 +203,7 @@ footer {
 }
 
 /* =======================
-   RESPONSIVE MENÚ SCROLLABLE EN MÓVIL
+   RESPONSIVE
 ========================== */
 @media (max-width: 768px) {
   .navbar .nav {
@@ -186,5 +214,10 @@ footer {
 
   .navbar .nav-link {
     flex-shrink: 0;
+  }
+
+  .login-card img {
+    height: auto !important;
+    max-height: 300px;
   }
 }
