@@ -1,0 +1,62 @@
+<div class="p-3 d-flex flex-column align-items-center mt-generacion">
+
+  <!-- TARJETA CONTENEDORA -->
+  <div class="card-contenedor w-75 mb-3 p-4">
+
+    <!-- Buscar -->
+    <div class="mb-3">
+      <input type="text" class="form-control" placeholder="buscar">
+    </div>
+
+    <!-- Tabla principal de exámenes -->
+    <div class="card card-custom p-3 mb-3">
+      <h6><strong>NOMBRE</strong></h6>
+      <ul class="list-unstyled" id="lista-examenes">
+        <!-- Exámenes se cargarán aquí -->
+      </ul>
+    </div>
+
+    <!-- Botón importar (dentro de tarjeta) -->
+    <div class="d-flex justify-content-start">
+      <button class="btn btn-header" onclick="mostrarInfoImportar()">Importar</button>
+    </div>
+
+  </div>
+
+  <!-- Botón generar nuevo examen (más abajo) -->
+  <div class="d-flex gap-3 mb-3 mt-4">
+    <button class="btn btn-header" onclick="generarNuevoExamen()">Generar nuevo examen</button>
+  </div>
+
+  <!-- Info de importar -->
+  <div class="info-importacion notita w-75 mb-3 d-none" id="info-importar">
+    <strong>Información:</strong> El nombre del archivo debe tener la siguiente estructura: nombre, número, institución y año.<br>
+    Adicional: El botón se bloqueará una vez que se importe un archivo.<br>
+    <em>Lisset Sofía Valero Soto</em>
+  </div>
+
+  <!-- Tabla por curso -->
+  <div class="card card-custom p-3 mb-3 w-75 d-none" id="detalle-curso">
+    <ul class="list-unstyled" id="lista-cursos">
+      <!-- Cursos se cargarán dinámicamente -->
+    </ul>
+  </div>
+
+  <!-- Confirmación de eliminación -->
+  <div class="card card-custom p-3 mb-3 w-75 border border-danger d-none" id="confirmacion-eliminar">
+    <div class="bg-light p-2 mb-2">
+      ¿Está seguro de que desea eliminar este examen?
+    </div>
+    <button class="btn btn-header btn-eliminar">eliminar</button>
+  </div>
+</div>
+
+<script>
+  function mostrarInfoImportar() {
+    document.getElementById('info-importar').classList.remove('d-none');
+  }
+
+  function generarNuevoExamen() {
+    alert("Aquí se generará un nuevo examen.");
+  }
+</script>

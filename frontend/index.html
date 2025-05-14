@@ -4,26 +4,20 @@
   <meta charset="UTF-8" />
   <title>Mi App</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <!-- Bootstrap y estilos -->
   <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css" />
   <link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css" />
   <link rel="stylesheet" href="./css/index.css" />
 </head>
 <body class="d-flex flex-column min-vh-100">
 
-  <!-- Header -->
   <div id="header"></div>
 
-  <!-- Contenido principal -->
-  <main class="container py-4 flex-grow-1">
-    <div id="contenido"></div>
+  <main class="flex-grow-1 d-flex flex-column">
+    <div id="contenido" class="flex-grow-1 d-flex flex-column"></div>
   </main>
 
-  <!-- Footer -->
   <div id="footer"></div>
 
-  <!-- Script principal -->
   <script>
     async function include(id, path) {
       const res = await fetch(path);
@@ -91,11 +85,9 @@
       const contenedor = document.getElementById("contenido-interno");
       if (!contenedor) return;
 
-      if (seccion === "home") {
-        contenedor.innerHTML = "<p>Sección: Home</p>";
-      } else if (seccion === "configuracion") {
-        contenedor.innerHTML = "<p>Sección: Configuración (próximamente)</p>";
-      }
+      contenedor.innerHTML = seccion === "home"
+        ? "<p>Sección: Home</p>"
+        : "<p>Sección: Configuración (próximamente)</p>";
     }
 
     include("contenido", "./login.html");

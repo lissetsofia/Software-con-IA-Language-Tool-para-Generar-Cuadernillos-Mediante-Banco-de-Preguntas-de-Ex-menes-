@@ -2,12 +2,14 @@
    FONDO GENERAL
 ========================== */
 html, body {
-  height: 100% !important;
+  height: 100%;
   margin: 0;
   padding: 0;
-  background: linear-gradient(135deg, #93cdf3, #c8e6f8) !important;
+  background: linear-gradient(135deg, #93cdf3, #c8e6f8);
   background-repeat: no-repeat;
   background-attachment: fixed;
+  display: flex;
+  flex-direction: column;
 }
 
 /* =======================
@@ -58,7 +60,6 @@ html, body {
   transform: translateY(-1px);
 }
 
-/* Botón “Acerca del Software” */
 .btn-acerca {
   background-color: #5dbf92;
   color: white;
@@ -78,21 +79,32 @@ html, body {
 }
 
 /* =======================
+   BOTÓN ROJO
+========================== */
+.btn-rojo {
+  background-color: #dc3545;
+  color: white;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+  border: none;
+}
+
+.btn-rojo:hover {
+  background-color: #b02a37;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* =======================
    ACCESIBILIDAD BOTONES
 ========================== */
 button, .btn {
   cursor: pointer;
-}
-
-/* =======================
-   BOTÓN OUTLINE ROJO
-========================== */
-.btn-outline-danger {
-  transition: transform 0.2s ease;
-}
-
-.btn-outline-danger:hover {
-  transform: translateY(-1px);
 }
 
 /* =======================
@@ -114,6 +126,7 @@ footer {
   color: white;
   padding: 0.5rem;
   text-align: center;
+  margin-top: auto;
 }
 
 /* =======================
@@ -159,9 +172,6 @@ footer {
   text-shadow: 1px 1px 2px black;
 }
 
-/* =======================
-   ENLACES ACTIVOS
-========================== */
 .navbar .nav-link.active {
   background-color: #5dbf92;
   color: #fff !important;
@@ -169,9 +179,6 @@ footer {
   text-shadow: none;
 }
 
-/* =======================
-   HOVER ENLACES
-========================== */
 .navbar .nav-link:hover {
   background-color: #4da87f;
   color: #fff !important;
@@ -181,7 +188,7 @@ footer {
 }
 
 /* =======================
-   NAV PILLS HOME
+   NAV PILLS
 ========================== */
 .nav-pills .nav-link {
   background-color: #5dbf92;
@@ -200,6 +207,39 @@ footer {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* =======================
+   CONTENEDOR BOTÓN CERRAR SESIÓN
+========================== */
+.logout-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin: 0;         /* 🔥 Sin margen */
+  padding: 0 2rem;   /* 🔧 Solo padding lateral */
+}
+
+
+/* =======================
+   FIX ESTRUCTURA Y FONDO CONTINUO
+========================== */
+main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent;
+}
+
+#contenido {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent !important;
+}
+
+#contenido > * {
+  background-color: transparent !important;
 }
 
 /* =======================
