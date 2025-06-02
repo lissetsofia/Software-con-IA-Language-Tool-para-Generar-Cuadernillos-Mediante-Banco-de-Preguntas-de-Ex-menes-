@@ -78,6 +78,46 @@ html, body {
   transform: translateY(-1px);
 }
 
+/* ✅ BOTÓN VERDE ESTILO HEADER */
+.btn-header {
+  background-color: #5dbf92;
+  color: white;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  border: none;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-header:hover {
+  background-color: #4da87f;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* ✅ BOTÓN AZUL (solo para "Importar") */
+.btn-azul {
+  background-color: #3f8efc;
+  color: white;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  border: none;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-azul:hover {
+  background-color: #327de3;
+  color: white;
+  transform: translateY(-1px);
+}
+
 /* =======================
    BOTÓN ROJO
 ========================== */
@@ -216,10 +256,9 @@ footer {
   display: flex;
   justify-content: flex-end;
   width: 100%;
-  margin: 0;         /* 🔥 Sin margen */
-  padding: 0 2rem;   /* 🔧 Solo padding lateral */
+  margin: 0;         
+  padding: 0 2rem;
 }
-
 
 /* =======================
    FIX ESTRUCTURA Y FONDO CONTINUO
@@ -260,4 +299,136 @@ main {
     height: auto !important;
     max-height: 300px;
   }
+}
+
+/* =======================
+   AÑADIDOS PARA GENERACIÓN DE PREGUNTAS
+========================== */
+.mt-generacion {
+  margin-top: 2rem;
+}
+
+.card-contenedor {
+  background-color: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* =======================
+   TOOLTIP IMPORTAR (DEBAJO DEL BOTÓN)
+=========================== */
+.grupo-tooltip {
+  position: relative;
+}
+
+.grupo-tooltip .info-tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  transform: translateY(10px);
+  width: 300px;
+  background-color: #a6e3a1;
+  color: #000;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  font-size: 0.9rem;
+}
+
+.grupo-tooltip .tooltip-arrow {
+  position: absolute;
+  bottom: 100%;
+  left: 20px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #a6e3a1;
+}
+
+.grupo-tooltip .tooltip-content {
+  position: relative;
+  z-index: 2;
+}
+
+.grupo-tooltip:hover .info-tooltip {
+  display: block;
+}
+
+/* =======================
+   MODAL NUEVO EXAMEN
+========================== */
+.modal-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(50, 50, 50, 0.7);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content-custom {
+  background-color: #e4c7f7;
+  padding: 2rem;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 1000px;
+  position: relative;
+}
+
+/* Botón cerrar */
+.cerrar-modal {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: #dc3545;
+  color: white;
+  font-size: 1rem;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.grupo-lista {
+  width: 180px;
+  background-color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.pdf-vista {
+  flex-grow: 1;
+  background-color: #b6f0b6;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.pdf-placeholder {
+  background-color: #c7eaff;
+  height: 300px;
+  border-radius: 8px;
+  text-align: center;
+  padding-top: 100px;
+  font-weight: bold;
+  color: #444;
+}
+
+/* =======================
+   VISIBILIDAD MODAL
+========================== */
+.oculto {
+  display: none !important;
+}
+
+.mostrar-flex {
+  display: flex !important;
 }
