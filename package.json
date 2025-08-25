@@ -21,7 +21,11 @@
   "dependencies": {
     "bootstrap": "^5.3.5",
     "bootstrap-icons": "^1.11.3",
-    "electron": "^27.3.11"
+    "datatables.net": "^2.3.2",
+    "datatables.net-bs5": "^2.3.2",
+    "electron": "^27.3.11",
+    "jquery": "^3.7.1",
+    "node-fetch": "^2.7.0"
   },
   "devDependencies": {
     "standard": "^17.1.2"

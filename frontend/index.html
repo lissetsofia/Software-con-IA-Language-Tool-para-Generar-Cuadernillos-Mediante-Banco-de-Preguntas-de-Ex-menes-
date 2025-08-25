@@ -1,111 +1,164 @@
 <!DOCTYPE html>
 <html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <title>Mi App</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="../node_modules/bootstrap/dist/css/bootstrap.min.css" />
-  <link rel="stylesheet" href="../node_modules/bootstrap-icons/font/bootstrap-icons.css" />
-  <link rel="stylesheet" href="./css/index.css" />
-</head>
-<body class="d-flex flex-column min-vh-100">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Mi App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="../node_modules/bootstrap-icons/font/bootstrap-icons.css"
+    />
+    <link rel="stylesheet" href="./css/index.css" />
+    <!-- DataTables Bootstrap 5 CSS -->
+    <!-- Bootstrap 5 CSS -->
 
-  <div id="header"></div>
+    <!-- DataTables Bootstrap 5 CSS -->
+    <link rel="stylesheet" href="./libs/bootstrap5.min.css" />
+  </head>
+  <body class="d-flex flex-column min-vh-100">
+    <div id="header"></div>
 
-  <main class="flex-grow-1 d-flex flex-column">
-    <div id="contenido" class="flex-grow-1 d-flex flex-column"></div>
-  </main>
+    <main class="flex-grow-1 d-flex flex-column">
+      <div id="contenido" class="flex-grow-1 d-flex flex-column"></div>
+    </main>
 
-  <div id="footer"></div>
+    <div id="footer"></div>
 
-  <script>
-    async function include(id, path) {
-      const res = await fetch(path);
-      const html = await res.text();
-      document.getElementById(id).innerHTML = html;
+    <script>
+      async function include(id, path) {
+        const res = await fetch(path);
+        const html = await res.text();
+        document.getElementById(id).innerHTML = html;
 
-      const esLogin = path.includes("login.html");
-      if (id === "contenido") {
-        document.getElementById("header").style.display = esLogin ? "none" : "block";
-        document.getElementById("footer").style.display = esLogin ? "none" : "block";
+        const esLogin = path.includes("login.html");
+        if (id === "contenido") {
+          document.getElementById("header").style.display = esLogin
+            ? "none"
+            : "block";
+          document.getElementById("footer").style.display = esLogin
+            ? "none"
+            : "block";
 
-        if (esLogin) {
-          setTimeout(() => {
-            const boton = document.getElementById("btnLogin");
-            if (boton) boton.addEventListener("click", login);
-          }, 100);
+          if (esLogin) {
+            setTimeout(() => {
+              const boton = document.getElementById("btnLogin");
+              if (boton) boton.addEventListener("click", login);
+            }, 100);
+          }
         }
+
+        return Promise.resolve();
       }
 
-      return Promise.resolve();
-    }
+      async function login() {
+        const usuario = document.getElementById("usuario").value;
+        const clave = document.getElementById("clave").value;
+        const alerta = document.getElementById("alerta");
 
-    async function login() {
-      const usuario = document.getElementById("usuario").value;
-      const clave = document.getElementById("clave").value;
-      const alerta = document.getElementById("alerta");
-
-      try {
-        const res = await window.api.login(usuario, clave);
-        if (res && res.exito) {
-          alerta.classList.add("d-none");
-        } else {
-          alerta.textContent = res.mensaje || "Usuario o contraseña incorrectos.";
+        try {
+          const res = await window.api.login(usuario, clave);
+          if (res && res.exito) {
+            alerta.classList.add("d-none");
+          } else {
+            alerta.textContent =
+              res.mensaje || "Usuario o contraseña incorrectos.";
+            alerta.classList.remove("d-none");
+            setTimeout(() => alerta.classList.add("d-none"), 4000);
+          }
+        } catch (err) {
+          alerta.textContent = "Error al conectar con el backend.";
           alerta.classList.remove("d-none");
-          setTimeout(() => alerta.classList.add("d-none"), 4000);
+          console.error(err);
         }
-      } catch (err) {
-        alerta.textContent = "Error al conectar con el backend.";
-        alerta.classList.remove("d-none");
-        console.error(err);
-      }
-    }
-
-    window.api.onLoginExitoso(() => {
-      include("header", "./components/header.html");
-      include("footer", "./components/footer.html");
-      include("contenido", "./home.html");
-
-      const homeLink = [...document.querySelectorAll(".nav-link")]
-        .find(el => el.textContent.trim() === "HOME");
-      activarMenu(homeLink);
-    });
-
-    function cargarPagina(ruta, elemento) {
-      include("contenido", `./${ruta}`);
-      activarMenu(elemento);
-    }
-
-    function activarMenu(elemento) {
-      document.querySelectorAll(".nav-link").forEach(link => link.classList.remove("active"));
-      if (elemento) elemento.classList.add("active");
-    }
-
-    function mostrar(seccion) {
-      const contenedor = document.getElementById("contenido-interno");
-      if (!contenedor) return;
-
-      contenedor.innerHTML = seccion === "home"
-        ? "<p>Sección: Home</p>"
-        : "<p>Sección: Configuración (próximamente)</p>";
-    }
-
-    include("contenido", "./login.html");
-
-    document.addEventListener("click", (e) => {
-      if (e.target?.matches(".nav-link")) {
-        activarMenu(e.target);
       }
 
-      if (e.target?.id === "btnLogout") {
-        include("contenido", "./login.html").then(() => {
-          document.getElementById("header").style.display = "none";
-          document.getElementById("footer").style.display = "none";
-        });
-      }
-    });
-  </script>
+      window.api.onLoginExitoso(() => {
+        include("header", "./components/header.html");
+        include("footer", "./components/footer.html");
+        include("contenido", "./home.html");
 
-  <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-</body>
+        const homeLink = [...document.querySelectorAll(".nav-link")].find(
+          (el) => el.textContent.trim() === "HOME"
+        );
+        activarMenu(homeLink);
+      });
+      function cargarScript(src) {
+        const script = document.createElement("script");
+        script.src = src;
+        script.type = "text/javascript";
+        script.defer = true;
+        document.body.appendChild(script);
+      }
+      function cargarPagina(ruta, elemento) {
+        include("contenido", `./${ruta}`);
+        activarMenu(elemento);
+
+        if (ruta === "generacion_preguntas.html") {
+          cargarScript("./generacion_preguntas.js");
+        }
+      }
+
+      function activarMenu(elemento) {
+        document
+          .querySelectorAll(".nav-link")
+          .forEach((link) => link.classList.remove("active"));
+        if (elemento) elemento.classList.add("active");
+      }
+
+      function mostrar(seccion) {
+        const contenedor = document.getElementById("contenido-interno");
+        if (!contenedor) return;
+
+        contenedor.innerHTML =
+          seccion === "home"
+            ? "<p>Sección: Home</p>"
+            : "<p>Sección: Configuración (próximamente)</p>";
+      }
+
+      include("contenido", "./login.html");
+
+      document.addEventListener("click", (e) => {
+        if (e.target?.matches(".nav-link")) {
+          activarMenu(e.target);
+        }
+
+        if (e.target?.id === "btnLogout") {
+          include("contenido", "./login.html").then(() => {
+            document.getElementById("header").style.display = "none";
+            document.getElementById("footer").style.display = "none";
+          });
+        }
+      });
+      document.addEventListener("DOMContentLoaded", () => {
+        const header = document.getElementById("header");
+        if (header) {
+          include("header", "./components/header.html");
+        }
+
+        const footer = document.getElementById("footer");
+        if (footer) {
+          include("footer", "./components/footer.html");
+        }
+      });
+
+      window.addEventListener("DOMContentLoaded", () => {
+        document.dispatchEvent(new CustomEvent("pagina-generacion-cargada"));
+      });
+    </script>
+
+    <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- jQuery -->
+    <script src="./libs/jquery.min.js"></script>
+
+    <!-- DataTables core -->
+    <script src="./libs/dataTables.min.js"></script>
+
+    <!-- DataTables Bootstrap 5 integration -->
+    <script src="./libs/dataTables.bootstrap5.min.js"></script>
+  </body>
 </html>

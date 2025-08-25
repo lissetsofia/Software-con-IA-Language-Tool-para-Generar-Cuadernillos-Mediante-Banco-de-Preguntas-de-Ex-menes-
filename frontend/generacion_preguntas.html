@@ -2,24 +2,37 @@
 <div class="p-3 d-flex flex-column align-items-center mt-generacion">
   <!-- CONTENEDOR -->
   <div class="card-contenedor w-75 mb-3 p-4">
-    <div class="mb-3">
-      <input type="text" class="form-control" placeholder="buscar">
-    </div>
-
     <div class="card card-custom p-3 mb-3">
-      <h6><strong>NOMBRE</strong></h6>
-      <ul class="list-unstyled" id="lista-examenes"></ul>
+      <h6><strong>EXÁMENES</strong></h6>
+
+      <table id="tabla-examenes" class="table table-bordered table-striped">
+        <thead class="table-dark">
+          <tr>
+            <th>Nombre</th>
+            <th>Número</th>
+            <th>Institución</th>
+            <th>Año</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
 
     <div class="d-flex justify-content-start grupo-tooltip">
-      <button class="btn btn-azul">Importar</button>
+      <input type="file" id="archivo" accept=".docx" />
+      <button id="btnImportar" class="btn btn-azul" onclick="importarExamen()">
+        Importar
+      </button>
+
       <div class="info-tooltip">
         <div class="tooltip-arrow"></div>
         <div class="tooltip-content">
-          <strong>Información:</strong><br>
-          El nombre del archivo debe tener la siguiente estructura:<br>
-          Nombre, Número, Institución y Año.<br><br>
-          <strong>Adicional:</strong> El botón se bloqueará una vez que se importe un archivo.<br>
+          <strong>Información:</strong><br />
+          El nombre del archivo debe tener la siguiente estructura:<br />
+          Nombre, Número, Institución y Año.<br /><br />
+          <strong>Adicional:</strong> El botón se bloqueará una vez que se
+          importe un archivo.<br />
         </div>
       </div>
     </div>
@@ -27,7 +40,9 @@
 
   <!-- BOTÓN QUE ABRE EL MODAL -->
   <div class="d-flex gap-3 mb-3 mt-4">
-    <button class="btn btn-header" onclick="generarNuevoExamen()">Generar nuevo examen</button>
+    <button class="btn btn-header" onclick="generarNuevoExamen()">
+      Generar nuevo examen
+    </button>
   </div>
 </div>
 
@@ -57,17 +72,35 @@
   </div>
 </div>
 
-<!-- FUNCIONES JS -->
-<script>
-  function generarNuevoExamen() {
-    const modal = document.getElementById("modal-examen");
-    modal.classList.remove("oculto");
-    modal.classList.add("mostrar-flex");
-  }
+<!-- Modal Exportar -->
+<div id="modal-exportar" class="modal-custom oculto">
+  <div class="modal-content">
+    <h5>¿En qué formato deseas exportar?</h5>
+    <div class="d-flex justify-content-around mt-3">
+      <button
+        class="btn btn-danger"
+        onclick="exportarExamenSeleccionado('pdf')"
+      >
+        PDF
+      </button>
+      <button
+        class="btn btn-primary"
+        onclick="exportarExamenSeleccionado('word')"
+      >
+        Word
+      </button>
+    </div>
+    <div class="text-center mt-3">
+      <button class="btn btn-secondary" onclick="cerrarModalExportar()">
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
 
-  function cerrarModalExamen() {
-    const modal = document.getElementById("modal-examen");
-    modal.classList.remove("mostrar-flex");
-    modal.classList.add("oculto");
-  }
-</script>
+<!-- LIBRERÍAS JS PRIMERO -->
+<script src="./libs/jquery.min.js"></script>
+<script src="./libs/dataTables.min.js"></script>
+<script src="./libs/dataTables.bootstrap5.min.js"></script>
+
+<!-- FUNCIONES JS -->
