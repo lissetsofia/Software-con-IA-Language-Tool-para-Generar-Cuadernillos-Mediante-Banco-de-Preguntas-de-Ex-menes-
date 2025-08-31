@@ -1,0 +1,33 @@
+{
+  "name": "software-con-ia-language-tool-para-generar-cuadernillos-mediante-banco-de-preguntas-de-ex-menes-",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron frontend/main.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lissetsofia/Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/lissetsofia/Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-/issues"
+  },
+  "homepage": "https://github.com/lissetsofia/Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-#readme",
+  "dependencies": {
+    "bootstrap": "^5.3.5",
+    "bootstrap-icons": "^1.11.3",
+    "datatables.net": "^2.3.2",
+    "datatables.net-bs5": "^2.3.2",
+    "electron": "^27.3.11",
+    "jquery": "^3.7.1",
+    "node-fetch": "^2.7.0"
+  },
+  "devDependencies": {
+    "standard": "^17.1.2"
+  }
+}

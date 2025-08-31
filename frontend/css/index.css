@@ -1,0 +1,447 @@
+/* ======================= 
+   FONDO GENERAL
+========================== */
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: linear-gradient(135deg, #93cdf3, #c8e6f8);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  display: flex;
+  flex-direction: column;
+}
+
+/* =======================
+   TARJETA LOGIN / HOME
+========================== */
+.login-card {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeIn 0.8s ease-out forwards;
+  transition: box-shadow 0.3s ease;
+  border-radius: 14px;
+  background-color: #ffffff;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+.login-card:hover {
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.15);
+}
+
+/* =======================
+   INPUTS
+========================== */
+.form-control {
+  background-color: #f8f9fa;
+  border-color: #ced4da;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus {
+  border-color: #5dbf92;
+  box-shadow: 0 0 0 0.2rem rgba(93, 191, 146, 0.25);
+}
+
+/* =======================
+   BOTONES PERSONALIZADOS
+========================== */
+.btn-custom {
+  background-color: #5dbf92;
+  color: white;
+  border: none;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+
+.btn-custom:hover {
+  background-color: #4da87f;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.btn-acerca {
+  background-color: #5dbf92;
+  color: white;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-acerca:hover {
+  background-color: #4da87f;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* ✅ BOTÓN VERDE ESTILO HEADER */
+.btn-header {
+  background-color: #5dbf92;
+  color: white;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  border: none;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-header:hover {
+  background-color: #4da87f;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* ✅ BOTÓN AZUL (solo para "Importar") */
+.btn-azul {
+  background-color: #3f8efc;
+  color: white;
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  border: none;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-azul:hover {
+  background-color: #327de3;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* =======================
+   BOTÓN ROJO
+========================== */
+.btn-rojo {
+  background-color: #dc3545;
+  color: white;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-block;
+  border: none;
+}
+
+.btn-rojo:hover {
+  background-color: #b02a37;
+  color: white;
+  transform: translateY(-1px);
+}
+
+/* =======================
+   ACCESIBILIDAD BOTONES
+========================== */
+button,
+.btn {
+  cursor: pointer;
+}
+
+/* =======================
+   ICONOS PERSONALIZADOS
+========================== */
+.icon-verde {
+  color: #5dbf92;
+}
+
+/* =======================
+   NAVBAR Y FOOTER
+========================== */
+.navbar {
+  background-color: #343a40;
+}
+
+footer {
+  background-color: #343a40;
+  color: white;
+  padding: 0.5rem;
+  text-align: center;
+  margin-top: auto;
+}
+
+/* =======================
+   NAVBAR (HEADER)
+========================== */
+.navbar-gris-claro {
+  background-color: #343a40 !important;
+  min-height: 80px;
+  padding-top: 1rem;
+  padding-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+}
+
+/* =======================
+   NAVBAR CENTRADO
+========================== */
+.navbar .nav {
+  margin: 0 auto;
+  gap: 2rem;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+/* =======================
+   ENLACES DEL MENÚ
+========================== */
+.navbar .nav-link {
+  border-radius: 12px;
+  padding: 0.9rem 2rem;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 transparent;
+  transition: all 0.3s ease;
+  color: white !important;
+  text-shadow: 1px 1px 2px black;
+}
+
+.navbar .nav-link.active {
+  background-color: #5dbf92;
+  color: #fff !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  text-shadow: none;
+}
+
+.navbar .nav-link:hover {
+  background-color: #4da87f;
+  color: #fff !important;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  text-shadow: none;
+}
+
+/* =======================
+   NAV PILLS
+========================== */
+.nav-pills .nav-link {
+  background-color: #5dbf92;
+  color: white;
+}
+
+.nav-pills .nav-link.active {
+  background-color: #4da87f;
+}
+
+/* =======================
+   ANIMACIÓN INICIAL
+========================== */
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =======================
+   CONTENEDOR BOTÓN CERRAR SESIÓN
+========================== */
+.logout-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin: 0;
+  padding: 0 2rem;
+}
+
+/* =======================
+   FIX ESTRUCTURA Y FONDO CONTINUO
+========================== */
+main {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent;
+}
+
+#contenido {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: transparent !important;
+}
+
+#contenido > * {
+  background-color: transparent !important;
+}
+
+/* =======================
+   RESPONSIVE
+========================== */
+@media (max-width: 768px) {
+  .navbar .nav {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 0.5rem;
+  }
+
+  .navbar .nav-link {
+    flex-shrink: 0;
+  }
+
+  .login-card img {
+    height: auto !important;
+    max-height: 300px;
+  }
+}
+
+/* =======================
+   AÑADIDOS PARA GENERACIÓN DE PREGUNTAS
+========================== */
+.mt-generacion {
+  margin-top: 2rem;
+}
+
+.card-contenedor {
+  background-color: #ffffff;
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* =======================
+   TOOLTIP IMPORTAR (DEBAJO DEL BOTÓN)
+=========================== */
+.grupo-tooltip {
+  position: relative;
+}
+
+.grupo-tooltip .info-tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  transform: translateY(10px);
+  width: 300px;
+  background-color: #a6e3a1;
+  color: #000;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  z-index: 20;
+  font-size: 0.9rem;
+}
+
+.grupo-tooltip .tooltip-arrow {
+  position: absolute;
+  bottom: 100%;
+  left: 20px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #a6e3a1;
+}
+
+.grupo-tooltip .tooltip-content {
+  position: relative;
+  z-index: 2;
+}
+
+.grupo-tooltip:hover .info-tooltip {
+  display: block;
+}
+
+/* =======================
+   MODAL NUEVO EXAMEN
+========================== */
+.modal-custom {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(50, 50, 50, 0.7);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content-custom {
+  background-color: #e4c7f7;
+  padding: 2rem;
+  border-radius: 14px;
+  width: 90%;
+  max-width: 1000px;
+  position: relative;
+}
+
+/* Botón cerrar */
+.cerrar-modal {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: #dc3545;
+  color: white;
+  font-size: 1rem;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+}
+
+.grupo-lista {
+  width: 180px;
+  background-color: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.pdf-vista {
+  flex-grow: 1;
+  background-color: #b6f0b6;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.pdf-placeholder {
+  background-color: #c7eaff;
+  height: 300px;
+  border-radius: 8px;
+  text-align: center;
+  padding-top: 100px;
+  font-weight: bold;
+  color: #444;
+}
+
+/* =======================
+   VISIBILIDAD MODAL
+========================== */
+.oculto {
+  display: none !important;
+}
+
+.mostrar-flex {
+  display: flex !important;
+}
+/* =======================
+   MODAL exportar
+========================== */
+
+.modal-content {
+  background: rgb(168, 189, 245);
+  padding: 20px;
+  margin: 15% auto;
+  width: 300px;
+  border-radius: 10px;
+}
