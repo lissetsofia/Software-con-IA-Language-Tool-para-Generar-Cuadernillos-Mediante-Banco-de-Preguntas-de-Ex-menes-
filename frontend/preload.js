@@ -17,4 +17,9 @@ contextBridge.exposeInMainWorld("api", {
   // Llama a un handler en el proceso main
   exportarExamen: (idexamen, formato) =>
     ipcRenderer.invoke("exportar-examen", { idexamen, formato }),
+
+  guardarDesdeUrl: (url, suggestedName) => ipcRenderer.invoke("save-from-url", { url, suggestedName }),
+  saveLastFromFolder: (opts) => ipcRenderer.invoke("save-last-from-folder", opts),
+
 });
+

@@ -1,9 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, session } = require("electron");
 const path = require("path");
 
 const fetch = require("node-fetch"); // si no existe en tu proyecto, instálalo
 // 👇 usa fs de promesas
 const fs = require("fs/promises");
+
+
 
 // 🔧 Desactiva aceleración por hardware
 app.disableHardwareAcceleration();
@@ -72,6 +74,96 @@ ipcMain.handle("exportar-examen", async (_event, { idexamen, formato }) => {
     return { ok: true, path: filePath };
   } catch (err) {
     console.error("Error exportando:", err);
+    return { ok: false, message: String(err) };
+  }
+});
+
+function forceIPv4(u) {
+  try {
+    const url = new URL(u);
+    if (url.hostname === 'localhost') url.hostname = '127.0.0.1';
+    return url.toString();
+  } catch {
+    return u.replace('http://localhost:', 'http://127.0.0.1:');
+  }
+}
+
+async function fetchWithRendererCookies(rawUrl) {
+  const url = forceIPv4(rawUrl);
+  // toma cookies de la sesión por defecto (donde está tu renderer)
+  const cookies = await session.defaultSession.cookies.get({ url: 'http://127.0.0.1:5050' });
+  const cookieHeader = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+  const headers = cookieHeader ? { Cookie: cookieHeader } : {};
+  return fetch(url, { headers });
+}
+
+ipcMain.handle('save-from-url', async (_ev, { url, suggestedName }) => {
+  try {
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Guardar como…',
+      defaultPath: suggestedName || 'archivo',
+      filters: [
+        { name: 'Documentos', extensions: ['docx', 'pdf'] },
+        { name: 'Todos', extensions: ['*'] },
+      ],
+    });
+    if (canceled || !filePath) return { canceled: true };
+
+    // 👇 ahora con cookies del renderer
+    const res = await fetchWithRendererCookies(url);
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} al descargar ${url}\n${text.slice(0,200)}`);
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    await fs.writeFile(filePath, buf);
+
+    shell.showItemInFolder(filePath); // opcional
+    return { ok: true, path: filePath };
+  } catch (err) {
+    console.error('save-from-url error:', err);
+    // opcional para ver el error en la UI del usuario:
+    dialog.showErrorBox('No se pudo guardar', String(err));
+    return { ok: false, message: String(err) };
+  }
+});
+ipcMain.handle("save-last-from-folder", async (_ev, { sourceDir, pattern, suggestedName }) => {
+  try {
+    const rx = new RegExp(pattern, "i");
+    const items = await fs.readdir(sourceDir, { withFileTypes: true });
+
+    // filtra por regex y toma el más reciente por mtime
+    const candidates = [];
+    for (const it of items) {
+      if (!it.isFile()) continue;
+      if (!rx.test(it.name)) continue;
+      const full = path.join(sourceDir, it.name);
+      const st = await fs.stat(full);
+      candidates.push({ full, name: it.name, mtime: st.mtimeMs });
+    }
+    if (!candidates.length) return { ok: false, message: "No hay archivos que coincidan en la carpeta." };
+
+    candidates.sort((a, b) => b.mtime - a.mtime);
+    const latest = candidates[0];
+
+    // diálogo "Guardar como…"
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: "Guardar como…",
+      defaultPath: suggestedName || latest.name,
+      filters: [
+        { name: "Documentos", extensions: ["docx", "pdf"] },
+        { name: "Todos", extensions: ["*"] },
+      ],
+    });
+    if (canceled || !filePath) return { canceled: true };
+
+    // copiar
+    await fs.copyFile(latest.full, filePath);
+    shell.showItemInFolder(filePath);
+    return { ok: true, path: filePath, from: latest.full };
+  } catch (err) {
+    console.error("save-last-from-folder error:", err);
     return { ok: false, message: String(err) };
   }
 });

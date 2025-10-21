@@ -438,10 +438,115 @@ main {
    MODAL exportar
 ========================== */
 
-.modal-content {
+/*.modal-content {
   background: rgb(168, 189, 245);
   padding: 20px;
   margin: 15% auto;
   width: 300px;
   border-radius: 10px;
+}*/
+/* SOLO para tu modal personalizado de exportar */
+#modal-exportar .modal-content {
+  background: rgb(168, 189, 245);
+  padding: 20px;
+  margin: 15% auto;
+  width: 300px;
+  border-radius: 10px;
+}
+/* Modal de Temas bien grande */
+#modalTemas .modal-dialog {
+  max-width: none !important;
+  width: 95vw !important;
+  margin: 1rem auto !important;
+}
+
+#modalTemas .modal-content {
+  min-height: 80vh !important;
+}
+
+#modalTemas .modal-body {
+  max-height: calc(80vh - 110px) !important;
+  overflow: auto !important;
+}
+
+/* ponlo en tu css */
+#lista-grupos li {
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+#lista-grupos li.selected {
+  outline: 2px solid #198754;
+  background: #e9f7ef;
+}
+#lista-grupos .btn {
+  padding: 2px 6px;
+}
+
+/* ========== Tamaño del modal de Gestión de grupos ========== */
+/* Funciona en Bootstrap 5.x */
+#modalGrupos .modal-dialog {
+  /* Ancho responsivo grande */
+  max-width: 750px;   /* ajusta a gusto: 900, 1100, etc. */
+  width: 95vw;         /* que no se pase del viewport */
+}
+
+/* (Opcional) Si tu tabla es alta, que el cuerpo sea scrollable */
+#modalGrupos .modal-body {
+  max-height: 70vh;
+  overflow: auto;
+}
+
+/* ========== Z-index para que no se meta detrás de tu modal custom ========== */
+/* Baja un poco tu modal personalizado para que los Bootstrap queden encima */
+#modal-examen { 
+  z-index: 1020;          /* debajo del stack Bootstrap */
+}
+
+/* Backdrop y modales Bootstrap por encima del custom */
+.modal-backdrop { 
+  z-index: 1040; 
+}
+#modalGrupos { 
+  z-index: 1050;          /* gestión de grupos encima del backdrop */
+}
+#modalGrupoEditar, 
+#modalGrupoCrear {
+  z-index: 1060;          /* editar/crear encima de gestión */
+}
+
+
+
+/* ===== MODAL GENERACIÓN: agrandar panel de grupos ===== */
+#modal-examen .modal-content-custom{
+  width: 95vw;        /* usa casi todo el ancho disponible */
+  max-width: 1200px;  /* antes 1000px; súbelo si quieres más */
+}
+
+/* Panel izquierdo (lista de grupos) más ancho */
+#modal-examen .grupo-lista{
+  width: 260px;       /* antes 180px */
+  min-width: 240px;   /* evita que se comprima demasiado */
+}
+
+/* Asegura que el panel derecho pueda reducirse bien en flex */
+#modal-examen .pdf-vista{
+  flex-grow: 1;
+  min-width: 0;       /* clave para que flex permita encoger sin overflow */
+}
+
+/* Opcional: un poco más de alto a la “vista PDF” */
+#modal-examen .pdf-placeholder{
+  min-height: 420px;
+}
+
+/* --------- Responsive --------- */
+@media (max-width: 1200px){
+  #modal-examen .grupo-lista{ width: 240px; }
+}
+@media (max-width: 992px){
+  #modal-examen .grupo-lista{ width: 220px; }
+}
+@media (max-width: 768px){
+  #modal-examen .modal-content-custom .d-flex{ flex-direction: column; }
+  #modal-examen .grupo-lista{ width: 100%; margin-bottom: 1rem; }
 }
