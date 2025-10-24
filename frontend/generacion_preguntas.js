@@ -2,7 +2,12 @@
 // --- SIEMPRE al comienzo del archivo ---
 window.__ultimoGenerado = { docxUrl: null, pdfUrl: null, docxName: null, pdfName: null };
 
-
+if (window.__GENERACION_PREGUNTAS_LOADED__) {
+  console.warn("generacion_preguntas.js ya estaba cargado; omito segunda ejecución");
+  // opcional: return;  // si envuelves el resto del código en una función puedes cortar aquí
+} else {
+  window.__GENERACION_PREGUNTAS_LOADED__ = true;
+}
 function generarNuevoExamen() {
   document
     .getElementById("modal-examen")
@@ -206,14 +211,14 @@ window.addEventListener("DOMContentLoaded", () => {
   if (window.__TEMAS_WIRED__) return;
   window.__TEMAS_WIRED__ = true;
 
-  const TEMAS_API_BASE = "http://localhost:5050/api/temas";
+ 
 
   let dtTemas = null;
 
   // Mostrar errores de DataTables en consola
   $.fn.dataTable.ext.errMode = "console";
 
-  const urlTemas = (all) => `${TEMAS_API_BASE}${all ? "?all=1" : ""}`;
+  const urlTemas = (all) => `${window.TEMAS_API_BASE}${all ? "?all=1" : ""}`;
 
   async function fetchTemas(includeInactive) {
     const url = urlTemas(includeInactive);
@@ -303,7 +308,7 @@ window.addEventListener("DOMContentLoaded", () => {
         const id = this.dataset.id;
         if (!confirm("¿Cambiar el estado de este curso?")) return;
         try {
-          const r = await fetch(`${TEMAS_API_BASE}/${id}/toggle`, {
+          const r = await fetch(`${window.TEMAS_API_BASE}/${id}/toggle`, {
             method: "PATCH",
           });
           const d = await r.json();
@@ -356,7 +361,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const nombre = document.getElementById("temaNombreCrear").value.trim();
     if (!nombre) return;
     try {
-      const r = await fetch(TEMAS_API_BASE, {
+      const r = await fetch(window.TEMAS_API_BASE, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre }),
@@ -382,7 +387,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const nombre = document.getElementById("temaNombreEditar").value.trim();
     if (!nombre) return;
     try {
-      const r = await fetch(`${TEMAS_API_BASE}/${id}`, {
+      const r = await fetch(`${window.TEMAS_API_BASE}/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nombre }),
@@ -413,26 +418,19 @@ async function fetchJSON(url, opts) {
   }
   return r.json();
 }
-
-const DT_ES = {
+window.DT_ES ??= {
   search: "Buscar:",
   lengthMenu: "Mostrar _MENU_ registros por página",
   zeroRecords: "No se encontraron resultados",
   info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
   infoEmpty: "Mostrando 0 a 0 de 0 registros",
   infoFiltered: "(filtrado de _MAX_ registros totales)",
-  paginate: {
-    first: "Primero",
-    last: "Último",
-    next: "Siguiente",
-    previous: "Anterior",
-  },
+  paginate: { first: "Primero", last: "Último", next: "Siguiente", previous: "Anterior" },
   processing: "Procesando...",
 };
-
-let examenActual = null;
-let dtBuscarTemas = null;
-let dtBuscarPregs = null;
+if (typeof window.examenActual === "undefined") window.examenActual = null;
+if (typeof window.dtBuscarTemas === "undefined") window.dtBuscarTemas = null;
+if (typeof window.dtBuscarPregs === "undefined") window.dtBuscarPregs = null;
 
 // Click en "Buscar" de un examen
 // Click en "Buscar"
@@ -454,6 +452,7 @@ $(document).on("click", ".btn-buscar", async function () {
 
     await cargarTemasDelExamen(id);
     new bootstrap.Modal(document.getElementById("modalBuscar")).show();
+    
   } catch (e) {
     console.error(e);
     alert("No se pudo preparar el examen.");
@@ -493,7 +492,7 @@ async function cargarTemasDelExamen(id) {
 }
 
 
-let dtPregsTema = null;
+if (typeof window.dtPregsTema   === "undefined") window.dtPregsTema   = null;
 
 $(document).on("click", ".btn-ver-tema", async function () {
   const temaId = Number(this.dataset.tema);
@@ -548,14 +547,20 @@ $(document).on("click", ".btn-ver-tema", async function () {
 
 // ======================= GRUPOS (nuevo) =======================
 // ======================= GRUPOS (nuevo) =======================
-const GRUPOS_API_BASE = "http://localhost:5050/api/grupos";
-const TEMAS_API_BASE  = "http://localhost:5050/api/temas";
+// --- Definición segura de API_BASEs ---
+if (typeof window.GRUPOS_API_BASE === "undefined")
+  window.GRUPOS_API_BASE = "http://localhost:5050/api/grupos";
 
-let dtGrupos = null;
+if (typeof window.TEMAS_API_BASE === "undefined")
+  window.TEMAS_API_BASE = "http://localhost:5050/api/temas";
+
+
+
+if (typeof window.dtGrupos      === "undefined") window.dtGrupos      = null;
 window.grupoSeleccionado = null;  // { id, clave }
 
 // --- cache de temas activos ---
-let __temasCache = null;
+if (typeof window.__temasCache === "undefined") window.__temasCache = null;
 async function cargarTemasActivos() {
   if (__temasCache) return __temasCache;
   const r = await fetch(TEMAS_API_BASE);
@@ -608,20 +613,20 @@ function totalFrom(containerSel, totalSel){
 
 // --- API helpers ---
 async function fetchGrupos(includeInactive) {
-  const url = includeInactive ? `${GRUPOS_API_BASE}?all=1` : GRUPOS_API_BASE;
+  const url = includeInactive ? `${window.GRUPOS_API_BASE}?all=1` : window.GRUPOS_API_BASE;
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Grupos HTTP ${r.status}`);
   const j = await r.json();
   return Array.isArray(j) ? j : [];
 }
 async function fetchCuotasGrupo(idgrupo) {
-  const r = await fetch(`${GRUPOS_API_BASE}/${idgrupo}/cuotas`);
+  const r = await fetch(`${window.GRUPOS_API_BASE}/${idgrupo}/cuotas`);
   if (!r.ok) return [];
   return r.json();
 }
 // guardar cuotas por ID de grupo (sin examenes)
 async function saveCuotasGrupoById(idgrupo, cuotas) {
-  const r = await fetch(`${GRUPOS_API_BASE}/${idgrupo}/cuotas`, {
+  const r = await fetch(`${window.GRUPOS_API_BASE}/${idgrupo}/cuotas`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ cuotas })
@@ -667,7 +672,7 @@ async function renderGruposLeftPanel() {
       btnDel.textContent = "❌";
       btnDel.onclick = async () => {
         if (!confirm("¿Eliminar este grupo?")) return;
-        const r = await fetch(`${GRUPOS_API_BASE}/${g.idgrupo}`, { method: "DELETE" });
+        const r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, { method: "DELETE" });
         const d = await r.json();
         if (!r.ok) return alert(d.error || "No se pudo eliminar");
         if (grupoSeleccionado?.id === g.idgrupo) grupoSeleccionado = null;
@@ -701,10 +706,14 @@ async function renderGruposLeftPanel() {
 }
 
 // mostrar lista al abrir tu modal principal
-const _origGenerarNuevoExamen = window.generarNuevoExamen;
-window.generarNuevoExamen = function () {
-  renderGruposLeftPanel();
-  if (typeof _origGenerarNuevoExamen === "function") _origGenerarNuevoExamen();
+if (typeof window.__origGenerarNuevoExamen === "undefined") {
+   window.__origGenerarNuevoExamen = window.generarNuevoExamen;
+}
+ window.generarNuevoExamen = function () {
+   renderGruposLeftPanel();
+  if (typeof window.__origGenerarNuevoExamen === "function") {
+    window.__origGenerarNuevoExamen();
+  }
 };
 
 // -------- DataTable del modal (CRUD) --------
@@ -766,7 +775,7 @@ async function renderGruposModal() {
     $("#tabla-grupos").on("click", ".btn-toggle-grupo", async function () {
       const id = this.dataset.id;
       try {
-        const r = await fetch(`${GRUPOS_API_BASE}/${id}/toggle`, { method: "PATCH" });
+        const r = await fetch(`${window.GRUPOS_API_BASE}/${id}/toggle`, { method: "PATCH" });
         const d = await r.json();
         if (!r.ok) return alert(d.error || "No se pudo cambiar el estado.");
         await renderGruposModal();
@@ -778,7 +787,7 @@ async function renderGruposModal() {
       const id = this.dataset.id;
       if (!confirm("¿Eliminar este grupo?")) return;
       try {
-        const r = await fetch(`${GRUPOS_API_BASE}/${id}`, { method: "DELETE" });
+        const r = await fetch(`${window.GRUPOS_API_BASE}/${id}`, { method: "DELETE" });
         const d = await r.json();
         if (!r.ok) return alert(d.error || "No se pudo eliminar");
         await renderGruposModal();
@@ -851,7 +860,7 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
   // 1) crear grupo
   let idgrupo = null;
   try {
-    const r = await fetch(GRUPOS_API_BASE, {
+    const r = await fetch(window.GRUPOS_API_BASE, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ clave, nombre })
@@ -942,7 +951,7 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
 
   try {
     // 1) actualizar datos del grupo
-    const r1 = await fetch(`${GRUPOS_API_BASE}/${idgrupo}`, {
+    const r1 = await fetch(`${window.GRUPOS_API_BASE}/${idgrupo}`, {
       method:"PUT",
       headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ clave: nuevaClave, nombre })
@@ -1324,4 +1333,5 @@ function ponerLinksVista(docxUrl, pdfUrl) {
   if (pdfUrl)  html += `| 🖨️ <a href="${pdfUrl}" target="_blank" rel="noopener">Ver PDF</a>`;
   box.innerHTML = html;
 }
+
 

@@ -1492,7 +1492,7 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
             bullets_to_numbers_docx(destino_docx)
         except Exception as _e:
             # no abortes la generación por esto: lo dejamos como advertencia silenciosa
-            print("bullet→decimal warning:", _e)
+           print("bullet->decimal warning:", _e)
 
 
 
