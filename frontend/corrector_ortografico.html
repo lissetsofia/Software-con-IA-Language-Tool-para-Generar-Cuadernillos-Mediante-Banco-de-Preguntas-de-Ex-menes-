@@ -1,0 +1,391 @@
+<!-- frontend/corrector_ortografico.html — Visor doble + notas de corrección (sin subrayado en palabra corregida) -->
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; color:#223; }
+  .page { padding: 24px 36px; max-width: 1400px; margin: 0 auto; }
+  h2 { margin: 0 0 12px; }
+
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px; }
+  .btn { padding:10px 16px; border:none; border-radius:10px; cursor:pointer; color:#fff; font-weight:600; }
+  .btn.warn{ background:#b02a37 !important; }
+  .btn.success{ background:#2e7d32 !important; }
+  .btn.blue{ background:#2b6cb0 !important; }
+  .btn.red{ background:#b02a37 !important; }
+  .btn[disabled]{ opacity:.6; cursor:not-allowed; }
+  .hint{ color:#6c7a86; font-size:14px; }
+  #estado{ color:#6c7a86; font-size:14px; margin-left:auto; }
+
+  /* ZONA DE ARRASTRE */
+  .drop{
+    width:50%; margin:0 auto; border:2px dashed #5b9ef5; color:#2b6cb0;
+    padding:14px 10px; border-radius:12px; text-align:center; background:#e8f2ff;
+    font-size:15px; font-weight:600; transition:all .25s ease-in-out;
+  }
+  .drop:hover{ background:#dcecff; box-shadow:0 0 10px rgba(91,158,245,.3); transform:scale(1.01); cursor:pointer; }
+  .drop b{ color:#0047ab; }
+
+  /* CONTADOR */
+  .contador-top{ display:flex; justify-content:flex-end; margin:14px 0 14px; padding-right:10px; }
+  .badge-correcciones{
+    background:#2e7d32; color:#fff; font-weight:700; font-size:14px;
+    padding:6px 14px; border-radius:999px; box-shadow:0 2px 8px rgba(0,0,0,.10);
+  }
+  .badge-correcciones[hidden]{ display:none; }
+
+  /* VISORES */
+  .split{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .pane{
+    background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.06);
+    padding:0; min-height:360px; display:flex; flex-direction:column; overflow:hidden;
+  }
+  .pane header{
+    display:flex; align-items:center; gap:8px; padding:10px 12px;
+    font-weight:700; font-size:15px; border-bottom:1px solid rgba(0,0,0,.06);
+    position:sticky; top:0; z-index:2;
+  }
+  .pane--original{ border-top:4px solid #2b6cb0; }
+  .pane--original header{ background:#e8f2ff; color:#1e5aa6; }
+  .pane--corregido{ border-top:4px solid #2e7d32; }
+  .pane--corregido header{ background:#eaf6ee; color:#1e6d3a; }
+  .pane .content{ position:relative; flex:1; padding:8px; }
+  iframe{ width:100%; height:70vh; border:0; background:#f8fafc; border-radius:8px; }
+
+  .loader{ position:absolute; inset:0; display:none; place-items:center; background:rgba(255,255,255,.6); z-index:5; border-radius:8px; }
+  .loader.show{ display:grid; }
+  .loader .ring{ width:38px; height:38px; border-radius:50%; border:4px solid #bcd1ff; border-top-color:#3670ff; animation:spin .9s linear infinite; }
+  @keyframes spin{ to { transform: rotate(360deg); } }
+
+  .processing{ position:fixed; inset:0; display:none; place-items:center; background:rgba(240,248,255,.55); backdrop-filter:blur(3px); -webkit-backdrop-filter:blur(3px); z-index:9999; }
+  .processing.show{ display:grid; }
+  .processing .card{ background:#fff; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.12); padding:18px 22px; min-width:320px; text-align:center; }
+  .processing .ring{ width:44px; height:44px; border-radius:50%; border:5px solid #d7e4ff; border-top-color:#4a76ff; margin:0 auto 10px; animation:spin .9s linear infinite; }
+
+  /* NOTAS */
+  .notes{ margin:22px 0 8px; position:relative; }
+  .notes-card{
+    background: linear-gradient(180deg, #ffffff 0%, #ffffff 65%, #fbfdff 100%);
+    border:1px solid rgba(0,0,0,.06); border-radius:14px;
+    box-shadow:0 8px 22px rgba(0,0,0,.06); padding:16px 18px;
+  }
+  .notes-title{ display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:16px; font-weight:800; color:#143b6b; }
+  .notes-title .dot{
+    width:10px; height:10px; border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, #5b9ef5, #2b6cb0);
+    box-shadow: 0 0 0 3px rgba(43,108,176,.15);
+  }
+  .notes-grid{ display:grid; grid-template-columns:1.2fr 1fr 1fr; gap:16px; }
+  .notes p, .notes li{ color:#44505f; }
+  .notes small{ color:#6b7583; }
+
+  .tag{
+    display:inline-flex; align-items:center; gap:8px; font-weight:800; font-size:13px;
+    padding:8px 12px; border-radius:999px; background:#eef5ff; color:#1e5aa6; border:1px solid rgba(30,90,166,.15);
+    margin-bottom:10px;
+  }
+  .demo{
+    background:#f8fbff; border:1px dashed rgba(43,108,176,.25);
+    padding:10px 12px; border-radius:10px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; display:inline-block;
+  }
+
+  /* Palabra corregida: SIN subrayado, sólo fondo naranja */
+  .hx-word{
+    background: rgba(255,152,0,.25);
+    box-shadow: 0 0 0 2px rgba(255,152,0,.32) inset;
+    border-radius:6px; padding:2px 6px;
+    font-weight:700;
+  }
+
+  /* Chips --- y -- */
+  .hx-chip{
+    background: rgba(255,152,0,.25);
+    box-shadow: 0 0 0 2px rgba(255,152,0,.32) inset;
+    border-radius:8px; padding:4px 8px;
+    font-weight:800; letter-spacing:.5px;
+  }
+
+  .legend{ display:flex; flex-direction:column; gap:12px; }
+  .legend-row{ display:flex; align-items:center; gap:10px; }
+  .legend-label{ min-width:230px; font-weight:800; color:#324454; }
+  .legend-desc{ color:#586573; }
+
+  @media (max-width:980px){
+    .notes-grid{ grid-template-columns:1fr; }
+    .legend-label{ min-width: 180px; }
+  }
+</style>
+
+<div class="page">
+  <h2>Visor de Documentos</h2>
+
+  <div class="controls">
+    <input id="file" type="file" accept=".docx" />
+    <button id="btnLimpiar" class="btn warn" type="button">Limpiar</button>
+    <button id="btnCorregir" class="btn success" type="button">Corregir (LanguageTool)</button>
+
+    <button id="btnDescDocx" class="btn blue" type="button" disabled>Descargar DOCX corregido</button>
+    <button id="btnDescPdf" class="btn red" type="button" disabled>Descargar PDF corregido</button>
+
+    <span class="hint" id="tipoMostrado">Mostrando como PDF (visor del navegador).</span>
+    <small id="estado"></small>
+  </div>
+
+  <!-- ZONA DE ARRASTRE -->
+  <div class="drop" id="drop">
+    Arrastra y suelta un <b>.docx</b> aquí, o haz <b>click</b> para seleccionar un archivo.
+  </div>
+
+  <!-- Contador -->
+  <div class="contador-top">
+    <span id="badgeCorrecciones" class="badge-correcciones" hidden>0 correcciones</span>
+  </div>
+
+  <!-- Visores -->
+  <div class="split" style="margin-top:4px;">
+    <section class="pane pane--original">
+      <header>Original</header>
+      <div class="content">
+        <div id="loaderOriginal" class="loader"><div class="ring"></div></div>
+        <iframe id="viewOriginal" title="Vista PDF original"></iframe>
+      </div>
+    </section>
+
+    <section class="pane pane--corregido">
+      <header>Corregido</header>
+      <div class="content">
+        <div id="loaderCorregido" class="loader"><div class="ring"></div></div>
+        <iframe id="viewCorregido" title="Vista PDF corregido"></iframe>
+      </div>
+    </section>
+  </div>
+
+  <!-- Notas de corrección -->
+  <section class="notes" aria-label="Notas de corrección">
+    <div class="notes-card">
+      <div class="notes-title">
+        <span class="dot" aria-hidden="true"></span>
+        <span>Notas de corrección</span>
+      </div>
+
+      <div class="notes-grid">
+        <!-- Columna 1: demo + marcadores -->
+        <div>
+          <div class="tag">Palabra corregida</div>
+          <div class="demo" style="margin-bottom:10px;">
+            Ej.: La <span class="hx-word">ortografía</span> es importante.
+          </div>
+
+          <div class="tag">Marcadores de eliminación</div>
+          <div class="demo">
+            <span class="hx-chip">---</span>
+            &nbsp;&nbsp;
+            <span class="hx-chip">--</span>
+          </div>
+        </div>
+
+        <!-- Columna 2: explicación palabra/signo -->
+        <div class="legend">
+          <div class="legend-row">
+            <div class="legend-label">Eliminación de palabra / signo</div>
+            <div class="demo"><span class="hx-chip">---</span></div>
+          </div>
+          <div class="legend-desc">Se suprime una palabra completa o un signo de puntuación redundante.</div>
+        </div>
+
+        <!-- Columna 3: explicación espacio -->
+        <div class="legend">
+          <div class="legend-row">
+            <div class="legend-label">Eliminación de espacio</div>
+            <div class="demo"><span class="hx-chip">--</span></div>
+          </div>
+          <div class="legend-desc">Se quita un espacio innecesario entre palabras.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="processing" class="processing" role="status" aria-live="polite" aria-label="Procesando…">
+  <div class="card">
+    <div class="ring"></div>
+    <div id="processingText">Preparando descarga…</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const API = "http://127.0.0.1:5050";
+  const $ = (id) => document.getElementById(id);
+
+  const fileInput = $("file");
+  const drop = $("drop");
+  const viewOriginal = $("viewOriginal");
+  const viewCorregido = $("viewCorregido");
+  const loaderOriginal = $("loaderOriginal");
+  const loaderCorregido = $("loaderCorregido");
+  const btnLimpiar = $("btnLimpiar");
+  const btnCorregir = $("btnCorregir");
+  const btnDescDocx = $("btnDescDocx");
+  const btnDescPdf = $("btnDescPdf");
+  const tipoMostrado = $("tipoMostrado");
+  const estado = $("estado");
+  const overlay = $("processing");
+  const overlayText = $("processingText");
+  const badge = $("badgeCorrecciones");
+
+  let lastLinks = null;
+
+  function abs(url){ return url.startsWith("http") ? url : API + url; }
+  function setEstado(msg){ estado.textContent = msg || ""; }
+  function showLoader(which, on=true){ (which==="orig" ? loaderOriginal : loaderCorregido).classList.toggle("show", on); }
+  function disableDownloads(){ lastLinks=null; [btnDescDocx, btnDescPdf].forEach(b=>b.disabled=true); }
+  function showOverlay(msg){ overlayText.textContent = msg || "Procesando…"; overlay.classList.add("show"); }
+  function hideOverlay(){ overlay.classList.remove("show"); }
+  function setBadge(n){ if(typeof n==="number" && n>0){ badge.textContent=`${n} correcciones`; badge.hidden=false; } else { badge.hidden=true; } }
+
+  function limpiar(){
+    viewOriginal.src = "about:blank";
+    viewCorregido.src = "about:blank";
+    fileInput.value = "";
+    setEstado("");
+    showLoader("orig", false);
+    showLoader("corr", false);
+    disableDownloads();
+    setBadge(0);
+  }
+
+  async function subirYRenderizar(file){
+    const fd = new FormData();
+    fd.append("archivo", file);
+    const r = await fetch(`${API}/api/render_vista`, { method:"POST", body:fd });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.error || "Error");
+    return j.html_url;
+  }
+
+  function withPdfZoom(url){ return url.includes("#") ? url : `${url}#zoom=page-width`; }
+
+  async function handleFile(f){
+    if(!f) return;
+    tipoMostrado.textContent = "Mostrando como PDF (visor del navegador).";
+    setEstado("Preparando vista PDF…");
+    showLoader("orig", true);
+    disableDownloads();
+    setBadge(0);
+    try{
+      const url = await subirYRenderizar(f);
+      viewOriginal.addEventListener("load", () => showLoader("orig", false), { once:true });
+      viewOriginal.src = withPdfZoom(abs(url));
+      setEstado("Listo.");
+    }catch(e){
+      console.error(e);
+      showLoader("orig", false);
+      setEstado("No se pudo generar la vista PDF.");
+      alert("Error al generar la vista PDF.\n\n" + e.message);
+    }
+  }
+
+  fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
+  drop.addEventListener("dragover", (e)=>{ e.preventDefault(); drop.style.opacity=".85"; });
+  drop.addEventListener("dragleave", ()=> drop.style.opacity="1");
+  drop.addEventListener("drop", (e)=>{
+    e.preventDefault(); drop.style.opacity="1";
+    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) handleFile(f);
+  });
+  drop.addEventListener("click", ()=> fileInput.click());
+
+  btnLimpiar.addEventListener("click", limpiar);
+
+  async function downloadViaFetch(url, fallbackFilename){
+    showOverlay("Preparando descarga…");
+    try{
+      const r = await fetch(url);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const blob = await r.blob();
+      let filename = fallbackFilename;
+      const cd = r.headers.get("content-disposition");
+      const m = cd && cd.match(/filename\*=UTF-8''([^;]+)|filename="?([^"]+)"?/i);
+      if(m) filename = decodeURIComponent(m[1] || m[2]);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename || "archivo";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    } finally { hideOverlay(); }
+  }
+
+  btnDescDocx.addEventListener("click", async ()=>{
+    try{
+      if(!lastLinks?.docx) return;
+      const fileName = lastLinks.docx.split("/").pop();
+      await downloadViaFetch(abs(lastLinks.docx), fileName);
+    }catch(e){ alert("No se pudo descargar el DOCX.\n\n" + e.message); }
+  });
+
+  btnDescPdf.addEventListener("click", async ()=>{
+    try{
+      if(!lastLinks?.docx) return;
+      const nombreDocx = lastLinks.docx.split("/").pop();
+      const url = `${API}/api/descargar_pdf_corregido/${encodeURIComponent(nombreDocx)}`;
+      const base = nombreDocx.replace(/\.docx$/i, ".pdf");
+      await downloadViaFetch(url, base);
+    }catch(e){ alert("No se pudo descargar el PDF.\n\n" + e.message); }
+  });
+
+  btnCorregir.addEventListener("click", async ()=>{
+    const f = fileInput.files && fileInput.files[0];
+    if(!f){ alert("Selecciona primero un .docx"); return; }
+
+    setEstado("Corrigiendo con LanguageTool…");
+    btnCorregir.disabled = true;
+    showLoader("corr", true);
+    disableDownloads();
+    setBadge(0);
+
+    try{
+      const fd = new FormData();
+      fd.append("archivo", f);
+      fd.append("idioma", "es-ES");
+      fd.append("modo", "corregir");
+
+      const r = await fetch(`${API}/api/corregir_archivo`, { method:"POST", body:fd });
+      if(!r.ok){
+        let msg = `HTTP ${r.status}`;
+        try{ const errJson = await r.json(); if(errJson?.error) msg = errJson.error; }catch{}
+        throw new Error(msg);
+      }
+      const data = await r.json();
+      if(!data.ok) throw new Error(data.error || "Error al corregir");
+
+      setBadge(Number(data.total_alertas) || 0);
+
+      lastLinks = data.descargas || {};
+      btnDescDocx.disabled = !lastLinks.docx;
+      btnDescPdf.disabled  = !lastLinks.docx;
+
+      if(lastLinks.docx){
+        const nombreDocx = lastLinks.docx.split("/").pop();
+        const r2 = await fetch(`${API}/api/render_docx_guardado/${encodeURIComponent(nombreDocx)}`);
+        if(!r2.ok) throw new Error(`HTTP ${r2.status}`);
+        const j2 = await r2.json();
+        if(!j2.ok) throw new Error(j2.error || "No se pudo renderizar PDF corregido");
+        viewCorregido.addEventListener("load", () => showLoader("corr", false), { once:true });
+        viewCorregido.src = withPdfZoom(abs(j2.html_url));
+      }else{
+        showLoader("corr", false);
+      }
+
+      setEstado("Correcciones aplicadas.");
+    }catch(e){
+      console.error(e);
+      showLoader("corr", false);
+      setEstado("Error al corregir / renderizar.");
+      alert("Error al corregir / renderizar.\n\n" + e.message);
+      setBadge(0);
+    }finally{
+      btnCorregir.disabled = false;
+    }
+  });
+})();
+</script>
