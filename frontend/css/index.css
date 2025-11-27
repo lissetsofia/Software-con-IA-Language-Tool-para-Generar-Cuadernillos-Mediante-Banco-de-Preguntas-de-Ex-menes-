@@ -376,7 +376,7 @@ main {
 }
 
 .modal-content-custom {
-  background-color: #e4c7f7;
+  background-color: #ffffff;
   padding: 2rem;
   border-radius: 14px;
   width: 90%;
@@ -390,13 +390,22 @@ main {
   top: 12px;
   right: 12px;
   border: none;
-  background: #dc3545;
-  color: white;
   font-size: 1rem;
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  cursor: pointer;
+  background-color: #dc3545 !important; /* rojo */
+  color: #fff !important;
+  width: 30px;
+  height: 30px;
+  border: none !important;
+  border: 50% !important; /* <- aquí estaba el error */
+  padding: 0 !important;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1 !important;
+
+  /* quita el ícono SVG de Bootstrap */
+  background-image: none !important;
 }
 
 .grupo-lista {
@@ -404,14 +413,73 @@ main {
   background-color: white;
   padding: 1rem;
   border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
 
+.modal-headline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+/* El botón cerrar aquí es inline, no absoluto */
+.cerrar-modal--inline {
+  position: static !important;
+  margin-left: 12px;
+}
+
+/* ====== Fieldset de GRUPOS con título centrado en el borde ====== */
+.grupo-fieldset {
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-radius: 12px;
+  padding: 14px 14px 12px; /* espacio interno para el contenido */
+  min-width: 260px; /* parejo con tu panel anterior */
+  background: #d1d1d1;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* el título centrado encima de la línea del borde */
+.grupo-fieldset > legend {
+  margin: 0 auto; /* centra horizontal */
+  padding: 0 10px; /* “pastilla” sobre el borde */
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #223;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  background: #fff; /* tapa la línea del borde */
+  border-radius: 8px;
+}
+.grupo-body > legend {
+  margin: 0 auto; /* centra horizontal */
+  padding: 0 10px; /* “pastilla” sobre el borde */
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: #223;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  background: #fff; /* tapa la línea del borde */
+  border-radius: 8px;
+}
+
+/* contenendor interno para tu lista y botones */
+.grupo-fieldset .grupo-body {
+  border: 2px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 2px 14px 2px; /* espacio interno para el contenido */
+  background: #fff; /* tapa la línea del borde */
+}
+
+/* Si quieres un borde más marcado: súbelo a 0.18–0.22 */
+
 .pdf-vista {
   flex-grow: 1;
-  background-color: #b6f0b6;
+  background-color: #d1d1d1;
   padding: 1rem;
   border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .pdf-placeholder {
@@ -456,7 +524,7 @@ main {
 /* Modal de Temas bien grande */
 #modalTemas .modal-dialog {
   max-width: none !important;
-  width: 95vw !important;
+  width: 65vw !important;
   margin: 1rem auto !important;
 }
 
@@ -473,10 +541,12 @@ main {
 #lista-grupos li {
   padding: 4px 6px;
   border-radius: 8px;
+
+  outline: 2px solid #326fa0;
 }
 #lista-grupos li.selected {
-  outline: 2px solid #198754;
-  background: #e9f7ef;
+  outline: 2px solid #58a8e9;
+  background: #c4e0f7;
 }
 #lista-grupos .btn {
   padding: 2px 6px;
@@ -486,8 +556,8 @@ main {
 /* Funciona en Bootstrap 5.x */
 #modalGrupos .modal-dialog {
   /* Ancho responsivo grande */
-  max-width: 750px;   /* ajusta a gusto: 900, 1100, etc. */
-  width: 95vw;         /* que no se pase del viewport */
+  max-width: 750px; /* ajusta a gusto: 900, 1100, etc. */
+  width: 95vw; /* que no se pase del viewport */
 }
 
 /* (Opcional) Si tu tabla es alta, que el cuerpo sea scrollable */
@@ -498,55 +568,624 @@ main {
 
 /* ========== Z-index para que no se meta detrás de tu modal custom ========== */
 /* Baja un poco tu modal personalizado para que los Bootstrap queden encima */
-#modal-examen { 
-  z-index: 1020;          /* debajo del stack Bootstrap */
+#modal-examen {
+  z-index: 1020; /* debajo del stack Bootstrap */
+  backdrop-filter: blur(2px);
 }
 
 /* Backdrop y modales Bootstrap por encima del custom */
-.modal-backdrop { 
-  z-index: 1040; 
+.modal-backdrop {
+  z-index: 1040;
 }
-#modalGrupos { 
-  z-index: 1050;          /* gestión de grupos encima del backdrop */
+#modalGrupos {
+  z-index: 1050; /* gestión de grupos encima del backdrop */
 }
-#modalGrupoEditar, 
+#modalGrupoEditar,
 #modalGrupoCrear {
-  z-index: 1060;          /* editar/crear encima de gestión */
+  z-index: 1060; /* editar/crear encima de gestión */
 }
-
-
 
 /* ===== MODAL GENERACIÓN: agrandar panel de grupos ===== */
-#modal-examen .modal-content-custom{
-  width: 95vw;        /* usa casi todo el ancho disponible */
-  max-width: 1200px;  /* antes 1000px; súbelo si quieres más */
+#modal-examen .modal-content-custom {
+  width: 95vw; /* usa casi todo el ancho disponible */
+  max-width: 850px; /* antes 1000px; súbelo si quieres más */
+  height: auto;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(255, 255, 255, 0.04); /* leve borde para separar del fondo */
+  transform: translateZ(0); /* evita artefactos en Windows */
 }
 
 /* Panel izquierdo (lista de grupos) más ancho */
-#modal-examen .grupo-lista{
-  width: 260px;       /* antes 180px */
-  min-width: 240px;   /* evita que se comprima demasiado */
+#modal-examen .grupo-lista {
+  width: 260px; /* antes 180px */
+  min-width: 240px; /* evita que se comprima demasiado */
+  border: 1px solid rgb(0, 0, 0);
 }
 
 /* Asegura que el panel derecho pueda reducirse bien en flex */
-#modal-examen .pdf-vista{
+#modal-examen .pdf-vista {
   flex-grow: 1;
-  min-width: 0;       /* clave para que flex permita encoger sin overflow */
+  min-width: 0; /* clave para que flex permita encoger sin overflow */
 }
 
 /* Opcional: un poco más de alto a la “vista PDF” */
-#modal-examen .pdf-placeholder{
+#modal-examen .pdf-placeholder {
   min-height: 420px;
 }
 
 /* --------- Responsive --------- */
-@media (max-width: 1200px){
-  #modal-examen .grupo-lista{ width: 240px; }
+@media (max-width: 1200px) {
+  #modal-examen .grupo-lista {
+    width: 240px;
+  }
 }
-@media (max-width: 992px){
-  #modal-examen .grupo-lista{ width: 220px; }
+@media (max-width: 992px) {
+  #modal-examen .grupo-lista {
+    width: 220px;
+  }
 }
-@media (max-width: 768px){
-  #modal-examen .modal-content-custom .d-flex{ flex-direction: column; }
-  #modal-examen .grupo-lista{ width: 100%; margin-bottom: 1rem; }
+@media (max-width: 768px) {
+  #modal-examen .modal-content-custom .d-flex {
+    flex-direction: column;
+  }
+  #modal-examen .grupo-lista {
+    width: 100%;
+    margin-bottom: 1rem;
+  }
 }
+
+/* ==== Estilos de los iconos ==== */
+:root {
+  --tile-bg: rgba(255, 255, 255, 0.12);
+  --tile-bg-hover: rgba(255, 255, 255, 0.18);
+  --tile-border: rgba(255, 255, 255, 0.25);
+  --tile-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  --accent: #192f49; /* azul */
+  --text-strong: #eaf3ff;
+}
+.home-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap: 22px;
+  max-width: 920px;
+  margin: 16px auto 8px;
+  padding: 6px 10px;
+}
+.shortcut {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 132px;
+  border-radius: 18px;
+  background: rgba(185, 180, 180, 0.14); /* <— cámbialo aquí */
+  border: 1px solid var(--tile-border);
+  box-shadow: var(--tile-shadow);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  outline: none;
+}
+.shortcut:hover,
+.shortcut:focus-visible {
+  background: linear-gradient(145deg, #d6ecff 0%, #bfe1ff 100%);
+
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+}
+.shortcut__icon {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    rgba(26, 115, 232, 0.85),
+    rgba(0, 188, 212, 0.75)
+  );
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+  color: #e7f1ff;
+}
+.shortcut__label {
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  font-size: 15px;
+  color: var(--text-strong);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+}
+.shortcut__key {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 32px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  font-weight: 700;
+  color: #f4fbff;
+}
+/* Responsive */
+@media (max-width: 840px) {
+  .home-shortcuts {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 520px) {
+  .home-shortcuts {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* MATRIZ – celeste */
+.shortcut--matriz {
+  background: linear-gradient(135deg, #409b69 0%, #4a948e 100%);
+}
+.shortcut--matriz:hover {
+  background: linear-gradient(135deg, #1b3547 0%, #7dbfff 100%);
+}
+
+/* GRUPOS – turquesa */
+.shortcut--grupos {
+  background: linear-gradient(135deg, #ad6b97 0%, #b67deb 100%);
+}
+.shortcut--grupos:hover {
+  background: linear-gradient(135deg, #498d81 0%, #6fe0cc 100%);
+}
+
+/* ALEATORIZACIÓN – lila */
+.shortcut--alea {
+  background: linear-gradient(135deg, #543c9c 0%, #b7a5ff 100%);
+}
+.shortcut--alea:hover {
+  background: linear-gradient(135deg, #261068 0%, #ab96ff 100%);
+}
+/* =======================
+   MODAL MATRIZ*/
+/* Overlay a pantalla completa */
+/* === MODAL MATRIZ === */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  display: none; /* se muestra con .show */
+  justify-content: center;
+  align-items: center;
+  background: rgba(3, 16, 35, 0.72); /* azul oscuro translúcido */
+  backdrop-filter: blur(4px); /* desenfoque elegante */
+  z-index: 2000;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal-box {
+  width: min(850px, 92vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #0e1b2a; /* fondo oscuro coherente con header */
+  color: #f1f5f9; /* texto claro */
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  padding: 24px 28px;
+  animation: zoomIn 0.25s ease;
+}
+
+@keyframes zoomIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #1e293b;
+  padding-bottom: 8px;
+  margin-bottom: 14px;
+}
+
+.modal-head h3 {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.btn-x {
+  background: transparent;
+  color: #cbd5e1;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.btn-x:hover {
+  color: #93c5fd;
+}
+
+.btn-fab {
+  position: fixed;
+  right: 26px;
+  bottom: 26px;
+  z-index: 2100;
+  display: none;
+  background: linear-gradient(145deg, #14b8a6, #0ea5e9);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  padding: 12px 22px;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
+}
+
+/* campos dentro del modal */
+.campo-texto {
+  width: 100%;
+  background: #16263d;
+  color: #f1f5f9;
+  border: 1px solid #2b3c55;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.campo-texto:focus {
+  outline: none;
+  border-color: #38bdf8;
+}
+
+.tabla-matriz {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+.tabla-matriz th {
+  background: #0b1624;
+  color: #7dd3fc;
+  font-weight: 600;
+  text-align: left;
+  padding: 8px 10px;
+}
+.tabla-matriz td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #1e293b;
+}
+#modalMatriz .form-control::placeholder {
+  color: #bcd;
+}
+
+/* ===== Uniformar tamaños de botones en la lista de grupos ===== */
+#lista-grupos .btn-sm {
+  box-sizing: border-box;
+  height: 30px; /* alto único */
+  padding: 0 !important; /* quita rellenos que alargan */
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem; /* mismo radio para todos */
+  font-size: 13px; /* legible dentro de 30x30 */
+}
+
+/* Mismo ANCHO para: clave (A/B/C), contador, ⚙ y ✕ */
+#lista-grupos .btn-custom.btn-sm,        /* A/B/C */
+#lista-grupos .btn-primary.btn-sm,       /* contador total_preguntas */
+#lista-grupos > li > div:last-child .btn-sm {
+  /* acciones ⚙ y ✕ */
+  width: 30px; /* <- ancho idéntico */
+  min-width: 30px;
+  text-align: center;
+}
+
+/* Mantén el contador a la derecha del bloque izquierdo */
+#lista-grupos > li > div:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 8px;
+}
+#lista-grupos .text-muted.small {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#lista-grupos .btn.btn-sm.btn-primary {
+  margin-left: auto; /* sigue empujando el contador a la derecha */
+  margin-right: 6px; /* <-- agrega separación visual con la tuerca */
+  font-weight: 600;
+}
+
+/* (Opcional) si algún día puedes tener 3 dígitos, sube a 36px en todos los selectores de width/height */
+
+/* === Estilo personalizado para btn-close (igual al panel izquierdo) === */
+/* === btn-close estilo redondo rojo (sin borde oscuro) === */
+.btn-close {
+  background-color: #dc3545 !important; /* rojo */
+  color: #fff !important;
+  width: 30px;
+  height: 30px;
+  border: none !important;
+  border: 50% !important; /* <- aquí estaba el error */
+  padding: 0 !important;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1 !important;
+
+  /* quita el ícono SVG de Bootstrap */
+  background-image: none !important;
+}
+
+/* la X blanca centrada */
+.btn-close::before {
+  content: "×"; /* usa × tipográfica */
+  font-size: 30px;
+  color: #fff;
+}
+
+/* sin halo/contorno en todos los estados */
+.btn-close:hover,
+.btn-close:active,
+.btn-close:focus,
+.btn-close:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* (opcional) pequeño hover más oscuro */
+.btn-close:hover {
+  background-color: #b02a37 !important;
+}
+
+/* Acciones en la tabla de grupos: separar botones */
+#tabla-grupos tbody td .btn-group.btn-group-sm[role="group"] {
+  display: flex; /* en lugar del inline-flex de Bootstrap */
+  gap: 8px; /* <-- espacio entre botones */
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap; /* o 'wrap' si quieres que bajen en pantallas chicas */
+}
+
+/* Deshacer el “pegado” de Bootstrap */
+#tabla-grupos .btn-group.btn-group-sm > .btn + .btn {
+  margin-left: 0 !important; /* Bootstrap pone -1px */
+  border-left-width: 1px !important; /* evita que se fusionen los bordes */
+}
+
+/* Bordes redondeados normales (no “píldora” unida) */
+#tabla-grupos .btn-group.btn-group-sm > .btn {
+  border-radius: 0.375rem !important; /* ~6px */
+}
+
+/* (Opcional) mismas anchuras visuales */
+#tabla-grupos .btn-editar-grupo,
+#tabla-grupos .btn-toggle-grupo,
+#tabla-grupos .btn-eliminar-grupo {
+  min-width: 70px; /* ajusta a gusto (96–110px) */
+  text-align: center;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+/* (Opcional) en pantallas muy estrechas, reduce el gap */
+@media (max-width: 480px) {
+  #tabla-grupos tbody td .btn-group.btn-group-sm[role="group"] {
+    gap: 6px;
+  }
+}
+
+/* === Separar botones en tabla de TEMAS (igual que en GRUPOS) === */
+#tabla-temas tbody td .btn-group.btn-group-sm[role="group"] {
+  display: flex;
+  gap: 8px; /* espacio entre botones */
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+
+/* Evita que los botones se peguen por el margen negativo de Bootstrap */
+#tabla-temas .btn-group.btn-group-sm > .btn + .btn {
+  margin-left: 0 !important;
+  border-left-width: 1px !important;
+}
+
+/* Bordes redondeados normales, no "píldora" */
+#tabla-temas .btn-group.btn-group-sm > .btn {
+  border-radius: 0.375rem !important;
+}
+
+/* Tamaño uniforme opcional */
+#tabla-temas .btn-editar-tema,
+#tabla-temas .btn-toggle-tema {
+  min-width: 70px; /* puedes ajustar 90–110 px si quieres más ancho */
+  text-align: center;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+/* ===== Solo para el modal de exportación ===== */
+#modal-exportar {
+  position: fixed;
+  inset: 0;
+  z-index: 1060; /* por encima de tablas y UI */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  /* Backdrop oscuro tipo Bootstrap */
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(1px); /* opcional */
+
+  transition: opacity 0.2s ease;
+}
+
+/* Estado oculto (cuando tiene la clase .oculto) */
+#modal-exportar.oculto {
+  opacity: 0;
+  pointer-events: none; /* no captura clics oculto */
+}
+
+/* Caja del modal */
+#modal-exportar .modal-content {
+  background: #66cc9c;
+  color: #000000;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  padding: 18px 20px;
+  width: min(92vw, 520px);
+  max-height: 80vh;
+  overflow: auto;
+  text-align: center;
+  pointer-events: auto; /* permite clic dentro */
+  border: 1px solid rgb(0, 0, 0);
+}
+
+/* Contenedor del visor dentro del panel celeste */
+.visor-examen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #d1d1d1;
+}
+
+/* Iframe ocupa todo el panel */
+
+/* Placeholder mientras no hay vista cargada */
+#visor-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #385;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+/* una vez cargado, escondemos placeholder y mostramos iframe */
+.visor-examen.cargado #frame-examen {
+  display: block;
+}
+.visor-examen.cargado #visor-placeholder {
+  display: none;
+}
+#visor-examen.visor-docx {
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  padding: 8px;
+  height: 60vh;
+  overflow: hidden;
+}
+
+#frame-examen {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: none; /* ❌ oculto por defecto */
+}
+#visor-examen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  overflow: hidden;
+  border-radius: 10px;
+}
+#visor-examen.cargado #frame-examen {
+  display: block !important;
+}
+
+/* === Menú simétrico (mismo ancho y altura) === */
+.menu-simetrico {
+  gap: 2rem;
+} /* conserva tu separación */
+.menu-simetrico .nav-item {
+  display: flex;
+} /* hace que el <a> se estire */
+.menu-simetrico .nav-link {
+  flex: 1 1 auto;
+  display: flex; /* centra el texto vertical y horizontal */
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal; /* permite 2 líneas si hace falta */
+  line-height: 1.2;
+  min-height: 64px; /* ALTURA IGUAL para todos los botones */
+  padding: 0.9rem 1.2rem; /* puedes dejar los 2rem si prefieres */
+}
+
+/* En móviles, que sigan iguales pero un poco más compactos */
+@media (max-width: 768px) {
+  .menu-simetrico {
+    gap: 0.5rem;
+  }
+  .menu-simetrico .nav-link {
+    min-height: 56px;
+  }
+}
+
+/* Evita desplazamientos raros por transformaciones heredadas */
+#modalAleatorizacion .modal-dialog {
+  margin: 1rem auto;     /* centra con margen estándar */
+  transform: none !important;
+}
+
+/* Encabezado principal */
+.modal-header-banco {
+  display: flex;
+  align-items: center;
+}
+
+/* Empujar la X al extremo derecho */
+.modal-header-banco .modal-title {
+  margin-right: auto;
+}
+
+/* Contenedor del botón Importar temas */
+.modal-tools-banco {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: -0.5rem;
+}
+
+/* Espaciados consistentes */
+#btnBancoImportar {
+  margin-top: 0.3rem;
+}
+
+/* Banco de preguntas: botones de Acciones más pequeños */
+#tabla-banco-preguntas .btn-group.btn-group-sm .btn {
+  padding: 0.15rem 0.35rem;  /* alto y ancho más pequeños */
+  font-size: 0.72rem;        /* texto más chico */
+  line-height: 1.1;
+}
+
+/* Un poquito de espacio entre ellos */
+#tabla-banco-preguntas .btn-group.btn-group-sm {
+  gap: 0.25rem;
+}
+
+

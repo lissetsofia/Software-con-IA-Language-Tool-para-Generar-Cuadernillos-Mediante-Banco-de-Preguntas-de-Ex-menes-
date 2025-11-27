@@ -1,0 +1,626 @@
+<!-- ==== ICONOS PRINCIPALES (Matriz, Grupos, Aleatorización) ==== -->
+<div class="home-shortcuts">
+  <div
+    class="shortcut shortcut--matriz"
+    role="button"
+    data-bs-toggle="modal"
+    data-bs-target="#modalMatriz"
+  >
+    <div class="shortcut__icon">
+      <!-- SVG: documentos -->
+      <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true">
+        <path
+          d="M8 2h6l4 4v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"
+          fill="currentColor"
+          opacity=".85"
+        />
+        <path
+          d="M14 2v4h4"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+        />
+        <path
+          d="M9 9h6M9 12h6M9 15h4"
+          fill="none"
+          stroke="#fff"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          opacity=".9"
+        />
+      </svg>
+    </div>
+    <div class="shortcut__label">GENERAR MATRIZ</div>
+  </div>
+
+  <div
+    class="shortcut shortcut--grupos"
+    id="btn-grupos"
+    role="button"
+    tabindex="0"
+    aria-label="Grupos"
+    data-bs-toggle="modal"
+    data-bs-target="#modalGrupos"
+  >
+    <div class="shortcut__icon">
+      <!-- SVG: grupos/personas -->
+      <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true">
+        <circle cx="9" cy="8" r="3.25" fill="currentColor" opacity=".9" />
+        <path
+          d="M3.5 18a5.5 5.5 0 0 1 11 0"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+        />
+        <circle cx="17.5" cy="9" r="2.25" fill="currentColor" opacity=".6" />
+        <path
+          d="M14.5 18a4.5 4.5 0 0 1 7 0"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          opacity=".7"
+        />
+      </svg>
+    </div>
+    <div class="shortcut__label">GESTIONAR GRUPOS</div>
+  </div>
+
+  <div
+    class="shortcut shortcut--alea"
+    id="btn-aleatorizacion"
+    role="button"
+    tabindex="0"
+    aria-label="Aleatorización"
+    data-bs-toggle="modal"
+    data-bs-target="#modalAleatorizacion"
+  >
+    <div class="shortcut__icon">
+      <!-- SVG: dados/aleatorio -->
+      <svg viewBox="0 0 24 24" width="56" height="56" aria-hidden="true">
+        <rect
+          x="3"
+          y="3"
+          width="10"
+          height="10"
+          rx="2"
+          fill="currentColor"
+          opacity=".85"
+        />
+        <circle cx="8" cy="8" r="1.2" fill="#fff" />
+        <rect
+          x="11"
+          y="11"
+          width="10"
+          height="10"
+          rx="2"
+          fill="currentColor"
+          opacity=".6"
+        />
+        <circle cx="16" cy="16" r="1.2" fill="#fff" />
+        <circle cx="19" cy="19" r="1.2" fill="#fff" />
+      </svg>
+    </div>
+    <div class="shortcut__label">GESTIONAR TIPO DE PRUEBAS</div>
+  </div>
+</div>
+
+<!-- TRIGGER ya lo tienes en la tarjeta: data-bs-toggle="modal" data-bs-target="#modalMatrizBs" -->
+
+<!-- Modal MATRIZ -->
+<div class="modal fade" id="modalMatriz" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Generar matriz</h5>
+        <button
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        <label class="form-label">Nombre de la matriz</label>
+        <input
+          id="matriz-nombre"
+          type="text"
+          class="form-control mb-3"
+          placeholder="Matriz"
+          value="Matriz"
+        />
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <label class="form-label m-0"><strong>Cuotas por tema</strong></label>
+          <div class="d-flex gap-2">
+            <button type="button" id="btnTemasMatriz" class="btn btn-secondary">
+              Temas
+            </button>
+            <button
+              type="button"
+              id="btn-add-fila"
+              class="btn btn-sm btn-primary"
+            >
+              + Agregar
+            </button>
+            <button
+              type="button"
+              id="btn-limpiar-filas"
+              class="btn btn-sm btn-secondary"
+            >
+              Limpiar
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped mb-2">
+            <thead class="table-dark">
+              <tr>
+                <th style="width: 45%">Tema</th>
+                <th style="width: 12%">Cantidad</th>
+                <th style="width: 30%">Archivo (.docx)</th>
+                <th style="width: 13%">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-matriz"></tbody>
+          </table>
+        </div>
+
+        <div class="small text-muted">
+          Sube un DOCX por cada tema. El título se añade automáticamente.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancelar
+        </button>
+        <button id="btn-generar-matriz" class="btn btn-success">
+          Generar matriz
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- grupos-->
+
+<div class="modal fade" id="modalGrupos" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg text-black">
+        <h5 class="modal-title">Gestión de grupos</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="d-flex justify-content-between mb-3">
+          <button class="btn btn-success" id="btnImportarMatriz">
+            <i class="bi bi-upload"></i> Importar matriz
+          </button>
+          <button class="btn btn-primary" id="btnNuevoGrupo">
+            <i class="bi bi-plus-circle"></i> Agregar grupo
+          </button>
+        </div>
+
+        <!-- Tabla CRUD de grupos -->
+        <table
+          id="tablaGrupos"
+          class="table table-bordered table-hover text-center"
+        >
+          <thead class="table-dark">
+            <tr>
+              <th>ID</th>
+              <th>Clave</th>
+              <th>Nombre</th>
+              <th>Preguntas</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div class="mt-3 text-end">
+          <button class="btn btn-success" id="btnGenerarGrupos">
+            <i class="bi bi-download"></i> Descargar grupos
+          </button>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Crear/Editar grupo con cuotas -->
+<div class="modal fade" id="modalGrupoForm" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="formGrupo">
+      <div class="modal-header bg text-black">
+        <h5 class="modal-title" id="tituloGrupo">Editar grupo</h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        <input type="hidden" id="grupo-id" />
+
+        <div class="row g-2 mb-3">
+          <div class="col-4">
+            <label class="form-label">Clave</label>
+            <input id="grupo-clave" class="form-control" maxlength="5" />
+          </div>
+          <div class="col-8">
+            <label class="form-label">Nombre</label>
+            <input id="grupo-nombre" class="form-control" maxlength="100" />
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center">
+          <label class="form-label m-0"><strong>Cuotas por tema</strong></label>
+          <button class="btn btn-sm btn-success" type="button" id="btnAddCuota">
+            + Agregar tema
+          </button>
+        </div>
+
+        <div id="cuotasWrap" class="mt-2"></div>
+
+        <div class="text-end mt-2">
+          <small class="text-muted"
+            >Total preguntas: <span id="totalCuotas">0</span></small
+          >
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-primary" id="btnGuardarGrupo">
+          Guardar
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: Importar Matriz -->
+<div
+  class="modal fade"
+  id="modalImportarMatriz"
+  tabindex="-1"
+  aria-hidden="true"
+>
+  <div class="modal-dialog">
+    <form class="modal-content" id="formImportarMatriz">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">Importar matriz</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-check mb-2">
+          <input
+            class="form-check-input"
+            type="radio"
+            name="origen"
+            id="origenBD"
+            value="bd"
+            checked
+          />
+          <label class="form-check-label" for="origenBD"
+            >Desde Base de Datos</label
+          >
+        </div>
+        <div class="mb-3 ps-4" id="boxBD">
+          <label class="form-label">Matriz</label>
+          <select id="selMatriz" class="form-select">
+            <option value="">Cargando…</option>
+          </select>
+        </div>
+
+        <!-- Dentro del modal Importar matriz -->
+        <div class="form-check my-2">
+          <input
+            class="form-check-input"
+            type="radio"
+            name="origen"
+            id="origenArchivo"
+          />
+          <label class="form-check-label" for="origenArchivo">
+            Desde archivo (.docx)
+          </label>
+        </div>
+
+        <div class="mt-2" id="boxFile">
+          <input
+            type="file"
+            id="matrizFile"   
+            name="file"       
+            class="form-control"
+            accept=".docx"
+          />
+          <small class="text-muted">Selecciona un documento Word (.docx).</small>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">
+          Cancelar
+        </button>
+        <button class="btn btn-success" id="btnImportarOK">Importar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: ALEATORIZACIÓN -->
+<div
+  class="modal fade"
+  id="modalAleatorizacion"
+  tabindex="-1"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Gestionar tipo de pruebas</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <input
+            id="inpImportExams"
+            type="file"
+            accept=".doc,.docx,.pdf"
+            multiple
+            hidden
+          />
+          <button id="btnImportarExamenes" class="btn btn-success">
+            Importar exámenes
+          </button>
+          <button id="btnGenerarTipoPrueba" class="btn btn-primary">
+            Generar tipo de prueba
+          </button>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-header fw-bold">Exámenes importados</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover mb-0" id="tblImportados">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 70px">ID</th>
+                    <th>Nombre</th>
+                    <th style="width: 120px" class="text-end">Preguntas</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: TIPO DE PRUEBA -->
+<div class="modal fade" id="modalTipoPrueba" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Configurar tipo de prueba por grupo</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-3 align-items-end mb-2">
+          <div class="col-12 col-md-4">
+            <label class="form-label">Grupo</label>
+            <select id="selGrupo" class="form-select"></select>
+          </div>
+          <div class="col-12 col-md-8 d-flex gap-2">
+            <button id="btnAleatorizarPQ" class="btn btn-warning ms-auto">
+              Aleatorizar P y Q
+            </button>
+            <button id="btnGuardarClaves" class="btn btn-primary btn-sm">Guardar claves</button>
+
+            <button id="btnDescargarPruebas" class="btn btn-success">
+              Descargar pruebas
+            </button>
+          </div>
+        </div>
+
+        <div class="card shadow-sm">
+          <div class="card-header fw-bold">
+            Claves de respuesta (Origen / P / Q)
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table
+                class="table table-sm table-striped align-middle mb-0"
+                id="tblClaves"
+              >
+                <thead class="table-light">
+                  <tr>
+                    <th style="width: 90px">Pregunta</th>
+                    <th style="width: 120px">Origen</th>
+                    <th style="width: 120px">P</th>
+                    <th style="width: 120px">Q</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <small class="text-muted d-block mt-2">
+          Regla: P y Q siempre diferentes del Origen y entre sí.
+        </small>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modalTemas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Gestión de Temas</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="chkVerInactivosTemas"
+            />
+            <label class="form-check-label" for="chkVerInactivosTemas">
+              Mostrar también inactivos
+            </label>
+          </div>
+            <button
+              class="btn btn-success btn-sm"
+              id="btnAgregarTema"
+            >
+              + Agregar temas
+            </button>
+
+          
+        </div>
+
+        <table
+          id="tabla-temas"
+          class="table table-striped table-bordered w-100"
+        >
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <!-- SIN columna Preguntas -->
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal crear tema -->
+<div class="modal fade" id="modalTemaCrear" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="formTemaCrear" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Agregar tema</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Nombre del tema</label>
+        <input type="text" id="temaNombreCrear" class="form-control" required />
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal editar tema -->
+<div class="modal fade" id="modalTemaEditar" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="formTemaEditar" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar tema</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+        ></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="temaIdEditar" />
+        <label class="form-label">Nombre del tema</label>
+        <input
+          type="text"
+          id="temaNombreEditar"
+          class="form-control"
+          required
+        />
+      </div>
+      <div class="modal-footer">
+        <button type="submit" class="btn btn-primary">Actualizar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Librerías -->
+<script src="./libs/jquery.min.js"></script>
+<script src="./libs/bootstrap.bundle.min.js"></script>
+<script src="./libs/dataTables.min.js"></script>
+<script src="./libs/dataTables.bootstrap5.min.js"></script>
