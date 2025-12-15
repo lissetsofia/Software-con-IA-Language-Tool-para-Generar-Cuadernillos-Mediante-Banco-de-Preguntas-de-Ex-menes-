@@ -135,6 +135,13 @@
         <div class="d-flex justify-content-between align-items-center mb-2">
           <label class="form-label m-0"><strong>Cuotas por tema</strong></label>
           <div class="d-flex gap-2">
+            <button
+              type="button"
+              id="btnBancoPreguntas"
+              class="btn btn-warning"
+            >
+              Banco de preguntas
+            </button>
             <button type="button" id="btnTemasMatriz" class="btn btn-secondary">
               Temas
             </button>
@@ -185,6 +192,95 @@
     </div>
   </div>
 </div>
+
+
+<!-- Modal: Banco de Preguntas por Tema -->
+<div class="modal fade" id="modalBancoPreguntas" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Banco de preguntas por tema</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">
+          Selecciona preguntas del banco por tema. El número de preguntas
+          inicia en 0 y se actualiza según lo que marques en el detalle.
+        </p>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-striped align-middle mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th style="width:55%">Tema</th>
+                <th style="width:20%" class="text-center">Preguntas seleccionadas</th>
+                <th style="width:25%" class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-banco-temas">
+              <!-- filas dinámicas -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        
+<button id="btn-generar-matriz-banco-sol" class="btn btn-warning">
+  Generar matriz solucionario (banco)
+</button>
+        <button class="btn btn-success" id="btnBancoGenerarMatriz">
+          Generar matriz desde banco de preguntas
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Detalle de preguntas del tema (Banco) -->
+<div class="modal fade" id="modalBancoDetalle" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Preguntas del banco &mdash; <span id="bancoDetalleTema">Tema</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted mb-2">
+          Marca las preguntas que quieres incluir para este tema.
+        </p>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th style="width:60px" class="text-center">Sel.</th>
+                <th style="width:90px">ID</th>
+                <th>Archivo / pregunta</th>
+                <th style="width:120px" class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-banco-detalle">
+              <!-- filas dinámicas -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" type="button" onclick="volverBancoDesdeDetalle()">Cancelar</button>
+
+        <button class="btn btn-primary" id="btnBancoGuardarSeleccion" onclick="volverBancoDesdeDetalle()">
+          Guardar selección
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
 
 <!-- grupos-->
 
@@ -352,14 +448,15 @@
         <div class="mt-2" id="boxFile">
           <input
             type="file"
-            id="matrizFile"   
-            name="file"       
+            id="matrizFile"
+            name="file"
             class="form-control"
             accept=".docx"
           />
-          <small class="text-muted">Selecciona un documento Word (.docx).</small>
+          <small class="text-muted"
+            >Selecciona un documento Word (.docx).</small
+          >
         </div>
-
       </div>
 
       <div class="modal-footer">
@@ -461,7 +558,9 @@
             <button id="btnAleatorizarPQ" class="btn btn-warning ms-auto">
               Aleatorizar P y Q
             </button>
-            <button id="btnGuardarClaves" class="btn btn-primary btn-sm">Guardar claves</button>
+            <button id="btnGuardarClaves" class="btn btn-primary btn-sm">
+              Guardar claves
+            </button>
 
             <button id="btnDescargarPruebas" class="btn btn-success">
               Descargar pruebas
@@ -533,14 +632,9 @@
               Mostrar también inactivos
             </label>
           </div>
-            <button
-              class="btn btn-success btn-sm"
-              id="btnAgregarTema"
-            >
-              + Agregar temas
-            </button>
-
-          
+          <button class="btn btn-success btn-sm" id="btnAgregarTema">
+            + Agregar temas
+          </button>
         </div>
 
         <table
@@ -618,6 +712,8 @@
     </form>
   </div>
 </div>
+
+
 
 <!-- Librerías -->
 <script src="./libs/jquery.min.js"></script>

@@ -5,8 +5,6 @@ const fetch = require("node-fetch"); // si no existe en tu proyecto, instálalo
 // 👇 usa fs de promesas
 const fs = require("fs/promises");
 
-
-
 // 🔧 Desactiva aceleración por hardware
 app.disableHardwareAcceleration();
 

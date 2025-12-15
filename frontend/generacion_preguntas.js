@@ -1538,26 +1538,181 @@ function ponerLinksVista(docxUrl, pdfUrl) {
 }
 
 // ======================= BANCO DE PREGUNTAS =======================
+// ======================= BANCO DE PREGUNTAS =======================
 (function () {
   if (typeof window.BANCO_API_BASE === "undefined") {
     window.BANCO_API_BASE = "http://localhost:5050/api/banco_preguntas";
   }
 
-  let dtBanco = null;
+  // DataTables y estado
+  let dtBancoResumen = null;
+  let dtBancoDetalle = null;
+  let bancoDataCache = [];        // todos los registros del banco
+  let temaSeleccionadoBanco = null;
+  let temasCacheBanco = null;     // todos los temas (para resumen y selects)
+  let temaPreseleccionadoImport = null; // para el modal Importar
 
-  // Cargar lista de registros del banco
-  async function cargarBancoPreguntas() {
+  // ------------- Helpers de fetch -------------
+  async function cargarBancoDesdeApi() {
     const r = await fetch(window.BANCO_API_BASE);
-    const data = await r.json();
+    let data = await r.json();
+    if (!Array.isArray(data)) data = [];
+    bancoDataCache = data;
+  }
 
-    if (!$.fn.DataTable.isDataTable("#tabla-banco-preguntas")) {
-      dtBanco = $("#tabla-banco-preguntas").DataTable({
-        data,
+  async function fetchTemasAllBanco() {
+    if (temasCacheBanco) return temasCacheBanco;
+    const url = window.TEMAS_API_BASE
+      ? `${window.TEMAS_API_BASE}?all=1`
+      : "http://localhost:5050/api/temas?all=1";
+    const r = await fetch(url);
+    let temas = await r.json();
+    if (!Array.isArray(temas)) temas = [];
+    temasCacheBanco = temas;
+    return temas;
+  }
+
+  // ------------- Construir resumen por tema -------------
+  async function construirResumenPorTema() {
+    // contador a partir del banco
+    const mapCont = new Map();
+    for (const row of bancoDataCache) {
+      const temaId = row.tema_id ?? row.temaId ?? row.id_tema ?? 0;
+      const temaNom = row.tema_nombre ?? row.temaNombre ?? "Sin tema";
+
+      if (!mapCont.has(temaId)) {
+        mapCont.set(temaId, {
+          id_tema: temaId,
+          tema: temaNom,
+          n_preguntas: 0,
+          n_solucionarios: 0,
+        });
+      }
+      const item = mapCont.get(temaId);
+      if (row.doc_preguntas_nombre) item.n_preguntas++;
+      if (row.doc_sol_nombre) item.n_solucionarios++;
+    }
+
+    // combinar con TODOS los temas existentes
+    const temas = await fetchTemasAllBanco();
+    const resumen = temas.map((t) => {
+      const base = mapCont.get(t.id) || {
+        id_tema: t.id,
+        tema: t.nombre,
+        n_preguntas: 0,
+        n_solucionarios: 0,
+      };
+      // aseguramos nombre correcto del tema desde /temas
+      base.tema = t.nombre;
+      return base;
+    });
+
+    return resumen;
+  }
+
+  // ------------- DataTable RESUMEN -------------
+  async function cargarBancoResumen() {
+    await cargarBancoDesdeApi();
+    const resumen = await construirResumenPorTema();
+
+    if (!$.fn.DataTable.isDataTable("#tabla-banco-resumen")) {
+      dtBancoResumen = $("#tabla-banco-resumen").DataTable({
+        data: resumen,
         autoWidth: false,
         responsive: true,
         pageLength: 8,
         columns: [
-          { data: "tema_nombre", title: "Tema" },
+          { data: "tema", title: "Tema" },
+          {
+            data: "n_preguntas",
+            title: "Nº de preguntas",
+            className: "text-center",
+          },
+          {
+            data: "n_solucionarios",
+            title: "Nº de solucionarios",
+            className: "text-center",
+          },
+          {
+            data: null,
+            title: "Acciones",
+            orderable: false,
+            className: "text-center",
+            render: (row) =>
+              `<button class="btn btn-info btn-sm btn-banco-detalles"
+                        data-tema="${row.id_tema}"
+                        data-nombre="${row.tema}">
+                  Detalles
+               </button>`,
+          },
+        ],
+        language: window.DT_ES || {},
+      });
+
+      // Click en Detalles
+      $("#tabla-banco-resumen").on(
+        "click",
+        ".btn-banco-detalles",
+        function () {
+          const idTema = this.dataset.tema;
+          const nombre = this.dataset.nombre;
+          verDetalleTemaBanco(idTema, nombre);
+        }
+      );
+    } else {
+      dtBancoResumen.clear().rows.add(resumen).draw(false);
+    }
+  }
+
+  // Helper para renderizar las acciones (se usa en detalle)
+  function renderAccionesBanco(row) {
+    const id = row.id;
+    const hasPreg = !!row.doc_preguntas_nombre;
+    const hasSol = !!row.doc_sol_nombre;
+
+    const disabledDesc = hasPreg ? "" : "disabled";
+    const solClass = hasSol ? "btn-info" : "btn-outline-info";
+    const solText = hasSol ? "Cambiar sol." : "Agregar sol.";
+
+    return `
+      <div class="btn-group btn-group-sm" role="group">
+        <button class="btn btn-success"
+                onclick="window.bancoDescPaquete(${id})"
+                ${disabledDesc}>
+          Descargar
+        </button>
+        <button class="btn ${solClass}"
+                onclick="window.bancoAbrirSolucionario(${id})"
+                ${disabledDesc}>
+          ${solText}
+        </button>
+        <button class="btn btn-primary"
+                onclick="window.bancoAbrirEditar(${id})">
+          Editar
+        </button>
+        <button class="btn btn-danger"
+                onclick="window.bancoEliminar(${id})">
+          Eliminar
+        </button>
+      </div>`;
+  }
+
+  // ------------- DataTable DETALLE POR TEMA -------------
+  function cargarBancoDetalle() {
+    if (!temaSeleccionadoBanco) return;
+
+    const datos = bancoDataCache.filter((r) => {
+      const tid = r.tema_id ?? r.temaId ?? r.id_tema;
+      return String(tid) === String(temaSeleccionadoBanco);
+    });
+
+    if (!$.fn.DataTable.isDataTable("#tabla-banco-detalle")) {
+      dtBancoDetalle = $("#tabla-banco-detalle").DataTable({
+        data: datos,
+        autoWidth: false,
+        responsive: true,
+        pageLength: 8,
+        columns: [
           {
             data: "doc_preguntas_nombre",
             title: "DOCX Preguntas",
@@ -1578,70 +1733,90 @@ function ponerLinksVista(docxUrl, pdfUrl) {
             data: null,
             title: "Acciones",
             orderable: false,
-            render: (row) => {
-              const id = row.id;
-              const hasPreg = !!row.doc_preguntas_nombre;
-              const hasSol  = !!row.doc_sol_nombre;
-
-              const disabledDesc = hasPreg ? "" : "disabled";
-              const solClass = hasSol ? "btn-info" : "btn-outline-info";
-              const solText  = hasSol ? "Cambiar sol." : "Agregar sol.";
-
-              return `
-                <div class="btn-group btn-group-sm" role="group">
-                  <button class="btn btn-success"
-                          onclick="window.bancoDescPaquete(${id})"
-                          ${disabledDesc}>
-                    Descargar
-                  </button>
-                  <button class="btn ${solClass}"
-                          onclick="window.bancoAbrirSolucionario(${id})"
-                          ${disabledDesc}>
-                    ${solText}
-                  </button>
-                  <button class="btn btn-primary"
-                          onclick="window.bancoAbrirEditar(${id})">
-                    Editar
-                  </button>
-                  <button class="btn btn-danger"
-                          onclick="window.bancoEliminar(${id})">
-                    Eliminar
-                  </button>
-                </div>`;
-            },
+            render: (row) => renderAccionesBanco(row),
           },
         ],
         language: window.DT_ES || {},
       });
     } else {
-      dtBanco.clear().rows.add(data).draw(false);
+      dtBancoDetalle.clear().rows.add(datos).draw(false);
     }
   }
 
-  // Cargar temas en selects (importar y editar)
+  // ------------- Cambiar entre vistas -------------
+  function verDetalleTemaBanco(idTema, nombreTema) {
+    temaSeleccionadoBanco = idTema;
+
+    document
+      .getElementById("vista-banco-resumen")
+      .classList.add("d-none");
+    document
+      .getElementById("vista-banco-detalle")
+      .classList.remove("d-none");
+
+    const lbl = document.getElementById("bancoTituloTemaDetalle");
+    if (lbl) lbl.textContent = nombreTema || "";
+
+    cargarBancoDetalle();
+  }
+
+  async function volverABancoResumen() {
+    temaSeleccionadoBanco = null;
+    document
+      .getElementById("vista-banco-detalle")
+      .classList.add("d-none");
+    document
+      .getElementById("vista-banco-resumen")
+      .classList.remove("d-none");
+    await cargarBancoResumen();
+  }
+
+  async function recargarBancoDespuesDeCambio() {
+    await cargarBancoResumen();
+    if (temaSeleccionadoBanco) {
+      cargarBancoDetalle();
+    }
+  }
+
+  // ------------- Cargar temas en selects (usando cache) -------------
   async function cargarTemasParaBanco() {
-    const url = window.TEMAS_API_BASE
-      ? `${window.TEMAS_API_BASE}?all=1`
-      : "http://localhost:5050/api/temas?all=1";
-    const r = await fetch(url);
-    const temas = await r.json();
+    const temas = await fetchTemasAllBanco();
 
     const opts = temas
       .map((t) => `<option value="${t.id}">${t.nombre}</option>`)
       .join("");
 
-    const selImp  = document.getElementById("bancoTemaImportar");
+    const selImp = document.getElementById("bancoTemaImportar");
     const selEdit = document.getElementById("bancoTemaEditar");
 
-    if (selImp) selImp.innerHTML = opts;
-    if (selEdit && !selEdit.dataset.fixed) selEdit.innerHTML = opts;
+    if (selImp) {
+      selImp.innerHTML = opts;
+      if (temaPreseleccionadoImport) {
+        selImp.value = String(temaPreseleccionadoImport);
+        selImp.disabled = true; // <- bloquea el cambio cuando vienes del detalle
+      } else {
+        selImp.disabled = false;
+      }
+    }
+    if (selEdit && !selEdit.dataset.fixed) {
+      selEdit.innerHTML = opts;
+    }
   }
 
-  // Abrir modal principal
+  // ------------- Abrir modal principal -------------
   async function abrirModalBancoPreguntas() {
     try {
-      await cargarBancoPreguntas();
+      temaSeleccionadoBanco = null;
+      const vRes = document.getElementById("vista-banco-resumen");
+      const vDet = document.getElementById("vista-banco-detalle");
+      if (vRes && vDet) {
+        vRes.classList.remove("d-none");
+        vDet.classList.add("d-none");
+      }
+
+      await cargarBancoResumen();
       await cargarTemasParaBanco();
+
       new bootstrap.Modal(
         document.getElementById("modalBancoPreguntas")
       ).show();
@@ -1651,18 +1826,38 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     }
   }
 
-  // Delegación de botones
+  // ------------- Delegación de botones globales -------------
   document.addEventListener("click", async (ev) => {
     // Abrir modal Banco de preguntas
     if (ev.target.closest("#btnBancoPreguntas")) {
       ev.preventDefault();
+      temaPreseleccionadoImport = null; // modo normal
       await abrirModalBancoPreguntas();
       return;
     }
 
-    // Abrir modal Importar tema
+    // Volver del detalle al resumen
+    if (ev.target.closest("#btnBancoVolverResumen")) {
+      ev.preventDefault();
+      await volverABancoResumen();
+      return;
+    }
+
+    // Abrir modal Importar (desde resumen)
     if (ev.target.closest("#btnBancoImportar")) {
       ev.preventDefault();
+      temaPreseleccionadoImport = null; // no fijar tema, usuario elige
+      await cargarTemasParaBanco();
+      new bootstrap.Modal(
+        document.getElementById("modalBancoImportar")
+      ).show();
+      return;
+    }
+
+    // Abrir modal Importar (desde detalle → fijar tema)
+    if (ev.target.closest("#btnBancoImportarDetalle")) {
+      ev.preventDefault();
+      temaPreseleccionadoImport = temaSeleccionadoBanco; // fijamos tema actual
       await cargarTemasParaBanco();
       new bootstrap.Modal(
         document.getElementById("modalBancoImportar")
@@ -1712,10 +1907,10 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       document.getElementById("modalBancoImportar")
     ).hide();
     document.getElementById("bancoFilePreguntas").value = "";
-    await cargarBancoPreguntas();
+    await recargarBancoDespuesDeCambio();
   }
 
-  // ---- Acciones globales ----
+  // ---- Acciones globales (se usan en las filas de detalle) ----
   window.bancoDescPaquete = function (id) {
     const url = `${window.BANCO_API_BASE}/${id}/download`;
     window.open(url, "_blank");
@@ -1731,20 +1926,15 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       alert(j.error || "No se pudo eliminar.");
       return;
     }
-    await cargarBancoPreguntas();
+    await recargarBancoDespuesDeCambio();
   };
 
   window.bancoAbrirEditar = async function (id) {
     await cargarTemasParaBanco();
     document.getElementById("bancoEditId").value = id;
 
-    const fila = dtBanco
-      ? dtBanco
-          .rows()
-          .data()
-          .toArray()
-          .find((r) => r.id === id)
-      : null;
+    const fila =
+      bancoDataCache.find((r) => String(r.id) === String(id)) || null;
 
     const selTema = document.getElementById("bancoTemaEditar");
     if (fila && selTema) {
@@ -1759,44 +1949,43 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     ).show();
   };
 
- // 👉 Cambiar / agregar solucionario SOLO para ese item (sin abrir modal)
-window.bancoAbrirSolucionario = function (id) {
-  const input = document.createElement("input");
-  input.type = "file";
-  input.accept =
-    ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  // 👉 Cambiar / agregar solucionario SOLO para ese item (sin abrir modal)
+  window.bancoAbrirSolucionario = function (id) {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept =
+      ".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
-  input.onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return; // usuario canceló
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return; // usuario canceló
 
-    const fd = new FormData();
-    fd.append("doc_solucionario", file);
+      const fd = new FormData();
+      fd.append("doc_solucionario", file);
 
-    try {
-      const r = await fetch(
-        `${window.BANCO_API_BASE}/${id}/reemplazar/solucionario`,
-        { method: "POST", body: fd }
-      );
-      const j = await r.json();
-      if (!r.ok) {
-        alert(j.error || "No se pudo guardar el solucionario.");
-        return;
+      try {
+        const r = await fetch(
+          `${window.BANCO_API_BASE}/${id}/reemplazar/solucionario`,
+          { method: "POST", body: fd }
+        );
+        const j = await r.json();
+        if (!r.ok) {
+          alert(j.error || "No se pudo guardar el solucionario.");
+          return;
+        }
+
+        alert("✅ Solucionario guardado correctamente.");
+        await recargarBancoDespuesDeCambio();
+      } catch (err) {
+        console.error(err);
+        alert("❌ Error de red al guardar el solucionario.");
       }
+    };
 
-      alert("✅ Solucionario guardado correctamente.");
-      await cargarBancoPreguntas(); // refresca la tabla
-    } catch (err) {
-      console.error(err);
-      alert("❌ Error de red al guardar el solucionario.");
-    }
+    input.click();
   };
 
-  // abre el explorador de archivos
-  input.click();
-};
-
-
+  // ---- Guardar edición (tema + posibles reemplazos) ----
   async function guardarEdicionBanco() {
     const id = document.getElementById("bancoEditId").value;
     const temaId = document.getElementById("bancoTemaEditar").value;
@@ -1850,6 +2039,6 @@ window.bancoAbrirSolucionario = function (id) {
     bootstrap.Modal.getInstance(
       document.getElementById("modalBancoEditar")
     ).hide();
-    await cargarBancoPreguntas();
+    await recargarBancoDespuesDeCambio();
   }
 })();

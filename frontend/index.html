@@ -28,7 +28,7 @@
 
     <div id="footer"></div>
 
-   <script>
+  <script>
   async function include(id, path) {
     const res = await fetch(path);
     const html = await res.text();
@@ -77,72 +77,89 @@
     }
   }
 
-  // Cargar JS de página evitando duplicados
-  // Cargar JS de página evitando duplicados (devuelve una Promise)
-function cargarScriptPagina(src, key) {
-  const existing = document.querySelector(`script[data-page-script="${key}"]`);
+  // ================== Cargar JS de página evitando duplicados ==================
+  function cargarScriptPagina(src, key) {
+    const existing = document.querySelector(`script[data-page-script="${key}"]`);
 
-  // Si ya está cargado y marcado como "loaded"
-  if (existing && existing.dataset.loaded === "1") {
-    return Promise.resolve();
-  }
+    // Si ya está cargado y marcado como "loaded"
+    if (existing && existing.dataset.loaded === "1") {
+      return Promise.resolve();
+    }
 
-  // Si existe pero aún no terminó de cargar, esperamos su "load"
-  if (existing) {
-    return new Promise((resolve) => {
-      existing.addEventListener("load", resolve, { once: true });
+    // Si existe pero aún no terminó de cargar, esperamos su "load"
+    if (existing) {
+      return new Promise((resolve) => {
+        existing.addEventListener("load", resolve, { once: true });
+      });
+    }
+
+    // Crear nuevo script
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = src;
+      script.type = "text/javascript";
+      script.defer = true;
+      script.dataset.pageScript = key;
+      script.onload = () => {
+        script.dataset.loaded = "1";
+        resolve();
+      };
+      script.onerror = (e) => {
+        console.error("Error cargando script de página:", src, e);
+        reject(e);
+      };
+      document.body.appendChild(script);
     });
   }
 
-  // Crear nuevo script
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.type = "text/javascript";
-    script.defer = true;
-    script.dataset.pageScript = key;
-    script.onload = () => {
-      script.dataset.loaded = "1";
-      resolve();
-    };
-    script.onerror = (e) => {
-      console.error("Error cargando script de página:", src, e);
-      reject(e);
-    };
-    document.body.appendChild(script);
-  });
-}
+  // ================== Navegación principal ==================
+  async function cargarPagina(ruta, elemento) {
+    // 1) primero carga el HTML en #contenido
+    await include("contenido", `./${ruta}`);
 
+    // 2) marca menú activo
+    activarMenu(elemento);
 
-  // Navegación principal
-  // Navegación principal
-async function cargarPagina(ruta, elemento) {
-  // 1) primero carga el HTML en #contenido
-  await include("contenido", `./${ruta}`);
+    // 3) luego carga el JS específico (una sola vez) y ejecuta init
+    if (ruta === "generacion_preguntas.html") {
+      await cargarScriptPagina(
+        "./generacion_preguntas.js",
+        "generacion_preguntas"
+      );
 
-  // 2) marca menú activo
-  activarMenu(elemento);
+      if (typeof window.initGeneracionPreguntas === "function") {
+        window.initGeneracionPreguntas();
+      } else {
+        console.warn("⚠️ initGeneracionPreguntas no está definido.");
+      }
 
-  // 3) luego carga el JS específico (una sola vez) y ejecuta init
-  if (ruta === "generacion_preguntas.html") {
-    await cargarScriptPagina(
-      "./generacion_preguntas.js",
-      "generacion_preguntas"
-    );
+    } else if (ruta === "cuadernillos.html") {
+      await cargarScriptPagina("./cuadernillos.js", "cuadernillos");
+      if (typeof window.initCuadernillos === "function") {
+        window.initCuadernillos(); // opcional si luego creas esto en cuadernillos.js
+      }
 
-    if (typeof window.initGeneracionPreguntas === "function") {
-      window.initGeneracionPreguntas();
-    } else {
-      console.warn("⚠️ initGeneracionPreguntas no está definido.");
-    }
-  } else if (ruta === "cuadernillos.html") {
-    await cargarScriptPagina("./cuadernillos.js", "cuadernillos");
-    if (typeof window.initCuadernillos === "function") {
-      window.initCuadernillos(); // opcional si luego creas esto en cuadernillos.js
+    } else if (ruta === "corrector_ortografico.html") {
+      // ⬅️ NUEVO: caso para el Corrector Ortográfico
+      await cargarScriptPagina(
+        "./corrector_ortografico.js",
+        "corrector_ortografico"
+      );
+
+      // Si tienes una función init específica en ese JS, la llamas aquí
+      if (typeof window.initCorrectorOrtografico === "function") {
+        window.initCorrectorOrtografico();
+      }
+
+      // Si el modal está definido dentro de corrector_ortografico.html
+      // y quieres que se abra automáticamente:
+      const modalEl = document.getElementById("modalCorrector");
+      if (modalEl && window.bootstrap) {
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+      }
     }
   }
-}
-
 
   function activarMenu(elemento) {
     document
@@ -193,11 +210,6 @@ async function cargarPagina(ruta, elemento) {
     }
   });
 
-  // ⛔️ ELIMINAMOS esto, ya no queremos lanzar el evento solo una vez:
-  // window.addEventListener("DOMContentLoaded", () => {
-  //   document.dispatchEvent(new CustomEvent("pagina-generacion-cargada"));
-  // });
-
   // Login exitoso desde preload.js
   window.api.onLoginExitoso(() => {
     include("header", "./components/header.html");
@@ -211,6 +223,7 @@ async function cargarPagina(ruta, elemento) {
     });
   });
 </script>
+
 
 
     <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>

@@ -622,6 +622,402 @@ window.__matrizSeleccionada = null;
   });
 })();
 
+// ===========================
+// BANCO DE PREGUNTAS → MATRIZ
+// ===========================
+
+
+// ===========================
+// BANCO DE PREGUNTAS → MATRIZ
+// ===========================
+function cerrarModalById(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const inst =
+    bootstrap.Modal.getInstance(el) ||
+    bootstrap.Modal.getOrCreateInstance(el);
+  inst.hide();
+}
+
+(() => {
+  // mapa: tema_id -> Set(doc_ids)
+  const SELECCION = {};
+  const getSet = (temaId) => {
+    const key = String(temaId);
+    if (!SELECCION[key]) SELECCION[key] = new Set();
+    return SELECCION[key];
+  };
+
+
+
+  const tbodyTemasId = "tbody-banco-temas";
+  const tbodyDetalleId = "tbody-banco-detalle";
+
+  const esc = (s) =>
+    String(s ?? "").replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        }[c])
+    );
+
+  // ---------- MODAL BANCO (lista de temas) ----------
+
+  async function cargarResumenTemas() {
+    const tbody = document.getElementById(tbodyTemasId);
+    if (!tbody) return;
+
+    try {
+      const res = await fetch(`${API}/api/banco_preguntas/resumen_temas`);
+      const data = await res.json();
+
+      if (!Array.isArray(data)) {
+        console.error("Formato inesperado de resumen_temas:", data);
+        tbody.innerHTML =
+          '<tr><td colspan="3" class="text-center text-muted">Error de formato.</td></tr>';
+        return;
+      }
+
+      if (!data.length) {
+        tbody.innerHTML =
+          '<tr><td colspan="3" class="text-center text-muted">No hay temas con banco de preguntas.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data
+        .map((t) => {
+          const setSel = getSet(t.tema_id);
+          const nSel = setSel.size;
+
+          return `
+            <tr data-tema-id="${t.tema_id}">
+              <td>${esc(t.tema_nombre)}</td>
+              <td class="text-center">
+                <span class="badge bg-secondary" id="banco-count-${t.tema_id}">
+                  ${nSel}
+                </span>
+              </td>
+              <td class="text-end">
+                <button type="button"
+                        class="btn btn-sm btn-primary btn-banco-detalle">
+                  Detalle
+                </button>
+              </td>
+            </tr>
+          `;
+        })
+        .join("");
+    } catch (e) {
+      console.error(e);
+      const tbody = document.getElementById(tbodyTemasId);
+      if (tbody)
+        tbody.innerHTML =
+          '<tr><td colspan="3" class="text-center text-muted">Error cargando banco de preguntas.</td></tr>';
+    }
+  }
+
+  async function abrirModalBanco() {
+    const modalBancoEl = document.getElementById("modalBancoPreguntas");
+    if (!modalBancoEl) return console.error("Falta #modalBancoPreguntas");
+
+    // cargamos datos
+    await cargarResumenTemas();
+
+    // si el modal de Matriz está abierto, lo cerramos y al cerrar Banco lo volvemos a abrir
+    const modalMatrizEl = document.getElementById("modalMatriz");
+    const modalMatriz =
+      modalMatrizEl &&
+      (bootstrap.Modal.getInstance(modalMatrizEl) ||
+        bootstrap.Modal.getOrCreateInstance(modalMatrizEl));
+
+    const modalBanco = bootstrap.Modal.getOrCreateInstance(modalBancoEl, {
+      backdrop: "static",
+    });
+
+    if (modalMatriz && modalMatrizEl.classList.contains("show")) {
+      modalBancoEl.addEventListener(
+        "hidden.bs.modal",
+        () => modalMatriz.show(),
+        { once: true }
+      );
+      modalMatriz.hide();
+    }
+
+    modalBanco.show();
+  }
+
+  // Botón dentro de Matriz: "Banco de preguntas"
+document.getElementById("btnBancoPreguntas").addEventListener("click", () => {
+  // 🔴 Cerrar modal MATRIZ si está abierto
+  cerrarModalById("modalMatriz");
+
+  // Cargar datos del banco
+  abrirModalBanco();
+
+  // Mostrar modal Banco de preguntas
+  const elBanco = document.getElementById("modalBancoPreguntas");
+  if (!elBanco) return;
+  if (elBanco.parentElement !== document.body) document.body.appendChild(elBanco);
+
+  const mBanco =
+    bootstrap.Modal.getInstance(elBanco) ||
+    bootstrap.Modal.getOrCreateInstance(elBanco, { backdrop: "static" });
+  mBanco.show();
+});
+
+
+  // ---------- MODAL DETALLE (preguntas por tema) ----------
+
+  let TEMA_ACTUAL_DETALLE = null;
+
+  async function abrirDetalleBancoTema(tema_id, tema_nombre) {
+  const modalDetalleEl = document.getElementById("modalBancoDetalle");
+  const modalBancoEl   = document.getElementById("modalBancoPreguntas");
+  if (!modalDetalleEl || !modalBancoEl) {
+    console.error("Faltan modales del banco");
+    return;
+  }
+
+  TEMA_ACTUAL_DETALLE = Number(tema_id);
+  document.getElementById("bancoDetalleTema").innerText =
+    tema_nombre || `Tema ${tema_id}`;
+
+  // ----- Cargar preguntas del tema -----
+  let docs = [];
+  try {
+    const res = await fetch(
+      `${API}/api/banco_preguntas?tema_id=${encodeURIComponent(tema_id)}`
+    );
+    docs = await res.json();
+    if (!Array.isArray(docs)) docs = [];
+
+    // Filtro extra por tema_id por si el backend no filtrara
+    docs = docs.filter((d) => String(d.tema_id) === String(tema_id));
+  } catch (e) {
+    console.error(e);
+    docs = [];
+  }
+
+    const tbody = document.getElementById("tbody-banco-detalle");
+  if (!tbody) return;
+
+  // usamos nuestro mapa interno SELECCION
+  const selPrev = getSet(tema_id); // ← devuelve un Set()
+
+  if (!docs.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="4" class="text-center text-muted">No hay preguntas para este tema.</td></tr>';
+  } else {
+    tbody.innerHTML = docs
+      .map((d) => {
+        const checked = selPrev.has(d.id) ? "checked" : "";
+        const nombreDoc =
+          d.nombre || d.doc_name || d.doc_preguntas_nombre || "(Sin nombre)";
+        return `
+          <tr data-doc-id="${d.id}">
+            <td class="text-center">
+              <input type="checkbox" value="${d.id}" class="banco-chk" ${checked}>
+            </td>
+            <td>${d.id}</td>
+            <td>${nombreDoc}</td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-secondary"
+                      onclick="descargarDocBanco(${d.id})">
+                Ver
+              </button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+
+  // ----- Cerrar modales de atrás -----
+  cerrarModalById("modalBancoPreguntas"); // cerrar Banco
+  cerrarModalById("modalMatriz");         // por si aún está abierto atrás
+
+  // Asegurar que el modal Detalle cuelgue de <body>
+  if (modalDetalleEl.parentElement !== document.body) {
+    document.body.appendChild(modalDetalleEl);
+  }
+
+  const mDet =
+    bootstrap.Modal.getInstance(modalDetalleEl) ||
+    bootstrap.Modal.getOrCreateInstance(modalDetalleEl, { backdrop: "static" });
+  mDet.show();
+}
+
+
+
+  function guardarSeleccionBancoTemaActual() {
+    if (!TEMA_ACTUAL_DETALLE) return;
+
+    const tbody = document.getElementById(tbodyDetalleId);
+    if (!tbody) return;
+
+    const setSel = getSet(TEMA_ACTUAL_DETALLE);
+    setSel.clear();
+
+    tbody.querySelectorAll("tr").forEach((tr) => {
+      const chk = tr.querySelector(".banco-chk");
+      if (!chk) return;
+      const docId = Number(tr.getAttribute("data-doc-id"));
+      if (chk.checked && docId) setSel.add(docId);
+    });
+
+    // actualizar contador en la tabla de temas
+    const span = document.getElementById(
+      `banco-count-${TEMA_ACTUAL_DETALLE}`
+    );
+    if (span) span.textContent = String(setSel.size);
+
+    const modalDetalleEl = document.getElementById("modalBancoDetalle");
+    if (modalDetalleEl) {
+      const mDet =
+        bootstrap.Modal.getInstance(modalDetalleEl) ||
+        bootstrap.Modal.getOrCreateInstance(modalDetalleEl);
+      mDet.hide();
+    } 
+    
+
+  }
+
+  // Botón "Guardar selección"
+  document
+    .getElementById("btnBancoGuardarSeleccion")
+    ?.addEventListener("click", () => {
+      guardarSeleccionBancoTemaActual();
+    });
+
+  // Delegar click en botones "Detalle" dentro de la tabla de temas
+  document.addEventListener("click", (ev) => {
+    const btnDetalle = ev.target.closest(".btn-banco-detalle");
+    if (!btnDetalle) return;
+
+    const tr = btnDetalle.closest("tr");
+    const temaId = tr?.dataset.temaId || tr?.getAttribute("data-tema-id");
+    if (!temaId) return;
+
+    const nombre = tr.children[0]?.textContent?.trim() || "";
+    abrirDetalleBancoTema(temaId, nombre);
+  });
+
+  // ---------- GENERAR MATRIZ DESDE BANCO (preguntas) ----------
+
+  async function generarMatrizDesdeBanco(solucionario = false) {
+    const items = Object.entries(SELECCION)
+      .map(([temaId, setSel]) => ({
+        tema_id: Number(temaId),
+        doc_ids: Array.from(setSel || []),
+      }))
+      .filter((it) => it.tema_id && it.doc_ids.length);
+
+    if (!items.length) {
+      alert("Selecciona al menos una pregunta en el banco.");
+      return;
+    }
+
+    const nombre =
+      (document.getElementById("matriz-nombre")?.value ||
+        "Matriz desde banco").trim() || "Matriz desde banco";
+
+    const url = solucionario
+      ? apiURL("/api/matriz/generar_desde_banco/solucionario")
+      : apiURL("/api/matriz/generar_desde_banco");
+
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nombre, items }),
+      });
+
+      if (res.status === 409) {
+        // caso especial: faltan solucionarios
+        let data = {};
+        try {
+          data = await res.json();
+        } catch {}
+        if (data?.faltantes?.length) {
+          const temas = data.faltantes
+            .map((f) => f.tema_nombre || f.tema || "")
+            .filter(Boolean);
+          alert(
+            "No se puede generar el solucionario.\nFaltan solucionarios de:\n- " +
+              [...new Set(temas)].join("\n- ")
+          );
+          return;
+        }
+      }
+
+      if (!res.ok) {
+        let data = {};
+        try {
+          data = await res.json();
+        } catch {}
+        throw new Error(data.error || `Error HTTP ${res.status}`);
+      }
+
+      const blob = await res.blob();
+      const urlBlob = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = urlBlob;
+      a.download = solucionario
+        ? "matriz_solucionario.docx"
+        : "matriz_desde_banco.docx";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(urlBlob);
+
+      // cerrar modal Banco
+      const modalBancoEl = document.getElementById("modalBancoPreguntas");
+      if (modalBancoEl) {
+        const mBanco =
+          bootstrap.Modal.getInstance(modalBancoEl) ||
+          bootstrap.Modal.getOrCreateInstance(modalBancoEl);
+        mBanco.hide();
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e.message || "No se pudo generar la matriz desde el banco.");
+    }
+  }
+
+  // Botón verde "Generar matriz desde banco de preguntas"
+  document
+    .getElementById("btnBancoGenerarMatriz")
+    ?.addEventListener("click", () => generarMatrizDesdeBanco(false));
+
+  // Botón gris "Generar matriz solucionario (banco)"
+  document
+    .getElementById("btn-generar-matriz-banco-sol")
+    ?.addEventListener("click", () => generarMatrizDesdeBanco(true));
+})();
+
+function volverBancoDesdeDetalle() {
+  const modalDetalleEl = document.getElementById("modalBancoDetalle");
+  const modalBancoEl = document.getElementById("modalBancoPreguntas");
+
+  // Cerrar detalle
+  const mDet = bootstrap.Modal.getInstance(modalDetalleEl);
+  if (mDet) mDet.hide();
+
+  // Volver a abrir Banco Preguntas
+  const mBanco =
+    bootstrap.Modal.getInstance(modalBancoEl) ||
+    bootstrap.Modal.getOrCreateInstance(modalBancoEl, { backdrop: "static" });
+  mBanco.show();
+}
+
+
+
 // ====== Generar/Descargar grupos ======
 (function bindGenerarGruposOnce() {
   document.addEventListener("click", async (ev) => {

@@ -588,6 +588,7 @@
 
 <!-- FUNCIONES JS -->
 <!-- =================== MODAL: BANCO DE PREGUNTAS =================== -->
+<!-- =================== MODAL: BANCO DE PREGUNTAS =================== -->
 <div
   class="modal fade"
   id="modalBancoPreguntas"
@@ -606,35 +607,84 @@
           aria-label="Cerrar"
         ></button>
       </div>
-      <!-- Botón Importar Temas debajo del título -->
-      <div class="modal-tools-banco px-3 pb-2">
-        <button class="btn btn-success btn-sm" id="btnBancoImportar">
-          Importar temas
-        </button>
-      </div>
+
+      <!-- Botón Importar debajo del título (siempre visible) -->
+      
+
       <div class="modal-body">
-        <table
-          id="tabla-banco-preguntas"
-          class="table table-striped table-bordered w-100"
-        >
-          <thead class="table-dark">
-            <tr>
-              <th>Tema</th>
-              <th>DOCX Preguntas</th>
-              <th>Solucionario</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <!-- ===== VISTA 1: RESUMEN POR TEMA ===== -->
+        <div id="vista-banco-resumen">
+          <table
+            id="tabla-banco-resumen"
+            class="table table-striped table-bordered w-100"
+          >
+            <thead class="table-dark">
+              <tr>
+                <th>Tema</th>
+                <th>Nº de preguntas</th>
+                <th>Nº de solucionarios</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <!-- ===== VISTA 2: DETALLE POR TEMA ===== -->
+        <div id="vista-banco-detalle" class="d-none">
+          <div
+            class="d-flex justify-content-between align-items-center mb-2"
+          >
+            <div>
+              <button
+                class="btn btn-outline-secondary btn-sm me-2"
+                id="btnBancoVolverResumen"
+              >
+                « Volver
+              </button>
+              <span class="fw-bold">
+                Tema:
+                <span
+                  id="bancoTituloTemaDetalle"
+                  class="text-primary"
+                ></span>
+              </span>
+            </div>
+
+            <!-- segundo botón importar dentro del detalle -->
+            <button
+              class="btn btn-success btn-sm"
+              id="btnBancoImportarDetalle"
+            >
+              Importar pregunta
+            </button>
+          </div>
+
+          <table
+            id="tabla-banco-detalle"
+            class="table table-striped table-bordered w-100"
+          >
+            <thead class="table-dark">
+              <tr>
+                <th>DOCX Preguntas</th>
+                <th>Solucionario</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-danger" data-bs-dismiss="modal">Cerrar</button>
+        <button class="btn btn-danger" data-bs-dismiss="modal">
+          Cerrar
+        </button>
       </div>
     </div>
   </div>
 </div>
+
 
 <!-- ========== Modal IMPORTAR TEMA + DOCX ========== -->
 <div
@@ -646,7 +696,7 @@
   <div class="modal-dialog">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Importar tema (DOCX de preguntas)</h5>
+        <h5 class="modal-title">Importar Pregunta (DOCX de preguntas)</h5>
         <button
           type="button"
           class="btn-close"
