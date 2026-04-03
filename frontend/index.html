@@ -35,6 +35,8 @@
     <div id="footer"></div>
 
   <script>
+  const EVALUNIA_SESSION_KEY = "evalunia_session_token";
+
   async function include(id, path) {
     const res = await fetch(path);
     const html = await res.text();
@@ -94,6 +96,7 @@
     try {
       const res = await window.api.login(usuario, clave);
       if (res && res.status === "ok") {
+        if (res.token) localStorage.setItem(EVALUNIA_SESSION_KEY, res.token);
         alerta.classList.add("d-none");
       } else {
         alerta.textContent =
@@ -209,37 +212,7 @@
         : "<p>Sección: Configuración (próximamente)</p>";
   }
 
-  // Al iniciar: mostrar login
-  include("contenido", "./login.html");
-
-  // Clicks globales (logout; el menú usa onclick + cargarPagina)
-  document.addEventListener("click", (e) => {
-    const salir = e.target.closest("#btnLogout");
-    if (salir) {
-      include("contenido", "./login.html").then(() => {
-        const header = document.getElementById("header");
-        const footer = document.getElementById("footer");
-        if (header) header.style.display = "none";
-        if (footer) footer.style.display = "none";
-      });
-    }
-  });
-
-  // Cargar header y footer una vez
-  document.addEventListener("DOMContentLoaded", () => {
-    const header = document.getElementById("header");
-    if (header) {
-      include("header", "./components/header.html");
-    }
-
-    const footer = document.getElementById("footer");
-    if (footer) {
-      include("footer", "./components/footer.html");
-    }
-  });
-
-  // Login exitoso desde preload.js
-  window.api.onLoginExitoso(async () => {
+  async function entrarComoLogueado() {
     await Promise.all([
       include("header", "./components/header.html"),
       include("footer", "./components/footer.html"),
@@ -249,6 +222,53 @@
       '.nav-link[onclick*="home.html"]'
     );
     activarMenu(homeLink || document.querySelector(".nav-link"));
+  }
+
+  // Clicks globales (logout; el menú usa onclick + cargarPagina)
+  document.addEventListener("click", (e) => {
+    const salir = e.target.closest("#btnLogout");
+    if (salir) {
+      const token = localStorage.getItem(EVALUNIA_SESSION_KEY);
+      localStorage.removeItem(EVALUNIA_SESSION_KEY);
+      if (window.api.logoutRemote) {
+        window.api.logoutRemote(token);
+      }
+      include("contenido", "./login.html").then(() => {
+        const header = document.getElementById("header");
+        const footer = document.getElementById("footer");
+        if (header) header.style.display = "none";
+        if (footer) footer.style.display = "none";
+      });
+    }
+  });
+
+  document.addEventListener("DOMContentLoaded", async () => {
+    const header = document.getElementById("header");
+    if (header) await include("header", "./components/header.html");
+
+    const footer = document.getElementById("footer");
+    if (footer) await include("footer", "./components/footer.html");
+
+    const token = localStorage.getItem(EVALUNIA_SESSION_KEY);
+    if (token) {
+      const s = await window.api.checkSession(token);
+      if (s && s.ok) {
+        await include("contenido", "./home.html");
+        const homeLink = document.querySelector(
+          '.nav-link[onclick*="home.html"]'
+        );
+        activarMenu(homeLink || document.querySelector(".nav-link"));
+        return;
+      }
+      localStorage.removeItem(EVALUNIA_SESSION_KEY);
+    }
+    await include("contenido", "./login.html");
+  });
+
+  // Login exitoso desde preload.js (token guardado en servidor + localStorage)
+  window.api.onLoginExitoso(async (token) => {
+    if (token) localStorage.setItem(EVALUNIA_SESSION_KEY, token);
+    await entrarComoLogueado();
   });
 </script>
 

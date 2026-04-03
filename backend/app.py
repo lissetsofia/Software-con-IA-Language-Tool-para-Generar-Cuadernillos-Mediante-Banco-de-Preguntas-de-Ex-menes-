@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify, send_file, redirect, url_for,send_from_directory,make_response,after_this_request
 from db import get_connection
-import os, tempfile, time,base64 ,datetime as dt,hashlib, random
+import os, tempfile, time,base64 ,datetime as dt,hashlib, random, secrets
 import win32com.client as win32
 import pythoncom
 import re
@@ -227,6 +227,13 @@ os.makedirs(BANCO_SOL_DIR, exist_ok=True)
 def _row_to_dict_list(cur):
     cols = [c[0] for c in cur.description]
     return [dict(zip(cols, r)) for r in cur.fetchall()]
+def _extract_bearer_token():
+    auth = (request.headers.get("Authorization") or "").strip()
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip() or None
+    return None
+
+
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
@@ -237,13 +244,56 @@ def login():
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM usuarios WHERE username=? AND password=?", (usuario, clave))
     user = cursor.fetchone()
+    if user:
+        token = secrets.token_urlsafe(32)
+        uname = user[1]
+        cursor.execute(
+            "INSERT INTO sesiones_app (token, username) VALUES (?, ?)",
+            (token, uname),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify(
+            {
+                "status": "ok",
+                "mensaje": "Login correcto",
+                "token": token,
+                "usuario": uname,
+            }
+        )
     cursor.close()
     conn.close()
+    return jsonify({"status": "error", "mensaje": "Credenciales inválidas"}), 401
 
-    if user:
-        return jsonify({"status": "ok", "mensaje": "Login correcto"})
-    else:
-        return jsonify({"status": "error", "mensaje": "Credenciales inválidas"}), 401
+
+@app.route("/api/session", methods=["GET"])
+def api_session():
+    token = _extract_bearer_token()
+    if not token:
+        return jsonify({"status": "error", "mensaje": "No autorizado"}), 401
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username FROM sesiones_app WHERE token = ?", (token,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    if row:
+        return jsonify({"status": "ok", "usuario": row[0]})
+    return jsonify({"status": "error", "mensaje": "Sesión inválida"}), 401
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    token = _extract_bearer_token()
+    if token:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM sesiones_app WHERE token = ?", (token,))
+        conn.commit()
+        cursor.close()
+        conn.close()
+    return jsonify({"status": "ok"})
 
 @app.route("/probar-conexion")
 def probar_conexion():
