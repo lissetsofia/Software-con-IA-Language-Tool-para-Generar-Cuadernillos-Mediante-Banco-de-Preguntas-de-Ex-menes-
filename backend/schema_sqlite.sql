@@ -102,6 +102,14 @@ CREATE TABLE IF NOT EXISTS usuarios (
     password TEXT NOT NULL
 );
 
+-- Tokens de sesión (app de escritorio / Electron)
+CREATE TABLE IF NOT EXISTS sesiones_app (
+    token TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    creado TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sesiones_app_username ON sesiones_app(username);
+
 CREATE TABLE IF NOT EXISTS claves_tipo (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     examen_id INTEGER NOT NULL,

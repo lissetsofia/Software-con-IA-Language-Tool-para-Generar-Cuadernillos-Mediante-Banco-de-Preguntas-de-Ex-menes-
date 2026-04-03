@@ -14,6 +14,14 @@ let backendProcess = null;
 const isDev = !app.isPackaged;
 const BACKEND_PORT = 5050;
 
+if (isDev) {
+  try {
+    require("electron-reloader")(module, {
+      watchRenderer: true,
+    });
+  } catch (_) {}
+}
+
 function logMain(...args) {
   console.log("[MAIN]", ...args);
 }
@@ -199,10 +207,10 @@ app.whenReady().then(async () => {
   crearVentana();
 });
 
-ipcMain.on("login-exitoso", () => {
+ipcMain.on("login-exitoso", (_event, token) => {
   if (win && !win.isDestroyed()) {
     win.maximize();
-    win.webContents.send("login-exitoso");
+    win.webContents.send("login-exitoso", token);
   }
 });
 
