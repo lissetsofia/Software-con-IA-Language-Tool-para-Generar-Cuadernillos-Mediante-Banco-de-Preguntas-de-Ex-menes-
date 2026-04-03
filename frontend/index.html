@@ -212,13 +212,10 @@
   // Al iniciar: mostrar login
   include("contenido", "./login.html");
 
-  // Clicks globales (navbar + logout)
+  // Clicks globales (logout; el menú usa onclick + cargarPagina)
   document.addEventListener("click", (e) => {
-    if (e.target?.matches(".nav-link")) {
-      activarMenu(e.target);
-    }
-
-    if (e.target?.id === "btnLogout") {
+    const salir = e.target.closest("#btnLogout");
+    if (salir) {
       include("contenido", "./login.html").then(() => {
         const header = document.getElementById("header");
         const footer = document.getElementById("footer");
@@ -242,16 +239,16 @@
   });
 
   // Login exitoso desde preload.js
-  window.api.onLoginExitoso(() => {
-    include("header", "./components/header.html");
-    include("footer", "./components/footer.html");
-    // HOME por defecto
-    include("contenido", "./home.html").then(() => {
-      const homeLink = document.querySelector(
-        '.nav-link[onclick*="home.html"]'
-      );
-      activarMenu(homeLink || document.querySelector(".nav-link"));
-    });
+  window.api.onLoginExitoso(async () => {
+    await Promise.all([
+      include("header", "./components/header.html"),
+      include("footer", "./components/footer.html"),
+      include("contenido", "./home.html"),
+    ]);
+    const homeLink = document.querySelector(
+      '.nav-link[onclick*="home.html"]'
+    );
+    activarMenu(homeLink || document.querySelector(".nav-link"));
   });
 </script>
 
