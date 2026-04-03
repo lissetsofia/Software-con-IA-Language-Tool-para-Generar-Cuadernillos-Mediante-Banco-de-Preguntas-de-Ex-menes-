@@ -31,7 +31,7 @@
         />
       </svg>
     </div>
-    <div class="shortcut__label">GENERAR MATRIZ</div>
+    <div class="shortcut__label">Generar Matriz</div>
   </div>
 
   <div
@@ -65,7 +65,7 @@
         />
       </svg>
     </div>
-    <div class="shortcut__label">GESTIONAR GRUPOS</div>
+    <div class="shortcut__label">Gestionar Grupos</div>
   </div>
 
   <div
@@ -103,14 +103,15 @@
         <circle cx="19" cy="19" r="1.2" fill="#fff" />
       </svg>
     </div>
-    <div class="shortcut__label">GESTIONAR TIPO DE PRUEBAS</div>
+    <div class="shortcut__label">Gestionar Tipo de Tema</div>
   </div>
 </div>
 
 <!-- TRIGGER ya lo tienes en la tarjeta: data-bs-toggle="modal" data-bs-target="#modalMatrizBs" -->
 
 <!-- Modal MATRIZ -->
-<div class="modal fade" id="modalMatriz" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalMatriz" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+  data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-scrollable modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -137,21 +138,20 @@
           <div class="d-flex gap-2">
             <button
               type="button"
-              id="btnBancoPreguntas"
+              id="btnBancoPreguntasCuad"
               class="btn btn-warning"
             >
               Banco de preguntas
             </button>
-            <button type="button" id="btnTemasMatriz" class="btn btn-secondary">
-              Temas
-            </button>
-            <button
-              type="button"
-              id="btn-add-fila"
-              class="btn btn-sm btn-primary"
-            >
-              + Agregar
-            </button>
+           <button
+          type="button"
+          id="btnTemasMatriz"
+          class="btn btn-secondary"
+       
+        >
+          Temario
+        </button>
+           
             <button
               type="button"
               id="btn-limpiar-filas"
@@ -166,7 +166,7 @@
           <table class="table table-bordered table-striped mb-2">
             <thead class="table-dark">
               <tr>
-                <th style="width: 45%">Tema</th>
+                <th style="width: 45%">Temario</th>
                 <th style="width: 12%">Cantidad</th>
                 <th style="width: 30%">Archivo (.docx)</th>
                 <th style="width: 13%">Acciones</th>
@@ -175,17 +175,31 @@
             <tbody id="tbody-matriz"></tbody>
           </table>
         </div>
-
-        <div class="small text-muted">
-          Sube un DOCX por cada tema. El título se añade automáticamente.
-        </div>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+ <button
+              type="button"
+              id="btn-add-fila"
+              class="btn btn-sm btn-primary"
+            >
+              + Agregar
+            </button>
+        <div class="d-flex justify-content-end mt-2">
+          
+  <small class="text-muted">
+    Total cursos: <span id="totalCursosMatriz">0</span>
+    &nbsp;|&nbsp;
+    Total preguntas: <span id="totalPreguntasMatriz">0</span>
+  </small>
+</div>
+</div>
+<div class="small text-muted mt-1">
+  Sube un DOCX por cada tema. El título se añade automáticamente.
+</div>
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">
-          Cancelar
-        </button>
-        <button id="btn-generar-matriz" class="btn btn-success">
+       
+        <button id="btn-generar-matriz" class="btn btn-success" disabled>
           Generar matriz
         </button>
       </div>
@@ -195,11 +209,12 @@
 
 
 <!-- Modal: Banco de Preguntas por Tema -->
-<div class="modal fade" id="modalBancoPreguntas" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalBancoPreguntasCuad" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+  data-bs-keyboard="false">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Banco de preguntas por tema</h5>
+        <h5 class="modal-title">Banco de preguntas por temario</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
@@ -217,14 +232,14 @@
                 <th style="width:25%" class="text-end">Acciones</th>
               </tr>
             </thead>
-            <tbody id="tbody-banco-temas">
+            <tbody id="tbody-banco-temas-cuad">
               <!-- filas dinámicas -->
             </tbody>
           </table>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+        
         
 <button id="btn-generar-matriz-banco-sol" class="btn btn-warning">
   Generar matriz solucionario (banco)
@@ -238,7 +253,8 @@
 </div>
 
 <!-- Modal: Detalle de preguntas del tema (Banco) -->
-<div class="modal fade" id="modalBancoDetalle" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalBancoDetalleCuad" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+  data-bs-keyboard="false"> 
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
@@ -262,18 +278,18 @@
                 <th style="width:120px" class="text-end">Acciones</th>
               </tr>
             </thead>
-            <tbody id="tbody-banco-detalle">
+            <tbody id="tbody-banco-detalle-cuad">
               <!-- filas dinámicas -->
             </tbody>
           </table>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn btn-secondary" type="button" onclick="volverBancoDesdeDetalle()">Cancelar</button>
+    
 
-        <button class="btn btn-primary" id="btnBancoGuardarSeleccion" onclick="volverBancoDesdeDetalle()">
-          Guardar selección
-        </button>
+<button class="btn btn-primary" type="button" id="btnBancoGuardarSeleccion">
+  Guardar selección
+</button>
       </div>
     </div>
   </div>
@@ -284,7 +300,8 @@
 
 <!-- grupos-->
 
-<div class="modal fade" id="modalGrupos" tabindex="-1">
+<div class="modal fade" id="modalGrupos" tabindex="-1"  data-bs-backdrop="static"
+  data-bs-keyboard="false">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header bg text-black">
@@ -298,9 +315,7 @@
 
       <div class="modal-body">
         <div class="d-flex justify-content-between mb-3">
-          <button class="btn btn-success" id="btnImportarMatriz">
-            <i class="bi bi-upload"></i> Importar matriz
-          </button>
+       
           <button class="btn btn-primary" id="btnNuevoGrupo">
             <i class="bi bi-plus-circle"></i> Agregar grupo
           </button>
@@ -322,6 +337,9 @@
           </thead>
           <tbody></tbody>
         </table>
+           <button class="btn btn-success" id="btnImportarMatriz">
+            <i class="bi bi-upload"></i> Importar matriz
+          </button>
 
         <div class="mt-3 text-end">
           <button class="btn btn-success" id="btnGenerarGrupos">
@@ -331,9 +349,7 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">
-          Cerrar
-        </button>
+        
       </div>
     </div>
   </div>
@@ -383,9 +399,7 @@
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-          Cancelar
-        </button>
+      
         <button type="submit" class="btn btn-primary" id="btnGuardarGrupo">
           Guardar
         </button>
@@ -400,6 +414,8 @@
   id="modalImportarMatriz"
   tabindex="-1"
   aria-hidden="true"
+   data-bs-backdrop="static"
+  data-bs-keyboard="false"
 >
   <div class="modal-dialog">
     <form class="modal-content" id="formImportarMatriz">
@@ -460,9 +476,7 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal" type="button">
-          Cancelar
-        </button>
+        
         <button class="btn btn-success" id="btnImportarOK">Importar</button>
       </div>
     </form>
@@ -475,11 +489,13 @@
   id="modalAleatorizacion"
   tabindex="-1"
   aria-hidden="true"
+   data-bs-backdrop="static"
+  data-bs-keyboard="false"
 >
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Gestionar tipo de pruebas</h5>
+        <h5 class="modal-title">Gestionar tipo de tema</h5>
         <button
           type="button"
           class="btn-close"
@@ -497,10 +513,10 @@
             hidden
           />
           <button id="btnImportarExamenes" class="btn btn-success">
-            Importar exámenes
+            Importar grupos
           </button>
           <button id="btnGenerarTipoPrueba" class="btn btn-primary">
-            Generar tipo de prueba
+            Generar tipo de tema
           </button>
         </div>
 
@@ -527,9 +543,7 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">
-          Cerrar
-        </button>
+      
       </div>
     </div>
   </div>
@@ -540,7 +554,7 @@
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Configurar tipo de prueba por grupo</h5>
+        <h5 class="modal-title">Configurar tipo de tema por grupo</h5>
         <button
           type="button"
           class="btn-close"
@@ -554,18 +568,45 @@
             <label class="form-label">Grupo</label>
             <select id="selGrupo" class="form-select"></select>
           </div>
-          <div class="col-12 col-md-8 d-flex gap-2">
-            <button id="btnAleatorizarPQ" class="btn btn-warning ms-auto">
-              Aleatorizar P y Q
-            </button>
-            <button id="btnGuardarClaves" class="btn btn-primary btn-sm">
-              Guardar claves
-            </button>
-
-            <button id="btnDescargarPruebas" class="btn btn-success">
-              Descargar pruebas
+          <div class="col-12 col-md-8">
+        <div class="tipo-acciones">
+          <div class="tipo-action-col tipo-action-col--plain ms-auto">
+            <div class="tipo-action-spacer" aria-hidden="true"></div>
+            <button id="btnNuevoTema" class="btn btn-success">
+              Nuevo tema
             </button>
           </div>
+
+          <div class="tipo-action-col tipo-action-col--counter">
+            <div
+              id="aleaCounterBox"
+              class="alea-counter-box"
+              title="Aleatorizado 0 veces"
+              aria-label="Contador de aleatorizaciones"
+            >
+              <i id="aleaCounterIcon" class="bi bi-0-circle" aria-hidden="true"></i>
+            </div>
+
+            <button id="btnAleatorizarPQ" class="btn btn-warning">
+              Aleatorizar (tipos)
+            </button>
+          </div>
+
+          <div class="tipo-action-col tipo-action-col--plain">
+            <div class="tipo-action-spacer" aria-hidden="true"></div>
+            <button id="btnImprimirClaves" class="btn btn-dark">
+              <i class="bi bi-printer"></i> Imprimir claves
+            </button>
+          </div>
+
+          <div class="tipo-action-col tipo-action-col--plain">
+            <div class="tipo-action-spacer" aria-hidden="true"></div>
+            <button id="btnDescargarPruebas" class="btn btn-secondary">
+              Descargar temas
+            </button>
+          </div>
+        </div>
+      </div>
         </div>
 
         <div class="card shadow-sm">
@@ -578,14 +619,13 @@
                 class="table table-sm table-striped align-middle mb-0"
                 id="tblClaves"
               >
-                <thead class="table-light">
-                  <tr>
-                    <th style="width: 90px">Pregunta</th>
-                    <th style="width: 120px">Origen</th>
-                    <th style="width: 120px">P</th>
-                    <th style="width: 120px">Q</th>
-                  </tr>
-                </thead>
+               <thead class="table-light" id="theadClaves">
+                <tr>
+                  <th style="width: 90px">Pregunta</th>
+                  <th style="width: 120px">Origen</th>
+                  <!-- aquí van tipos dinámicos -->
+                </tr>
+              </thead>
                 <tbody>
                   <!-- filas dinámicas -->
                 </tbody>
@@ -600,19 +640,18 @@
       </div>
 
       <div class="modal-footer">
-        <button class="btn btn-secondary" data-bs-dismiss="modal">
-          Cerrar
-        </button>
+       
       </div>
     </div>
   </div>
 </div>
 
-<div class="modal fade" id="modalTemas" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalTemas" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+  data-bs-keyboard="false">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title">Gestión de Temas</h5>
+        <h5 class="modal-title">Gestión de Temario</h5>
         <button
           type="button"
           class="btn-close"
@@ -645,6 +684,8 @@
             <tr>
               <th>ID</th>
               <th>Nombre</th>
+              <th class="d-none" aria-hidden="true">Preguntas</th>
+              
               <!-- SIN columna Preguntas -->
               <th>Estado</th>
               <th>Acciones</th>
@@ -662,57 +703,104 @@
   </div>
 </div>
 <!-- Modal crear tema -->
-<div class="modal fade" id="modalTemaCrear" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalTemaCrear" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+  data-bs-keyboard="false">
   <div class="modal-dialog">
-    <form id="formTemaCrear" class="modal-content">
+    <form class="modal-content" id="formTemaCrear">
       <div class="modal-header">
         <h5 class="modal-title">Agregar tema</h5>
         <button
-          type="button"
+         type="button"
           class="btn-close"
           data-bs-dismiss="modal"
+          aria-label="Cerrar"
         ></button>
       </div>
       <div class="modal-body">
-        <label class="form-label">Nombre del tema</label>
-        <input type="text" id="temaNombreCrear" class="form-control" required />
+        <label class="form-label">Nombre</label>
+        <input
+          type="text"
+          class="form-control"
+          id="temaNombreCrear"
+          maxlength="100"
+          required
+        />
       </div>
       <div class="modal-footer">
-        <button type="submit" class="btn btn-primary">Guardar</button>
+        
+        <button type="submit" class="btn btn-success">Guardar</button>
       </div>
     </form>
   </div>
 </div>
 
 <!-- Modal editar tema -->
-<div class="modal fade" id="modalTemaEditar" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalTemaEditar" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+  data-bs-keyboard="false">
   <div class="modal-dialog">
-    <form id="formTemaEditar" class="modal-content">
+    <form class="modal-content" id="formTemaEditar">
       <div class="modal-header">
         <h5 class="modal-title">Editar tema</h5>
         <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
+           type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            aria-label="Cerrar"
         ></button>
       </div>
       <div class="modal-body">
         <input type="hidden" id="temaIdEditar" />
-        <label class="form-label">Nombre del tema</label>
+        <label class="form-label">Nombre</label>
         <input
           type="text"
-          id="temaNombreEditar"
           class="form-control"
+          id="temaNombreEditar"
+          maxlength="100"
           required
         />
       </div>
       <div class="modal-footer">
+       
         <button type="submit" class="btn btn-primary">Actualizar</button>
       </div>
     </form>
   </div>
 </div>
+<!-- Modal editar tema P y Q  dinamico -->
+<div class="modal fade" id="modalTiposTema" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+  data-bs-keyboard="false">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Tipos de tema por grupo (P/Q/R/S...)</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
 
+      <div class="modal-body">
+        <div class="d-flex gap-2 align-items-center mb-3">
+          <input id="txtNuevoTipo" class="form-control" placeholder="Ej: R" maxlength="2" style="max-width:140px">
+          <button id="btnAgregarTipo" class="btn btn-primary">Agregar clave</button>
+          <small class="text-muted ms-auto">Activar/desactivar controla qué columnas aparecen.</small>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-bordered align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:120px">Tipo</th>
+                <th style="width:120px">Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyTiposTema"></tbody>
+          </table>
+        </div>
+      </div>
+
+     
+    </div>
+  </div>
+</div>
 
 
 <!-- Librerías -->

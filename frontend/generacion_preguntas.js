@@ -8,13 +8,12 @@ window.__ultimoGenerado = {
 };
 
 if (window.__GENERACION_PREGUNTAS_LOADED__) {
-  console.warn(
-    "generacion_preguntas.js ya estaba cargado; omito segunda ejecución"
-  );
-  // opcional: return;  // si envuelves el resto del código en una función puedes cortar aquí
+  console.warn("generacion_preguntas.js ya estaba cargado; omito segunda ejecución");
+  throw new Error("STOP_DUP_GENERACION_PREGUNTAS");
 } else {
   window.__GENERACION_PREGUNTAS_LOADED__ = true;
 }
+
 function generarNuevoExamen() {
   document
     .getElementById("modal-examen")
@@ -26,6 +25,65 @@ function cerrarModalExamen() {
     .getElementById("modal-examen")
     .classList.replace("mostrar-flex", "oculto");
 }
+
+function repararEstadoModales() {
+  const visibles = [...document.querySelectorAll(".modal.show")];
+  const backdrops = [...document.querySelectorAll(".modal-backdrop")];
+
+  if (!visibles.length) {
+    backdrops.forEach((b) => b.remove());
+    document.body.classList.remove("modal-open");
+    document.body.style.removeProperty("padding-right");
+    return;
+  }
+
+  document.body.classList.add("modal-open");
+  document.body.style.removeProperty("padding-right");
+
+  visibles.forEach((m, i) => {
+    m.style.display = "block";
+    m.removeAttribute("aria-hidden");
+    m.setAttribute("aria-modal", "true");
+    m.style.zIndex = String(1055 + i * 20);
+  });
+
+  // dejar solo los backdrops necesarios
+  while (backdrops.length > visibles.length) {
+    const b = backdrops.shift();
+    b?.remove();
+  }
+
+  const backdropsFinal = [...document.querySelectorAll(".modal-backdrop")];
+  backdropsFinal.forEach((b, i) => {
+    b.style.zIndex = String(1050 + i * 20);
+    b.style.pointerEvents = i === backdropsFinal.length - 1 ? "auto" : "none";
+  });
+
+  const top = visibles[visibles.length - 1];
+  setTimeout(() => {
+    top
+      ?.querySelector(
+        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
+      )
+      ?.focus();
+  }, 0);
+}
+
+function uiAlert(msg) {
+  alert(msg);
+  setTimeout(repararEstadoModales, 0);
+}
+
+function uiConfirm(msg) {
+  const ok = confirm(msg);
+  setTimeout(repararEstadoModales, 0);
+  return ok;
+}
+
+window.addEventListener("focus", () => {
+  setTimeout(repararEstadoModales, 0);
+});
+
 
 async function cargarExamenes() {
   try {
@@ -221,6 +279,7 @@ async function exportarExamenSeleccionado(formato) {
    ======================= */
 
 
+
 (() => {
   if (window.__TEMAS_WIRED__) return;
   window.__TEMAS_WIRED__ = true;
@@ -244,180 +303,273 @@ async function exportarExamenSeleccionado(formato) {
     console.log("[Temas] datos recibidos:", json);
     return Array.isArray(json) ? json : [];
   }
+function esModalTemasBanco() {
+  const modal = document.getElementById("modalTemas");
+  return modal?.dataset?.ctx === "banco";
+}
 
-  async function renderTemas() {
-    const showInactivos = document.getElementById(
-      "chkVerInactivosTemas"
-    )?.checked;
-    const data = await fetchTemas(showInactivos);
+async function renderTemas() {
+  const modal = document.getElementById("modalTemas");
+  if (modal?.dataset?.ctx !== "banco") return;
 
-    if (!$.fn.DataTable.isDataTable("#tabla-temas")) {
-      console.log("[Temas] creando DataTable…");
-      dtTemas = $("#tabla-temas").DataTable({
-        data,
-        destroy: true, // por si la inicializaron antes
-        autoWidth: false,
-        responsive: true, // no usar scrollX
-        pageLength: 8,
-        columns: [
-          { data: "id" },
-          { data: "nombre" },
-          { data: "n_preguntas" },
-          {
-            data: "activo",
-            render: (v) =>
-              v
-                ? '<span class="badge bg-success">Activo</span>'
-                : '<span class="badge bg-secondary">Inactivo</span>',
-          },
-          {
-            data: null,
-            orderable: false,
-            render: (row) => {
-              const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
-              const toggleClass = row.activo ? "btn-warning" : "btn-success";
-              return `
-                <div class="btn-group btn-group-sm" role="group">
-                  <button class="btn btn-primary btn-editar-tema"
-                          data-id="${row.id}" data-nombre="${row.nombre}">
-                    Editar
-                  </button>
-                  <button class="btn ${toggleClass} btn-toggle-tema"
-                          data-id="${row.id}">
-                    ${toggleTxt}
-                  </button>
-                </div>`;
-            },
-          },
-        ],
-        language: {
-          search: "Buscar:",
-          lengthMenu: "Mostrar _MENU_ registros por página",
-          zeroRecords: "No se encontraron resultados",
-          info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-          infoEmpty: "Mostrando 0 a 0 de 0 registros",
-          infoFiltered: "(filtrado de _MAX_ registros totales)",
-          paginate: {
-            first: "Primero",
-            last: "Último",
-            next: "Siguiente",
-            previous: "Anterior",
-          },
-          processing: "Procesando...",
+  const showInactivos =
+    document.getElementById("chkVerInactivosTemas")?.checked || false;
+
+  const data = await fetchTemas(showInactivos);
+  const $tabla = $("#tabla-temas");
+
+  destroyDtWrappersBanco();
+
+  console.log("[Temas] reconstruyendo DataTable...");
+
+  dtTemas = $tabla.DataTable({
+    data,
+    destroy: true,
+    autoWidth: false,
+    responsive: true,
+    pageLength: 8,
+    columns: [
+      { data: "id" },
+      { data: "nombre" },
+      { data: "n_preguntas" },
+      {
+        data: "activo",
+        render: (v) =>
+          v
+            ? '<span class="badge bg-success">Activo</span>'
+            : '<span class="badge bg-secondary">Inactivo</span>',
+      },
+      {
+        data: null,
+        orderable: false,
+        render: (row) => {
+          const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
+          const toggleClass = row.activo ? "btn-warning" : "btn-success";
+          return `
+            <div class="btn-group btn-group-sm" role="group">
+              <button class="btn btn-primary btn-editar-tema"
+                      data-id="${row.id}" data-nombre="${row.nombre || ""}">
+                Editar
+              </button>
+              <button class="btn ${toggleClass} btn-toggle-tema"
+                      data-id="${row.id}">
+                ${toggleTxt}
+              </button>
+            </div>`;
         },
-      });
+      },
+    ],
+    language: {
+      search: "Buscar:",
+      lengthMenu: "Mostrar _MENU_ registros por página",
+      zeroRecords: "No se encontraron resultados",
+      info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+      infoEmpty: "Mostrando 0 a 0 de 0 registros",
+      infoFiltered: "(filtrado de _MAX_ registros totales)",
+      paginate: {
+        first: "Primero",
+        last: "Último",
+        next: "Siguiente",
+        previous: "Anterior",
+      },
+      processing: "Procesando...",
+    },
+  });
 
-      // Delegados (una sola vez)
-      $("#tabla-temas").on("click", ".btn-editar-tema", function () {
-        const id = this.dataset.id;
-        const nombre = this.dataset.nombre;
-        document.getElementById("temaIdEditar").value = id;
-        document.getElementById("temaNombreEditar").value = nombre;
-        new bootstrap.Modal(document.getElementById("modalTemaEditar")).show();
-      });
+  $tabla.off("click.temasBanco", ".btn-editar-tema");
+  $tabla.off("click.temasBanco", ".btn-toggle-tema");
 
-      $("#tabla-temas").on("click", ".btn-toggle-tema", async function () {
-        const id = this.dataset.id;
-        if (!confirm("¿Cambiar el estado de este tema?")) return;
-        try {
-          const r = await fetch(`${window.TEMAS_API_BASE}/${id}/toggle`, {
-            method: "PATCH",
-          });
-          const d = await r.json();
-          if (!r.ok) return alert(d.error || "No se pudo cambiar el estado.");
-          await renderTemas();
-        } catch (e) {
-          console.error(e);
-          alert("Error de red.");
-        }
-      });
-    } else {
-      console.log("[Temas] refrescando DataTable…");
-      dtTemas.clear().rows.add(data).draw(false);
+  $tabla.on("click.temasBanco", ".btn-editar-tema", function () {
+    const id = this.dataset.id;
+    const nombre = this.dataset.nombre || "";
+
+    document.getElementById("temaIdEditar").value = id;
+    document.getElementById("temaNombreEditar").value = nombre;
+
+    const modalEditarEl = document.getElementById("modalTemaEditar");
+    if (modalEditarEl.parentElement !== document.body) {
+      document.body.appendChild(modalEditarEl);
     }
 
-    // Ajusta columnas por si el modal cambió de ancho
-    setTimeout(() => {
-      try {
-        $("#tabla-temas").DataTable().columns.adjust().responsive.recalc();
-      } catch {}
-    }, 0);
+    bootstrap.Modal.getOrCreateInstance(modalEditarEl, {
+      backdrop: "static",
+    }).show();
+  });
+
+  $tabla.on("click.temasBanco", ".btn-toggle-tema", async function () {
+    const id = this.dataset.id;
+    if (!confirm("¿Cambiar el estado de este tema?")) return;
+
+    try {
+      const r = await fetch(`${window.TEMAS_API_BASE}/${id}/toggle`, {
+        method: "PATCH",
+      });
+      const d = await r.json();
+
+      if (!r.ok) {
+        alert(d.error || "No se pudo cambiar el estado.");
+        return;
+      }
+
+      await renderTemas();
+    } catch (e) {
+      console.error(e);
+      alert("Error de red.");
+    }
+  });
+
+  setTimeout(() => {
+    try {
+      const api = $tabla.DataTable();
+      api.columns.adjust();
+      if (api.responsive && typeof api.responsive.recalc === "function") {
+        api.responsive.recalc();
+      }
+    } catch (e) {
+      console.warn("[Temas] no se pudo ajustar DataTable", e);
+    }
+  }, 0);
+}
+
+function destroyDtWrappersBanco() {
+  const t = document.querySelector("#tabla-temas");
+  if (!t) return;
+
+  const $t = $(t);
+
+  if ($.fn.DataTable.isDataTable(t)) {
+    try {
+      $t.DataTable().clear().destroy();
+    } catch (e) {
+      console.warn("[Temas] destroy error:", e);
+    }
   }
+
+  for (;;) {
+    const $w = $t.closest(".dataTables_wrapper, .dt-container");
+    if (!$w.length) break;
+    $w.before($t);
+    $w.remove();
+  }
+
+  t.querySelector("thead")?.remove();
+
+  const thead = document.createElement("thead");
+  thead.innerHTML = `
+    <tr>
+      <th>ID</th>
+      <th>Nombre</th>
+      <th>Preguntas</th>
+      <th>Estado</th>
+      <th>Acciones</th>
+    </tr>
+  `;
+  t.prepend(thead);
+
+  const tb = t.querySelector("tbody") || document.createElement("tbody");
+  tb.innerHTML = "";
+  if (!tb.parentElement) t.appendChild(tb);
+}
+
 
   // ————— Cableado robusto —————
 
   // 1) Inicializar SOLO cuando el modal ya está visible
+$(document).off("show.bs.modal.temasBancoCtx", "#modalTemas");
+$(document).on("show.bs.modal.temasBancoCtx", "#modalTemas", function (ev) {
+  const trigger = ev.relatedTarget;
 
-  $(document).on("shown.bs.modal", "#modalTemas", async function () {
-    console.log("[Temas] modal mostrado → renderTemas()");
-    try {
-      await renderTemas();
-    } catch (e) {
-      console.error(e);
-      alert("No se pudo cargar Temas. Revisa consola.");
-    }
-  });
+  if (trigger && trigger.id === "btnTemarioBanco") {
+    this.dataset.ctx = "banco";
+    this.dataset.returnTo = "";
+    console.log("[Temas] ctx = banco");
+  }
+});
+
+$(document).off("shown.bs.modal.temasBancoRender", "#modalTemas");
+$(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function () {
+  if (this.dataset.ctx !== "banco") return;
+
+  console.log("[Temas] shown -> renderTemas()");
+  try {
+    await renderTemas();
+  } catch (e) {
+    console.error(e);
+    alert("No se pudo cargar Temas.");
+  }
+});
+
+
 
   // 2) Filtro “mostrar inactivos”
-  $(document).on("change", "#chkVerInactivosTemas", async function () {
-    try {
-      await renderTemas();
-    } catch (e) {
-      console.error(e);
-    }
-  });
+ $(document).on("change", "#chkVerInactivosTemas", async function () {
+  const modal = document.getElementById("modalTemas");
+  if (modal?.dataset?.ctx !== "banco") return;
+
+  try {
+    await renderTemas();
+  } catch (e) {
+    console.error(e);
+  }
+});
+
 
   // 3) Crear
-  $(document).on("submit", "#formTemaCrear", async function (e) {
-    e.preventDefault();
-    const nombre = document.getElementById("temaNombreCrear").value.trim();
-    if (!nombre) return;
-    try {
-      const r = await fetch(window.TEMAS_API_BASE, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre }),
-      });
-      const d = await r.json();
-      if (!r.ok) return alert(d.error || "Error al crear.");
-      bootstrap.Modal.getInstance(
-        document.getElementById("modalTemaCrear")
-      ).hide();
-      document.getElementById("temaNombreCrear").value = "";
-      await renderTemas();
-      new bootstrap.Modal(document.getElementById("modalTemas")).show();
-    } catch (e2) {
-      console.error(e2);
-      alert("Error de red.");
-    }
-  });
+$(document).on("submit", "#formTemaCrear", async function (e) {
+  const modal = document.getElementById("modalTemas");
+  if (modal?.dataset?.ctx !== "banco") return;
+
+  e.preventDefault();
+
+  const nombre = document.getElementById("temaNombreCrear").value.trim();
+  if (!nombre) return;
+
+  try {
+    const r = await fetch(window.TEMAS_API_BASE, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre }),
+    });
+    const d = await r.json();
+    if (!r.ok) return alert(d.error || "Error al crear.");
+
+    bootstrap.Modal.getInstance(document.getElementById("modalTemaCrear"))?.hide();
+    document.getElementById("temaNombreCrear").value = "";
+    await renderTemas();
+  } catch (e2) {
+    console.error(e2);
+    alert("Error de red.");
+  }
+});
 
   // 4) Editar
-  $(document).on("submit", "#formTemaEditar", async function (e) {
-    e.preventDefault();
-    const id = document.getElementById("temaIdEditar").value;
-    const nombre = document.getElementById("temaNombreEditar").value.trim();
-    if (!nombre) return;
-    try {
-      const r = await fetch(`${window.TEMAS_API_BASE}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre }),
-      });
-      const d = await r.json();
-      if (!r.ok) return alert(d.error || "Error al actualizar.");
-      bootstrap.Modal.getInstance(
-        document.getElementById("modalTemaEditar")
-      ).hide();
-      await renderTemas();
-      new bootstrap.Modal(document.getElementById("modalTemas")).show();
-    } catch (e2) {
-      console.error(e2);
-      alert("Error de red.");
-    }
-  });
-})();
+ $(document).on("submit", "#formTemaEditar", async function (e) {
+  const modal = document.getElementById("modalTemas");
+  if (modal?.dataset?.ctx !== "banco") return;
 
+  e.preventDefault();
+
+  const id = document.getElementById("temaIdEditar").value;
+  const nombre = document.getElementById("temaNombreEditar").value.trim();
+  if (!nombre) return;
+
+  try {
+    const r = await fetch(`${window.TEMAS_API_BASE}/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre }),
+    });
+    const d = await r.json();
+    if (!r.ok) return alert(d.error || "Error al actualizar.");
+
+    bootstrap.Modal.getInstance(document.getElementById("modalTemaEditar"))?.hide();
+    await renderTemas();
+  } catch (e2) {
+    console.error(e2);
+    alert("Error de red.");
+  }
+});
+ })();
 // Reusa tu objeto de traducciones si lo tienes
 //preguntas
 // Helper fetch -> JSON con manejo de errores
@@ -445,6 +597,36 @@ window.DT_ES ??= {
   },
   processing: "Procesando...",
 };
+
+$(document).off("shown.bs.modal.dtFix");
+$(document).on(
+  "shown.bs.modal.dtFix",
+  "#modalTemas, #modalBuscar, #modalBancoPreguntas, #modalBancoDetalle, #modalBancoImportar",
+  function () {
+    const modal = this;
+
+    setTimeout(() => {
+      try {
+        $.fn.dataTable
+          .tables({ visible: true, api: true })
+          .columns.adjust()
+          .responsive.recalc();
+      } catch (e) {}
+
+      const input =
+        modal.querySelector(".dataTables_filter input") ||
+        modal.querySelector(".dt-search input");
+
+      if (input) {
+        input.disabled = false;
+        input.readOnly = false;
+        input.focus();
+        input.select?.();
+      }
+    }, 150);
+  }
+);
+
 if (typeof window.examenActual === "undefined") window.examenActual = null;
 if (typeof window.dtBuscarTemas === "undefined") window.dtBuscarTemas = null;
 if (typeof window.dtBuscarPregs === "undefined") window.dtBuscarPregs = null;
@@ -452,26 +634,54 @@ if (typeof window.dtBuscarPregs === "undefined") window.dtBuscarPregs = null;
 // Click en "Buscar" de un examen
 // Click en "Buscar"
 $(document).on("click", ".btn-buscar", async function () {
-  const raw = this.dataset.id ?? $(this).attr("data-id");
+  const btn = this;
+  const raw = btn.dataset.id ?? $(btn).attr("data-id");
   const id = Number(raw);
   console.log("[Buscar] id =", raw, "->", id);
+
   if (!Number.isInteger(id) || id <= 0) {
     alert("ID de examen inválido");
     return;
   }
+
+  if (btn.dataset.loading === "1") return;
+
+  const oldHtml = btn.innerHTML;
+  btn.dataset.loading = "1";
+  btn.disabled = true;
+  btn.innerHTML = "Cargando...";
+
   examenActual = id;
 
   try {
-    await fetch(
-      `http://localhost:5050/api/examenes/${id}/partir_y_guardar?overwrite=0`,
+    const res = await fetch(
+      `http://localhost:5050/api/examenes/${id}/partir_y_guardar?overwrite=1`,
       { method: "POST" }
     );
 
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
     await cargarTemasDelExamen(id);
-    new bootstrap.Modal(document.getElementById("modalBuscar")).show();
+
+    const modalEl = document.getElementById("modalBuscar");
+    if (modalEl && modalEl.parentElement !== document.body) {
+      document.body.appendChild(modalEl);
+    }
+
+    bootstrap.Modal.getOrCreateInstance(modalEl, {
+      backdrop: "static",
+      focus: true,
+      keyboard: true,
+    }).show();
   } catch (e) {
     console.error(e);
     alert("No se pudo preparar el examen.");
+  } finally {
+    btn.dataset.loading = "0";
+    btn.disabled = false;
+    btn.innerHTML = oldHtml;
   }
 });
 
@@ -553,7 +763,12 @@ $(document).on("click", ".btn-ver-tema", async function () {
     }
 
     // Mostrar modal de preguntas
-    new bootstrap.Modal(document.getElementById("modalPreguntas")).show();
+       const modalPreguntasEl = document.getElementById("modalPreguntas");
+    if (modalPreguntasEl && modalPreguntasEl.parentElement !== document.body) {
+      document.body.appendChild(modalPreguntasEl);
+    }
+
+    abrirModalSobre("modalBuscar", "modalPreguntas");
   } catch (e) {
     console.error(e);
     alert("No se pudieron cargar las preguntas.");
@@ -659,6 +874,10 @@ async function saveCuotasGrupoById(idgrupo, cuotas) {
   return j;
 }
 
+
+
+
+
 // -------- panel izquierdo (lista dinámica) --------
 async function renderGruposLeftPanel() {
   const ul = document.getElementById("lista-grupos");
@@ -687,26 +906,70 @@ async function renderGruposLeftPanel() {
       btnCfg.className = "btn btn-sm btn-secondary";
       btnCfg.title = "Configurar cuotas por tema";
       btnCfg.textContent = "⚙";
-      btnCfg.onclick = () => abrirModalEditarGrupo(g);
+      btnCfg.onclick = (ev) => {
+        ev.stopPropagation();
+        abrirModalEditarGrupo(g);
+      };
 
       const btnDel = document.createElement("button");
 
       btnDel.className = "btn btn-sm btn-danger btnQuitarCuota";
       btnDel.title = "Eliminar";
       btnDel.textContent = "✕";
-      btnDel.onclick = async () => {
+      btnDel.onclick = async (ev) => {
+      ev.stopPropagation();
+      try {
         if (!confirm("¿Eliminar este grupo?")) return;
-        const r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
+
+        let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
           method: "DELETE",
         });
-        const d = await r.json();
-        if (!r.ok) return alert(d.error || "No se pudo eliminar");
-        if (grupoSeleccionado?.id === g.idgrupo) grupoSeleccionado = null;
-        await renderGruposLeftPanel();
-        if ($.fn.DataTable.isDataTable("#tabla-grupos"))
-          await renderGruposModal();
-      };
+        let d = await r.json();
 
+        console.log("[GRUPO DELETE] status inicial =", r.status, d);
+
+        if (!r.ok && r.status === 409) {
+          const continuar = confirm(
+            (d.error || "El grupo tiene cuotas asociadas.") +
+              "\n\n¿Deseas eliminarlo de todas formas?"
+          );
+          if (!continuar) return;
+
+          r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}?force=1`, {
+            method: "DELETE",
+          });
+          d = await r.json();
+
+          console.log("[GRUPO DELETE] status force =", r.status, d);
+        }
+
+        if (!r.ok) {
+          alert(d.error || "No se pudo eliminar");
+          return;
+        }
+
+        if (window.grupoSeleccionado?.id === g.idgrupo) {
+          window.grupoSeleccionado = null;
+        }
+
+        alert("✅ Grupo eliminado correctamente");
+        
+        
+       setTimeout(() => {
+          limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible();
+        }, 50);
+
+        await renderGruposLeftPanel();
+
+        if ($.fn.DataTable.isDataTable("#tabla-grupos")) {
+          await renderGruposModal();
+        }
+
+      } catch (e) {
+        console.error(e);
+        alert("Error de red.");
+      }
+    };
       right.appendChild(btnCfg);
       right.appendChild(btnDel);
 
@@ -743,6 +1006,55 @@ window.generarNuevoExamen = function () {
   }
 };
 
+function limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible() {
+  const abiertos = document.querySelectorAll(".modal.show").length;
+  if (abiertos === 0) {
+    document.querySelectorAll(".modal-backdrop").forEach(el => el.remove());
+    document.body.classList.remove("modal-open");
+    document.body.style.removeProperty("padding-right");
+  }
+}
+
+const PLANTILLAS_GRUPO = {
+  A: [
+      { tema_id: 7, cantidad: 10 },
+    { tema_id: 18, cantidad: 10 },
+   { tema_id: 17, cantidad: 5 },
+    { tema_id: 2, cantidad: 5 },
+   { tema_id: 4, cantidad: 5 },
+   { tema_id: 6,cantidad: 5 },
+   { tema_id: 5,cantidad: 5 },
+   { tema_id: 8, cantidad: 5 },
+     { tema_id: 9, cantidad: 5 },
+      { tema_id: 12, cantidad: 5 },
+  ],
+  B: [
+     { tema_id: 7, cantidad: 10 },
+    { tema_id: 18, cantidad: 10 },
+   { tema_id: 17, cantidad: 5 },
+    { tema_id: 2, cantidad: 5 },
+   { tema_id: 4, cantidad: 5 },
+    { tema_id: 8, cantidad: 5 },
+     { tema_id: 9, cantidad: 5 },
+      { tema_id: 10, cantidad: 5 },
+       { tema_id: 11, cantidad: 5 },
+    { tema_id: 12, cantidad: 5 },
+  ],
+  C: [
+      { tema_id: 7, cantidad: 10 },
+    { tema_id: 18, cantidad: 10 },
+   { tema_id: 17, cantidad: 5 },
+    { tema_id: 2, cantidad: 5 },
+   { tema_id: 4, cantidad: 5 },
+   
+    { tema_id: 12, cantidad: 5 },
+    { tema_id: 16, cantidad: 5 },
+      { tema_id: 15, cantidad: 5 },
+    { tema_id: 13, cantidad: 5 },
+    { tema_id: 14, cantidad: 5 },
+  
+  ],
+};
 // -------- DataTable del modal (CRUD) --------
 async function renderGruposModal() {
   const showInactivos = document.getElementById(
@@ -824,31 +1136,60 @@ async function renderGruposModal() {
     });
 
     $("#tabla-grupos").on("click", ".btn-eliminar-grupo", async function () {
-      const id = this.dataset.id;
-      if (!confirm("¿Eliminar este grupo?")) return;
-      try {
-        const r = await fetch(`${window.GRUPOS_API_BASE}/${id}`, {
-          method: "DELETE",
-        });
-        const d = await r.json();
-        if (!r.ok) return alert(d.error || "No se pudo eliminar");
-        await renderGruposModal();
-        await renderGruposLeftPanel();
-      } catch (e) {
-        console.error(e);
-        alert("Error de red.");
-      }
+  const id = this.dataset.id;
+  if (!confirm("¿Eliminar este grupo?")) return;
+
+  try {
+    let r = await fetch(`${window.GRUPOS_API_BASE}/${id}`, {
+      method: "DELETE",
     });
+    let d = await r.json();
+
+    console.log("[GRUPO DELETE TABLA] status inicial =", r.status, d);
+
+    if (!r.ok && r.status === 409) {
+      const continuar = confirm(
+        (d.error || "El grupo tiene cuotas asociadas.") +
+          "\n\n¿Deseas eliminarlo de todas formas?"
+      );
+      if (!continuar) return;
+
+      r = await fetch(`${window.GRUPOS_API_BASE}/${id}?force=1`, {
+        method: "DELETE",
+      });
+      d = await r.json();
+
+      console.log("[GRUPO DELETE TABLA] status force =", r.status, d);
+    }
+
+    if (!r.ok) {
+      alert(d.error || "No se pudo eliminar");
+      return;
+    }
+
+    if (window.grupoSeleccionado?.id === Number(id)) {
+      window.grupoSeleccionado = null;
+    }
+
+    alert("✅ Grupo eliminado correctamente");
+    await renderGruposModal();
+    await renderGruposLeftPanel();
+  } catch (e) {
+    console.error(e);
+    alert("Error de red.");
+  }
+});
   } else {
     dtGrupos.clear().rows.add(data).draw(false);
   }
-
+  
   setTimeout(() => {
     try {
       $("#tabla-grupos").DataTable().columns.adjust().responsive.recalc();
     } catch {}
   }, 0);
 }
+
 
 // abrir modal → cargar tabla
 $(document).on("shown.bs.modal", "#modalGrupos", async function () {
@@ -873,22 +1214,60 @@ $(document).on("change", "#chkVerInactivosGrupos", async function () {
 $(document).on("show.bs.modal", "#modalGrupoCrear", async function () {
   const temas = await cargarTemasActivos();
   const cont = document.getElementById("cuotasContainer");
-  cont.innerHTML = filaCuotaHTML(temas);
-  totalFrom("#cuotasContainer", "#totalCuotas");
+  const inpClave = document.getElementById("grupoClaveCrear");
+
+  cont.innerHTML = "";
+
+  function renderPlantillaDesdeClave() {
+    const clave = (inpClave?.value || "").trim().toUpperCase();
+    const plantilla =
+      PLANTILLAS_GRUPO[clave] || [{ tema_id: temas[0]?.id, cantidad: 5 }];
+
+    cont.innerHTML = "";
+    plantilla.forEach((c) => {
+      cont.insertAdjacentHTML(
+        "beforeend",
+        filaCuotaHTML(temas, c.tema_id, c.cantidad)
+      );
+    });
+
+    totalFrom("#cuotasContainer", "#totalCuotas");
+  }
+
+  renderPlantillaDesdeClave();
+
+  if (inpClave) {
+    inpClave.oninput = () => {
+      const clave = (inpClave.value || "").trim().toUpperCase();
+      if (PLANTILLAS_GRUPO[clave]) {
+        renderPlantillaDesdeClave();
+      }
+    };
+  }
 
   document.getElementById("btnAgregarCuota").onclick = () => {
     cont.insertAdjacentHTML("beforeend", filaCuotaHTML(temas));
+    totalFrom("#cuotasContainer", "#totalCuotas");
   };
-  cont.addEventListener("click", (e) => {
+
+  cont.onclick = (e) => {
     if (e.target.classList.contains("btnQuitarCuota")) {
       e.target.closest(".cuota-row")?.remove();
       totalFrom("#cuotasContainer", "#totalCuotas");
     }
-  });
-  cont.addEventListener("input", (e) => {
-    if (e.target.classList.contains("inp-cant"))
+  };
+
+  cont.oninput = (e) => {
+    if (e.target.classList.contains("inp-cant")) {
       totalFrom("#cuotasContainer", "#totalCuotas");
-  });
+    }
+  };
+
+  cont.onchange = (e) => {
+    if (e.target.classList.contains("sel-tema")) {
+      totalFrom("#cuotasContainer", "#totalCuotas");
+    }
+  };
 });
 
 $(document).on("submit", "#formGrupoCrear", async function (e) {
@@ -964,37 +1343,88 @@ async function abrirModalEditarGrupo(g) {
   const cont = document.getElementById("cuotasContainerEdit");
   cont.innerHTML = "";
 
-  // cuotas actuales
   const cuotas = await fetchCuotasGrupo(g.idgrupo);
-  if (Array.isArray(cuotas) && cuotas.length) {
-    cuotas.forEach((q) =>
-      cont.insertAdjacentHTML(
-        "beforeend",
-        filaCuotaHTML(temas, q.tema_id, q.cantidad)
-      )
-    );
-  } else {
-    cont.insertAdjacentHTML("beforeend", filaCuotaHTML(temas));
-  }
+  const claveGrupo = (g?.clave || "").trim().toUpperCase();
+  const cuotasBase =
+    Array.isArray(cuotas) && cuotas.length
+      ? cuotas
+      : (PLANTILLAS_GRUPO[claveGrupo] || [{ tema_id: temas[0]?.id, cantidad: 5 }]);
+
+  cuotasBase.forEach((q) =>
+    cont.insertAdjacentHTML(
+      "beforeend",
+      filaCuotaHTML(temas, q.tema_id, q.cantidad)
+    )
+  );
 
   totalFrom("#cuotasContainerEdit", "#totalCuotasEdit");
 
   document.getElementById("btnAgregarCuotaEdit").onclick = () => {
     cont.insertAdjacentHTML("beforeend", filaCuotaHTML(temas));
+    totalFrom("#cuotasContainerEdit", "#totalCuotasEdit");
   };
-  cont.addEventListener("click", (e) => {
-    if (e.target.classList.contains("btnQuitarCuota")) {
-      e.target.closest(".cuota-row")?.remove();
-      totalFrom("#cuotasContainerEdit", "#totalCuotasEdit");
-    }
+
+  const modalEditarEl = document.getElementById("modalGrupoEditar");
+  if (!modalEditarEl) return;
+
+  if (modalEditarEl.parentElement !== document.body) {
+    document.body.appendChild(modalEditarEl);
+  }
+
+  const modalGruposVisible =
+    document.querySelector("#modalGrupos.show") ||
+    document.querySelector('#modalGrupos[style*="display: block"]');
+
+  if (modalGruposVisible) {
+    abrirModalSobre("modalGrupos", "modalGrupoEditar");
+    return;
+  }
+
+  // caso: abierto desde el modal custom principal
+  const main = document.getElementById("modal-examen");
+  if (main && main.classList.contains("mostrar-flex")) {
+    main.dataset.wasVisible = "1";
+    main.classList.remove("mostrar-flex");
+    main.classList.add("oculto");
+  }
+
+  const inst = bootstrap.Modal.getOrCreateInstance(modalEditarEl, {
+    backdrop: "static",
+    focus: true,
+    keyboard: true,
   });
-  cont.addEventListener("input", (e) => {
-    if (e.target.classList.contains("inp-cant"))
-      totalFrom("#cuotasContainerEdit", "#totalCuotasEdit");
-  });
-  -new bootstrap.Modal(document.getElementById("modalGrupoEditar")).show();
-  +abrirModalSobre("modalGrupos", "modalGrupoEditar");
+
+  modalEditarEl.addEventListener(
+    "hidden.bs.modal",
+    () => {
+      const main2 = document.getElementById("modal-examen");
+      if (main2 && main2.dataset.wasVisible === "1") {
+        main2.classList.remove("oculto");
+        main2.classList.add("mostrar-flex");
+        delete main2.dataset.wasVisible;
+      }
+    },
+    { once: true }
+  );
+
+  inst.show();
 }
+
+$(document).off("click", "#cuotasContainerEdit .btnQuitarCuota");
+$(document).on("click", "#cuotasContainerEdit .btnQuitarCuota", function () {
+  $(this).closest(".cuota-row").remove();
+  totalFrom("#cuotasContainerEdit", "#totalCuotasEdit");
+});
+
+$(document).off("input", "#cuotasContainerEdit .inp-cant");
+$(document).on("input", "#cuotasContainerEdit .inp-cant", function () {
+  totalFrom("#cuotasContainerEdit", "#totalCuotasEdit");
+});
+
+$(document).off("change", "#cuotasContainerEdit .sel-tema");
+$(document).on("change", "#cuotasContainerEdit .sel-tema", function () {
+  totalFrom("#cuotasContainerEdit", "#totalCuotasEdit");
+});
 
 $(document).off("submit", "#formGrupoEditar");
 $(document).on("submit", "#formGrupoEditar", async function (e) {
@@ -1042,61 +1472,63 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
   }
 });
 // --- Gestión de apilamiento entre tu modal custom y los modales Bootstrap ---
-(function () {
-  const main = document.getElementById("modal-examen"); // tu modal grande custom
-  if (!main) return;
 
-  let bsOpenCount = 0;
 
-  function hideMainIfNeeded() {
-    if (!main) return;
-    // recuerda si estaba visible para luego restaurarlo
-    if (!main.dataset.wasVisible && main.classList.contains("mostrar-flex")) {
-      main.dataset.wasVisible = "1";
-    }
-    main.classList.remove("mostrar-flex");
-    main.classList.add("oculto");
-  }
+function getLastById(id) {
+  const els = [...document.querySelectorAll(`#${id}`)];
+  return els.length ? els[els.length - 1] : null;
+}
 
-  function maybeRestoreMain() {
-    if (!main) return;
-    if (bsOpenCount === 0 && main.dataset.wasVisible === "1") {
-      main.classList.remove("oculto");
-      main.classList.add("mostrar-flex");
-      delete main.dataset.wasVisible;
-    }
-  }
+function getVisibleById(id) {
+  const els = [...document.querySelectorAll(`#${id}`)];
+  return (
+    els.find((el) => el.classList.contains("show") || el.style.display === "block") ||
+    els[els.length - 1] ||
+    null
+  );
+}
 
-  // Para cualquier modal de Bootstrap que se abra/cierre
-  $(document).on("show.bs.modal", ".modal", function () {
-    bsOpenCount++;
-    hideMainIfNeeded();
-  });
-
-  $(document).on("hidden.bs.modal", ".modal", function () {
-    bsOpenCount = Math.max(0, bsOpenCount - 1);
-    maybeRestoreMain();
-  });
-})();
 function abrirModalSobre(parentId, childId) {
-  const parentEl = document.getElementById(parentId);
-  const childEl = document.getElementById(childId);
+  const parentEl = getVisibleById(parentId);
+  const childEl = getLastById(childId);
+
+  console.log("[MODAL] abrirModalSobre");
+  console.log("[MODAL] parentId =", parentId, "count =", document.querySelectorAll(`#${parentId}`).length);
+  console.log("[MODAL] childId =", childId, "count =", document.querySelectorAll(`#${childId}`).length);
+  console.log("[MODAL] parentEl =", parentEl);
+  console.log("[MODAL] childEl =", childEl);
+
+  if (!parentEl || !childEl) {
+    console.error("[MODAL] Falta parent o child", { parentId, childId });
+    return;
+  }
+
+  if (childEl.parentElement !== document.body) {
+    document.body.appendChild(childEl);
+  }
 
   const parent = bootstrap.Modal.getOrCreateInstance(parentEl);
-  const child = bootstrap.Modal.getOrCreateInstance(childEl);
+  const child = bootstrap.Modal.getOrCreateInstance(childEl, {
+    backdrop: "static",
+    focus: true,
+    keyboard: true,
+  });
 
-  // Oculta el padre y, cuando el hijo se cierre, vuelve a mostrarlo
+  const onParentHidden = () => {
+    console.log("[MODAL] parent oculto, ahora se abre child:", childId);
+    child.show();
+  };
+
+  const onChildHidden = () => {
+    console.log("[MODAL] child cerrado, reabriendo parent:", parentId);
+    bootstrap.Modal.getOrCreateInstance(parentEl).show();
+  };
+
+  parentEl.addEventListener("hidden.bs.modal", onParentHidden, { once: true });
+  childEl.addEventListener("hidden.bs.modal", onChildHidden, { once: true });
+
+  console.log("[MODAL] ocultando parent:", parentId, "para abrir child:", childId);
   parent.hide();
-  childEl.addEventListener(
-    "hidden.bs.modal",
-    () => {
-      // reabrir solo si el padre sigue montado
-      bootstrap.Modal.getOrCreateInstance(parentEl).show();
-    },
-    { once: true }
-  );
-
-  child.show();
 }
 
 // ========= GENERAR EXAMEN DESDE GRUPO (robusto) =========
@@ -1154,6 +1586,21 @@ function abrirModalSobre(parentId, childId) {
 
       if (!res.ok || !data?.ok) {
         const msg = data?.error || `Error ${res.status}`;
+
+        console.group("[GENERAR_EXAMEN][ERROR_BACKEND]");
+        console.log("status =", res.status);
+        console.log("error =", msg);
+        console.log("payload completo =", data);
+
+        if (Array.isArray(data?.detalles)) {
+          console.log("detalles:");
+          data.detalles.forEach((d, i) => {
+            console.log(`  [${i + 1}] path=${d.path || "-"} motivo=${d.motivo || d.tema || "-"}`);
+          });
+        }
+
+        console.groupEnd();
+
         setBanner(`❌ ${msg}`, "danger");
         mostrarAccionesDescarga(false);
         return;
@@ -1209,8 +1656,9 @@ function abrirModalSobre(parentId, childId) {
 
       // 4) Mostrar en visor:
       ensureViewer();
-      if (previewAbs) {
-        cargarIframe(previewAbs); // preview_url del backend (pdf o html)
+
+      if (data.preview_kind === "pdf" && previewAbs) {
+        cargarIframe(previewAbs);
       } else if (window.__ultimoGenerado.pdfUrl) {
         cargarIframe(
           window.__ultimoGenerado.pdfUrl.replace(
@@ -1218,10 +1666,10 @@ function abrirModalSobre(parentId, childId) {
             "http://127.0.0.1:5050/"
           )
         );
-      } else if (docxName) {
-        await mostrarVistaDocx(docxName); // último recurso (HTML)
       } else {
-        setBanner("No hay vista previa disponible.", "warning");
+        setBanner("❌ No se pudo generar la vista PDF del examen.", "danger");
+        mostrarAccionesDescarga(false);
+        return;
       }
 
       // 4) Links de arriba del visor + banner
@@ -1266,7 +1714,7 @@ function showBanner(msg, kind = "info") {
 async function guardarUltimoDeDescargasDocx() {
   const res = await window.api?.saveLastFromFolder?.({
     sourceDir:
-      "D:\\tesis software\\Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-\\descargas",
+      "D:\\tesis software\\software_ia\\descargas",
     pattern: "\\.(docx)$",
     suggestedName: window.__ultimoGenerado?.docxName || "examen.docx",
   });
@@ -1275,7 +1723,7 @@ async function guardarUltimoDeDescargasDocx() {
 async function guardarUltimoDeDescargasPdf() {
   const res = await window.api?.saveLastFromFolder?.({
     sourceDir:
-      "D:\\tesis software\\Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-\\descargas",
+      "D:\\tesis software\\software_ia\\descargas",
     pattern: "\\.(pdf)$",
     suggestedName: window.__ultimoGenerado?.pdfName || "examen.pdf",
   });
@@ -1308,7 +1756,7 @@ document.addEventListener("click", async (ev) => {
       console.log("[GUARDAR DOCX] Plan C: saveLastFromFolder");
       const res = await window.api?.saveLastFromFolder?.({
         sourceDir:
-          "D:\\tesis software\\Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-\\descargas",
+          "D:\\tesis software\\software_ia\\descargas",
         pattern: "\\.(docx)$",
         suggestedName: n,
       });
@@ -1341,7 +1789,7 @@ document.addEventListener("click", async (ev) => {
       console.log("[GUARDAR PDF] Plan C: saveLastFromFolder");
       const res = await window.api?.saveLastFromFolder?.({
         sourceDir:
-          "D:\\tesis software\\Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-\\descargas",
+          "D:\\tesis software\\software_ia\\descargas",
         pattern: "\\.(pdf)$",
         suggestedName: n,
       });
@@ -1364,51 +1812,49 @@ function toAbs(p) {
 
 function cargarIframe(urlAbsOrel) {
   const cont = document.getElementById("visor-examen");
-  const iframe = document.getElementById("frame-examen");
-  if (!iframe) return;
+  const host = document.getElementById("pdf-host");
+  if (!host) return;
 
   cont?.classList.remove("cargado");
 
   const url = urlAbsOrel.startsWith("http")
     ? urlAbsOrel
-    : `http://127.0.0.1:5050${
-        urlAbsOrel.startsWith("/") ? "" : "/"
-      }${urlAbsOrel}`;
+    : `http://127.0.0.1:5050${urlAbsOrel.startsWith("/") ? "" : "/"}${urlAbsOrel}`;
 
-  console.log("[iframe] src ->", url);
-  iframe.onload = () => cont?.classList.add("cargado");
-  iframe.removeAttribute("srcdoc"); // <- clave para PDF
-  iframe.src = url;
+  console.log("[pdf] src ->", url);
+
+  host.innerHTML = `
+    <embed
+      src="${url}#toolbar=1&navpanes=0&scrollbar=1"
+      type="application/pdf"
+      style="width:100%;height:100%;border:0;"
+    />
+  `;
+
+  cont?.classList.add("cargado");
 }
 
 function ensureViewer() {
-  const host =
-    document.getElementById("modal-examen") ||
-    document.querySelector(".pdf-vista") ||
-    document.body;
+  const visor = document.getElementById("visor-examen");
+  const pdfHost = document.getElementById("pdf-host");
 
-  if (
-    document.getElementById("visor-examen") &&
-    document.getElementById("frame-examen")
-  )
-    return;
+  if (!visor) {
+    console.warn("[ensureViewer] no existe #visor-examen en el HTML");
+    return false;
+  }
 
-  const box = document.createElement("div");
-  box.id = "visor-examen";
-  box.className = "visor-examen"; // 👈 clave (puedes añadir otras clases después)
-  box.style.minHeight = "620px";
-  box.style.height = "620px";
-  box.style.marginTop = "12px";
-  box.style.background = "#fff";
-  box.innerHTML = `
-    <div id="linksVista" class="mb-2"></div>
-    <div id="accionesDescarga" class="d-none mb-2">
-      <button id="btnGuardarDocx" class="btn btn-primary btn-sm me-2">Guardar DOCX…</button>
-      <button id="btnGuardarPdf"  class="btn btn-outline-secondary btn-sm">Guardar PDF…</button>
-    </div>
-    <iframe id="frame-examen" style="width:100%;height:100%;border:0"></iframe>
-  `;
-  host.appendChild(box);
+  // si no existe pdf-host, créalo dentro del cuadro blanco
+  if (!pdfHost) {
+    const host = document.createElement("div");
+    host.id = "pdf-host";
+    host.style.width = "100%";
+    host.style.height = "100%";
+    host.style.border = "0";
+    host.style.background = "#fff";
+    visor.appendChild(host);
+  }
+
+  return true;
 }
 
 async function mostrarVistaDocx(nombreDocx) {
@@ -1416,7 +1862,7 @@ async function mostrarVistaDocx(nombreDocx) {
 
   const base = "http://127.0.0.1:5050";
   const cont = document.getElementById("visor-examen");
-  const frame = document.getElementById("frame-examen");
+  const host = document.getElementById("pdf-host");
   const btnAbrir = document.getElementById("btnAbrirPreview");
 
   const banner = (msg, kind = "success") => {
@@ -1611,58 +2057,60 @@ function ponerLinksVista(docxUrl, pdfUrl) {
   }
 
   // ------------- DataTable RESUMEN -------------
-  async function cargarBancoResumen() {
-    await cargarBancoDesdeApi();
-    const resumen = await construirResumenPorTema();
+ async function cargarBancoResumen() {
+  await cargarBancoDesdeApi();
+  const resumen = await construirResumenPorTema();
 
-    if (!$.fn.DataTable.isDataTable("#tabla-banco-resumen")) {
-      dtBancoResumen = $("#tabla-banco-resumen").DataTable({
-        data: resumen,
-        autoWidth: false,
-        responsive: true,
-        pageLength: 8,
-        columns: [
-          { data: "tema", title: "Tema" },
-          {
-            data: "n_preguntas",
-            title: "Nº de preguntas",
-            className: "text-center",
-          },
-          {
-            data: "n_solucionarios",
-            title: "Nº de solucionarios",
-            className: "text-center",
-          },
-          {
-            data: null,
-            title: "Acciones",
-            orderable: false,
-            className: "text-center",
-            render: (row) =>
-              `<button class="btn btn-info btn-sm btn-banco-detalles"
-                        data-tema="${row.id_tema}"
-                        data-nombre="${row.tema}">
-                  Detalles
-               </button>`,
-          },
-        ],
-        language: window.DT_ES || {},
-      });
-
-      // Click en Detalles
-      $("#tabla-banco-resumen").on(
-        "click",
-        ".btn-banco-detalles",
-        function () {
-          const idTema = this.dataset.tema;
-          const nombre = this.dataset.nombre;
-          verDetalleTemaBanco(idTema, nombre);
-        }
-      );
-    } else {
-      dtBancoResumen.clear().rows.add(resumen).draw(false);
-    }
+  if (!$.fn.DataTable.isDataTable("#tabla-banco-resumen")) {
+    dtBancoResumen = $("#tabla-banco-resumen").DataTable({
+      data: resumen,
+      autoWidth: false,
+      responsive: true,
+      pageLength: 8,
+      columns: [
+        { data: "tema", title: "Tema" },
+        {
+          data: "n_preguntas",
+          title: "Nº de preguntas",
+          className: "text-center",
+        },
+        {
+          data: "n_solucionarios",
+          title: "Nº de solucionarios",
+          className: "text-center",
+        },
+        {
+          data: null,
+          title: "Acciones",
+          orderable: false,
+          className: "text-center",
+          render: (row) =>
+            `<button class="btn btn-info btn-sm btn-banco-detalles"
+                      data-tema="${row.id_tema}"
+                      data-nombre="${row.tema}">
+                Detalles
+             </button>`,
+        },
+      ],
+      language: window.DT_ES || {},
+    });
+  } else {
+    dtBancoResumen.clear().rows.add(resumen).draw(false);
   }
+
+  // SIEMPRE re-enlazar
+  $(document).off("click", "#tabla-banco-resumen .btn-banco-detalles");
+  $(document).on("click", "#tabla-banco-resumen .btn-banco-detalles", function () {
+    console.log("[BANCO][CLICK DETALLE] botón pulsado");
+    console.log("[BANCO][CLICK DETALLE] dataset.tema =", this.dataset.tema);
+    console.log("[BANCO][CLICK DETALLE] dataset.nombre =", this.dataset.nombre);
+    console.log("[BANCO][CLICK DETALLE] examenActual =", window.examenActual);
+
+    const idTema = this.dataset.tema;
+    const nombre = this.dataset.nombre;
+    verDetalleTemaBanco(idTema, nombre);
+  });
+}
 
   // Helper para renderizar las acciones (se usa en detalle)
   function renderAccionesBanco(row) {
@@ -1699,77 +2147,173 @@ function ponerLinksVista(docxUrl, pdfUrl) {
 
   // ------------- DataTable DETALLE POR TEMA -------------
   function cargarBancoDetalle() {
-    if (!temaSeleccionadoBanco) return;
+  console.log("[BANCO][cargarBancoDetalle] INICIO");
+  console.log("[BANCO][cargarBancoDetalle] temaSeleccionadoBanco =", temaSeleccionadoBanco);
+  console.log("[BANCO][cargarBancoDetalle] bancoDataCache size =", bancoDataCache?.length);
 
-    const datos = bancoDataCache.filter((r) => {
-      const tid = r.tema_id ?? r.temaId ?? r.id_tema;
-      return String(tid) === String(temaSeleccionadoBanco);
-    });
-
-    if (!$.fn.DataTable.isDataTable("#tabla-banco-detalle")) {
-      dtBancoDetalle = $("#tabla-banco-detalle").DataTable({
-        data: datos,
-        autoWidth: false,
-        responsive: true,
-        pageLength: 8,
-        columns: [
-          {
-            data: "doc_preguntas_nombre",
-            title: "DOCX Preguntas",
-            render: (d) =>
-              d
-                ? `<span class="badge bg-secondary">${d}</span>`
-                : '<span class="text-muted">No asignado</span>',
-          },
-          {
-            data: "doc_sol_nombre",
-            title: "Solucionario",
-            render: (d) =>
-              d
-                ? `<span class="badge bg-info">${d}</span>`
-                : '<span class="text-muted">Sin solucionario</span>',
-          },
-          {
-            data: null,
-            title: "Acciones",
-            orderable: false,
-            render: (row) => renderAccionesBanco(row),
-          },
-        ],
-        language: window.DT_ES || {},
-      });
-    } else {
-      dtBancoDetalle.clear().rows.add(datos).draw(false);
-    }
+  if (!temaSeleccionadoBanco) {
+    console.warn("[BANCO][cargarBancoDetalle] no hay temaSeleccionadoBanco");
+    return;
   }
+
+  const modalVisible = [...document.querySelectorAll("#modalBancoPreguntas")]
+    .find(el => el.classList.contains("show") || el.style.display === "block");
+
+  if (!modalVisible) {
+    console.warn("[BANCO][cargarBancoDetalle] no hay modal visible");
+    return;
+  }
+
+  const tablaEl = modalVisible.querySelector("#tabla-banco-detalle");
+  if (!tablaEl) {
+    console.warn("[BANCO][cargarBancoDetalle] no se encontró #tabla-banco-detalle dentro del modal visible");
+    return;
+  }
+
+  const datos = bancoDataCache.filter((r) => {
+    const tid = r.tema_id ?? r.temaId ?? r.id_tema;
+    return String(tid) === String(temaSeleccionadoBanco);
+  });
+
+  console.log("[BANCO][cargarBancoDetalle] datos filtrados =", datos);
+  console.log("[BANCO][cargarBancoDetalle] tablaEl =", tablaEl);
+  console.log("[BANCO][cargarBancoDetalle] duplicados #tabla-banco-detalle =", document.querySelectorAll("#tabla-banco-detalle").length);
+
+  const $tabla = $(tablaEl);
+
+  if ($.fn.DataTable.isDataTable(tablaEl)) {
+    console.log("[BANCO][cargarBancoDetalle] reutilizando DataTable detalle visible");
+    const dt = $tabla.DataTable();
+    dt.clear();
+    dt.rows.add(datos);
+    dt.draw(false);
+    dt.columns.adjust().draw(false);
+  } else {
+    console.log("[BANCO][cargarBancoDetalle] creando DataTable detalle visible");
+    dtBancoDetalle = $tabla.DataTable({
+      data: datos,
+      autoWidth: false,
+      responsive: true,
+      pageLength: 8,
+      destroy: true,
+      columns: [
+        {
+          data: "doc_preguntas_nombre",
+          title: "DOCX Preguntas",
+          render: (d) =>
+            d
+              ? `<span class="badge bg-secondary">${d}</span>`
+              : '<span class="text-muted">No asignado</span>',
+        },
+        {
+          data: "doc_sol_nombre",
+          title: "Solucionario",
+          render: (d) =>
+            d
+              ? `<span class="badge bg-info">${d}</span>`
+              : '<span class="text-muted">Sin solucionario</span>',
+        },
+        {
+          data: null,
+          title: "Acciones",
+          orderable: false,
+          render: (row) => renderAccionesBanco(row),
+        },
+      ],
+      language: window.DT_ES || {},
+    });
+  }
+
+  console.log("[BANCO][cargarBancoDetalle] FIN");
+}
 
   // ------------- Cambiar entre vistas -------------
-  function verDetalleTemaBanco(idTema, nombreTema) {
-    temaSeleccionadoBanco = idTema;
+ 
+function verDetalleTemaBanco(idTema, nombreTema) {
+  console.log("[BANCO][verDetalleTemaBanco] INICIO");
+  temaSeleccionadoBanco = idTema;
 
-    document
-      .getElementById("vista-banco-resumen")
-      .classList.add("d-none");
-    document
-      .getElementById("vista-banco-detalle")
-      .classList.remove("d-none");
+  const modalVisible = [...document.querySelectorAll("#modalBancoPreguntas")]
+    .find(el => el.classList.contains("show") || el.style.display === "block");
 
-    const lbl = document.getElementById("bancoTituloTemaDetalle");
-    if (lbl) lbl.textContent = nombreTema || "";
+  console.log("[BANCO][verDetalleTemaBanco] modalVisible =", modalVisible);
 
+  if (!modalVisible) {
+    console.error("[BANCO] No hay modalBancoPreguntas visible");
+    return;
+  }
+
+  const lbl =
+    modalVisible.querySelector("#bancoTituloTemaDetalle") ||
+    modalVisible.querySelector("#bancoDetalleTema");
+
+  if (lbl) lbl.textContent = nombreTema || "";
+
+  const vRes = modalVisible.querySelector("#vista-banco-resumen");
+  const vDet = modalVisible.querySelector("#vista-banco-detalle");
+
+  console.log("[BANCO][verDetalleTemaBanco] vRes =", vRes);
+  console.log("[BANCO][verDetalleTemaBanco] vDet =", vDet);
+
+  if (vRes) vRes.classList.add("d-none");
+  if (vDet) vDet.classList.remove("d-none");
+
+  console.log("[BANCO][verDetalleTemaBanco] después del toggle");
+  console.log("[BANCO][verDetalleTemaBanco] vRes classes =", vRes?.className);
+  console.log("[BANCO][verDetalleTemaBanco] vDet classes =", vDet?.className);
+
+  try {
     cargarBancoDetalle();
+    console.log("[BANCO][verDetalleTemaBanco] cargarBancoDetalle() OK");
+
+    setTimeout(() => {
+    try {
+      const modalVisible = [...document.querySelectorAll("#modalBancoPreguntas")]
+        .find(el => el.classList.contains("show") || el.style.display === "block");
+
+      const tablaEl = modalVisible?.querySelector("#tabla-banco-detalle");
+      if (tablaEl && $.fn.DataTable.isDataTable(tablaEl)) {
+        $(tablaEl).DataTable().columns.adjust().draw(false);
+      }
+    } catch (e) {
+      console.warn("[BANCO][verDetalleTemaBanco] adjust detalle error", e);
+    }
+  }, 0);
+
+  } catch (e) {
+    console.error("[BANCO][verDetalleTemaBanco] ERROR en cargarBancoDetalle()", e);
+    return;
   }
 
-  async function volverABancoResumen() {
-    temaSeleccionadoBanco = null;
-    document
-      .getElementById("vista-banco-detalle")
-      .classList.add("d-none");
-    document
-      .getElementById("vista-banco-resumen")
-      .classList.remove("d-none");
-    await cargarBancoResumen();
-  }
+  console.log("[BANCO][verDetalleTemaBanco] FIN");
+}
+
+async function volverABancoResumen() {
+  temaSeleccionadoBanco = null;
+
+  const modalVisible = [...document.querySelectorAll("#modalBancoPreguntas")]
+    .find(el => el.classList.contains("show") || el.style.display === "block");
+
+  if (!modalVisible) return;
+
+  const vRes = modalVisible.querySelector("#vista-banco-resumen");
+  const vDet = modalVisible.querySelector("#vista-banco-detalle");
+
+  if (vDet) vDet.classList.add("d-none");
+  if (vRes) vRes.classList.remove("d-none");
+
+  await cargarBancoResumen();
+
+  setTimeout(() => {
+    try {
+      if ($.fn.DataTable.isDataTable("#tabla-banco-resumen")) {
+        $("#tabla-banco-resumen").DataTable().columns.adjust().draw(false);
+      }
+    } catch (e) {
+      console.warn("[BANCO][volverABancoResumen] adjust resumen error", e);
+    }
+  }, 0);
+}
 
   async function recargarBancoDespuesDeCambio() {
     await cargarBancoResumen();
@@ -1809,6 +2353,8 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       temaSeleccionadoBanco = null;
       const vRes = document.getElementById("vista-banco-resumen");
       const vDet = document.getElementById("vista-banco-detalle");
+      console.log("[BANCO][abrirModalBancoPreguntas] INICIO");
+      console.log("[BANCO][abrirModalBancoPreguntas] examenActual =", window.examenActual);
       if (vRes && vDet) {
         vRes.classList.remove("d-none");
         vDet.classList.add("d-none");
@@ -1817,13 +2363,21 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       await cargarBancoResumen();
       await cargarTemasParaBanco();
 
-      new bootstrap.Modal(
-        document.getElementById("modalBancoPreguntas")
-      ).show();
+      const modalBancoEl = document.getElementById("modalBancoPreguntas");
+      if (modalBancoEl && modalBancoEl.parentElement !== document.body) {
+        document.body.appendChild(modalBancoEl);
+      }
+
+      bootstrap.Modal.getOrCreateInstance(modalBancoEl, {
+        backdrop: "static",
+        focus: true,
+        keyboard: true,
+      }).show();
     } catch (e) {
       console.error(e);
       alert("No se pudo cargar el banco de preguntas.");
     }
+    console.log("[BANCO][abrirModalBancoPreguntas] modal mostrado");
   }
 
   // ------------- Delegación de botones globales -------------
@@ -1848,9 +2402,12 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       ev.preventDefault();
       temaPreseleccionadoImport = null; // no fijar tema, usuario elige
       await cargarTemasParaBanco();
-      new bootstrap.Modal(
-        document.getElementById("modalBancoImportar")
-      ).show();
+      const modalImportarEl = document.getElementById("modalBancoImportar");
+      if (modalImportarEl && modalImportarEl.parentElement !== document.body) {
+        document.body.appendChild(modalImportarEl);
+      }
+
+      abrirModalSobre("modalBancoPreguntas", "modalBancoImportar");
       return;
     }
 
@@ -1859,9 +2416,12 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       ev.preventDefault();
       temaPreseleccionadoImport = temaSeleccionadoBanco; // fijamos tema actual
       await cargarTemasParaBanco();
-      new bootstrap.Modal(
-        document.getElementById("modalBancoImportar")
-      ).show();
+     const modalImportarEl = document.getElementById("modalBancoImportar");
+    if (modalImportarEl && modalImportarEl.parentElement !== document.body) {
+      document.body.appendChild(modalImportarEl);
+    }
+
+   abrirModalSobre("modalBancoPreguntas", "modalBancoImportar");
       return;
     }
 
@@ -1929,25 +2489,29 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     await recargarBancoDespuesDeCambio();
   };
 
+
   window.bancoAbrirEditar = async function (id) {
-    await cargarTemasParaBanco();
-    document.getElementById("bancoEditId").value = id;
+  await cargarTemasParaBanco();
+  document.getElementById("bancoEditId").value = id;
 
-    const fila =
-      bancoDataCache.find((r) => String(r.id) === String(id)) || null;
+  const fila =
+    bancoDataCache.find((r) => String(r.id) === String(id)) || null;
 
-    const selTema = document.getElementById("bancoTemaEditar");
-    if (fila && selTema) {
-      selTema.value = fila.tema_id || fila.temaId || selTema.value;
-    }
+  const selTema = document.getElementById("bancoTemaEditar");
+  if (fila && selTema) {
+    selTema.value = fila.tema_id || fila.temaId || selTema.value;
+  }
 
-    document.getElementById("bancoEditFilePreg").value = "";
-    document.getElementById("bancoEditFileSol").value = "";
+  document.getElementById("bancoEditFilePreg").value = "";
+  document.getElementById("bancoEditFileSol").value = "";
 
-    new bootstrap.Modal(
-      document.getElementById("modalBancoEditar")
-    ).show();
-  };
+  const modalEditarEl = getLastById("modalBancoEditar");
+  if (modalEditarEl && modalEditarEl.parentElement !== document.body) {
+    document.body.appendChild(modalEditarEl);
+  }
+
+  abrirModalSobre("modalBancoPreguntas", "modalBancoEditar");
+};
 
   // 👉 Cambiar / agregar solucionario SOLO para ese item (sin abrir modal)
   window.bancoAbrirSolucionario = function (id) {
@@ -2041,4 +2605,31 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     ).hide();
     await recargarBancoDespuesDeCambio();
   }
+})();
+
+(function () {
+  function limpiarBackdropsHuerfanos() {
+    const abiertos = document.querySelectorAll(".modal.show").length;
+
+    if (abiertos === 0) {
+      document.body.classList.remove("modal-open");
+      document.body.style.removeProperty("padding-right");
+
+      document
+        .querySelectorAll(".modal-backdrop")
+        .forEach((el) => el.remove());
+    }
+  }
+
+  document.addEventListener("hidden.bs.modal", () => {
+    setTimeout(limpiarBackdropsHuerfanos, 50);
+  });
+
+  document.addEventListener("shown.bs.modal", () => {
+    const abiertos = document.querySelectorAll(".modal.show").length;
+    if (abiertos > 0) {
+      document.body.classList.add("modal-open");
+    }
+  });
+  
 })();

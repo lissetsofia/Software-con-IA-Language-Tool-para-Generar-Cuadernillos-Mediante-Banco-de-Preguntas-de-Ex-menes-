@@ -1,0 +1,7 @@
+[run]
+omit =
+    backend/app.py
+    backend/db.py
+    backend\login_api.py
+    backend\main.py  
+    backend\test\conftest.py 

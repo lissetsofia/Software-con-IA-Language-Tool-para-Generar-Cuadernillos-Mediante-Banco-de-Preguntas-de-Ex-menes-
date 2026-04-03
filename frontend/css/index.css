@@ -1187,5 +1187,57 @@ main {
 #tabla-banco-preguntas .btn-group.btn-group-sm {
   gap: 0.25rem;
 }
+.tipo-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  align-items: flex-start;
+}
 
+.tipo-action-col {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0.35rem;
+}
 
+.tipo-action-col > .btn {
+  min-height: 38px;
+  white-space: nowrap;
+}
+
+.tipo-action-col--plain .tipo-action-spacer {
+  height: 28px; /* mismo alto visual que el contador */
+  visibility: hidden;
+}
+
+.alea-counter-box {
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6c757d;
+  line-height: 1;
+}
+
+.alea-counter-box i {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.alea-counter-fallback {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #6c757d;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-style: normal;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #6c757d;
+  background: #fff;
+}

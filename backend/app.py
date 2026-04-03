@@ -42,6 +42,90 @@ except Exception:
 
 import win32com.client as win32
 
+from init_db import init_db
+
+import sys
+import socket
+import atexit
+import signal
+
+def bootlog(*args):
+    print("[BOOT]", *args, flush=True)
+
+def booterr(*args):
+    print("[BOOT][ERROR]", *args, flush=True)
+
+def is_port_busy(host="127.0.0.1", port=5050):
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.5)
+    try:
+        s.connect((host, port))
+        return True
+    except Exception:
+        return False
+    finally:
+        try:
+            s.close()
+        except Exception:
+            pass
+
+def log_path_state(label, p):
+    try:
+        bootlog(f"{label} =", p, "| exists =", os.path.exists(p))
+    except Exception as e:
+        booterr(f"{label} log falló:", e)
+
+def check_word_com_boot():
+    try:
+        pythoncom.CoInitialize()
+        try:
+            w = win32.DispatchEx("Word.Application")
+            ver = getattr(w, "Version", "desconocida")
+            bootlog("WORD COM OK | version =", ver)
+            w.Quit()
+        finally:
+            pythoncom.CoUninitialize()
+    except Exception as e:
+        booterr("WORD COM FALLÓ:", repr(e))
+
+def check_lt_boot():
+    try:
+        bootlog("LT_PORT =", LT_PORT)
+        bootlog("LT_DIR env =", os.environ.get("LT_DIR", "").strip() or "(vacío)")
+        resolved = _resolve_lt_dir()
+        bootlog("LT_DIR resuelto =", resolved)
+        jar = _find_lt_jar()
+        bootlog("LT jar =", jar, "| exists =", os.path.exists(jar))
+    except Exception as e:
+        booterr("LanguageTool FALLÓ:", repr(e))
+
+def print_boot_diagnostics():
+    bootlog("=" * 70)
+    bootlog("Python exe =", sys.executable)
+    bootlog("__file__ =", __file__)
+    bootlog("cwd =", os.getcwd())
+    bootlog("puerto 5050 ocupado antes de Flask =", is_port_busy())
+    log_path_state("BACKEND_DIR", BACKEND_DIR)
+    log_path_state("PROYECTO_DIR", PROYECTO_DIR)
+    log_path_state("DESCARGAS_DIR", DESCARGAS_DIR)
+    log_path_state("STATIC_DIR", STATIC_DIR)
+    log_path_state("UPLOAD_FOLDER", app.config.get("UPLOAD_FOLDER", ""))
+    log_path_state("PREGUNTAS_DIR", app.config.get("PREGUNTAS_DIR", ""))
+    check_word_com_boot()
+    check_lt_boot()
+    bootlog("=" * 70)
+def resource_base():
+    if getattr(sys, "frozen", False):
+        # PyInstaller onedir/onefile
+        return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    return os.path.abspath(os.path.dirname(__file__))
+
+BASE_RUNTIME_DIR = resource_base()
+
+# si quieres que descargas/static queden al lado del exe:
+APP_ROOT_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+
 # (opcional, ayuda con rutas largas/espacios)
 def _short_path(p: str) -> str:
     """Devuelve ruta en 8.3 si es posible; si no, la ruta absoluta normal."""
@@ -55,22 +139,17 @@ def _short83(p: str) -> str:
     """Alias más usado en el código (sin guion bajo intermedio)."""
     return _short_path(p)
 # rutas absolutas
-BACKEND_DIR = os.path.abspath(os.path.dirname(__file__))
-PROYECTO_DIR     = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
-
-
-
-
+BACKEND_DIR = BASE_RUNTIME_DIR
+PROYECTO_DIR = APP_ROOT_DIR
 DESCARGAS_DIR = os.path.join(PROYECTO_DIR, "descargas")
-STATIC_DIR     = os.path.join(PROYECTO_DIR, "static")     # asegúrate que existe
+STATIC_DIR = os.path.join(PROYECTO_DIR, "static")   # asegúrate que existe
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(os.path.join(STATIC_DIR, "previews"), exist_ok=True)
 os.makedirs(DESCARGAS_DIR, exist_ok=True)
 
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path="/static")
 NS = {
-    "w":  "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+     "w":  "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
     "r":  "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
     "m":  "http://schemas.openxmlformats.org/officeDocument/2006/math",
     "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
@@ -79,12 +158,21 @@ NS = {
     "v":  "urn:schemas-microsoft-com:vml",
     "o":  "urn:schemas-microsoft-com:office:office",
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
+    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
+    "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
+    "w16se": "http://schemas.microsoft.com/office/word/2015/wordml/symex",
+    "w16cid": "http://schemas.microsoft.com/office/word/2016/wordml/cid",
+    "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
+     "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
+    "a14": "http://schemas.microsoft.com/office/drawing/2010/main",
 }
 for p, u in NS.items():
     ET.register_namespace(p, u)
 # rutas absolutas
-BACKEND_DIR = os.path.abspath(os.path.dirname(__file__))
 
+
+print_boot_diagnostics()
+init_db()
 app.config["DESCARGAS_FOLDER"]  = DESCARGAS_DIR
 app.config['UPLOAD_FOLDER'] = os.path.join(BACKEND_DIR, "uploads")
 
@@ -106,14 +194,16 @@ print("DESCARGAS_FOLDER =>", app.config["DESCARGAS_FOLDER"])
 print("STATIC_DIR       =>", STATIC_DIR)
 
 
-app.config['PREGUNTAS_DIR'] = os.path.join(os.path.dirname(__file__), 'temas_archivos')
+
+app.config['PREGUNTAS_DIR'] = os.path.join(BACKEND_DIR, "temas_archivos")
 os.makedirs(app.config['PREGUNTAS_DIR'], exist_ok=True)
 
 # cerca de los imports superiores
 class DocxVacioError(Exception):
     def __init__(self, paths): self.paths = paths
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+BASE_DIR = BACKEND_DIR
 GRUPOS_OUT_DIR = os.path.join(app.config['DESCARGAS_FOLDER'], "grupos")
 os.makedirs(GRUPOS_OUT_DIR, exist_ok=True)
 DATA_DIR      = os.path.join(BASE_DIR, "data")
@@ -145,7 +235,7 @@ def login():
 
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM usuarios WHERE username=%s AND password=%s", (usuario, clave))
+    cursor.execute("SELECT * FROM usuarios WHERE username=? AND password=?", (usuario, clave))
     user = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -160,8 +250,9 @@ def probar_conexion():
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT DATABASE()")
-        nombre_bd = cursor.fetchone()[0]
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name LIMIT 1")
+        row = cursor.fetchone()
+        nombre_bd = 'sqlite' if row is not None else 'sqlite' 
         cursor.close()
         conn.close()
         return jsonify({"conexion": "ok", "base_datos": nombre_bd})
@@ -1273,31 +1364,29 @@ def _sha1_file_lt(path: str, block=1024*1024) -> str:
 
 
 def generar_pdf_preview(ruta_docx: str, nombre_base: str | None = None) -> str:
-    """
-    Genera (o reutiliza) un PDF en DESCARGAS_DIR a partir de un DOCX,
-    pensado para previsualización en el navegador (iframe).
-    """
     ruta_docx = os.path.abspath(ruta_docx)
     os.makedirs(DESCARGAS_DIR, exist_ok=True)
 
-    # Nombre base estable por contenido
-    h = _sha1_file(ruta_docx)[:12]
+    h = _sha1_file(ruta_docx)[:12]   # (si tu helper se llama distinto, usa el que ya tienes)
     base = nombre_base or f"{h}_preview"
     dst_pdf = os.path.join(DESCARGAS_DIR, f"{base}.pdf")
 
-    # Si ya existe y es válido, reutilizar
+    # Reutiliza SOLO si el PDF es más nuevo que el DOCX
     if os.path.exists(dst_pdf) and os.path.getsize(dst_pdf) > 0:
-        return dst_pdf
+        try:
+            if os.path.getmtime(dst_pdf) >= os.path.getmtime(ruta_docx):
+                return dst_pdf
+        except Exception:
+            return dst_pdf
 
-    # Generar PDF temporal vía Word y copiar a descargas
-    tmp_pdf = generar_pdf(ruta_docx)
+    tmp_pdf = generar_pdf(ruta_docx)   # o generar_pdf_lt(...) si ese es el que usas
     copy2(tmp_pdf, dst_pdf)
     try:
         os.remove(tmp_pdf)
     except Exception:
         pass
-
     return dst_pdf
+
 
 # === Previsualización del original .docx como PDF (visor del navegador) ===
 @app.route("/api/render_vista", methods=["POST"])
@@ -1326,9 +1415,10 @@ def render_vista():
             nombre_base=f"{_sha1_file(tmp_path)[:12]}_orig"
         )
         pdf_name = os.path.basename(pdf_path)
+        v = int(os.path.getmtime(pdf_path))
+        return jsonify({"ok": True, "html_url": f"/api/descargas/{pdf_name}?v={v}"})
 
-        # Mantenemos la clave 'html_url' para compatibilidad con el frontend
-        return jsonify({"ok": True, "html_url": f"/descargas/{pdf_name}"})
+       
 
     except Exception as e:
         traceback.print_exc()
@@ -1355,9 +1445,9 @@ def render_docx_guardado_lt(nombre_docx):
             nombre_base=f"{base_in}_preview"
         )
         pdf_name = os.path.basename(pdf_path)
+        v = int(os.path.getmtime(pdf_path))
+        return jsonify({"ok": True, "html_url": f"/api/descargas/{pdf_name}?v={v}"})
 
-        # Seguimos usando 'html_url' para compatibilidad con el frontend
-        return jsonify({"ok": True, "html_url": f"/descargas/{pdf_name}"})
     except Exception as e:
         traceback.print_exc(); return jsonify({"ok": False, "error": str(e)}), 500
 
@@ -1502,7 +1592,12 @@ def descargar(nombre):
         return jsonify({"ok": False, "error": "No existe"}), 404
 
     mimetype = "application/pdf" if nombre.lower().endswith(".pdf") else None
-    return send_file(path, as_attachment=False, mimetype=mimetype)
+    resp = send_file(path, as_attachment=False, mimetype=mimetype, max_age=0)
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
+
 
 @app.route("/api/descargar_pdf_corregido/<path:nombre_docx>", methods=["GET"])
 def descargar_pdf_corregido(nombre_docx):
@@ -1553,11 +1648,44 @@ def corregir_archivo():
         if not nombre_archivo.lower().endswith('.docx'):
             return jsonify({"ok": False, "error": "Ahora solo se admite .docx."}), 400
 
-        texto = extraer_texto_docx(path_in)
-        texto = normalize_ocr_noise(texto)
+        doc = DocxDocument(path_in)
+        texts = [p.text or "" for p in doc.paragraphs]
 
-        # NUEVO: detectar y proteger spans de alternativas tipo "A) "..."E) "
-        spans_alternativas = detectar_spans_alternativas(texto)
+        # 1) detectar alternativas por numId (robusto)
+        alt_idx, q_numId = detectar_indices_alternativas_por_numid(doc, active_q_numId=None)
+
+        # 2) construir texto para LT con alternativas VACÍAS (LT no puede tocarlas)
+        lines_for_lt = texts[:]
+        for i in alt_idx:
+            lines_for_lt[i] = ""
+
+        texto_for_lt = "\n".join(lines_for_lt)
+
+        # ⚠️ OJO: normalize_ocr_noise NO debe colapsar saltos de línea (en tu caso está OK)
+        texto_for_lt = normalize_ocr_noise(texto_for_lt)
+
+        # 3) pedir matches a LT SOLO sobre texto_for_lt
+        resp = lt_check_smart(texto_for_lt, lang=idioma)
+        matches = resp.get("matches", [])
+
+        # 4) aplicar correcciones sobre texto_for_lt (ya sin alternativas)
+        texto_corregido_base = apply_lt_corrections(texto_for_lt, matches, protected_spans=None)
+        texto_corregido_puro = post_correcciones(texto_corregido_base)
+
+        # 5) volver a líneas y asegurar misma cantidad
+        corr_lines = texto_corregido_puro.split("\n")
+        if len(corr_lines) != len(texts):
+            corr_lines = (corr_lines + [""] * len(texts))[:len(texts)]
+
+        # 6) restaurar alternativas EXACTAS
+        for i in alt_idx:
+            corr_lines[i] = texts[i]
+
+        # 7) texto final ya con alternativas intactas
+        texto_corregido_puro = "\n".join(corr_lines)
+
+        # 8) el "texto original" que tú muestras / usas para diff debe ser el original real:
+        texto = "\n".join(texts)
 
         if modo == "preview":
             return jsonify({
@@ -1565,19 +1693,8 @@ def corregir_archivo():
                 "corregido_html_inline": "", "total_alertas": 0, "descargas": {}
             })
 
-        try:
-            resp = lt_check_smart(texto, lang=idioma)
-            matches = resp.get("matches", [])
-        except Exception as e:
-            traceback.print_exc()
-            return jsonify({"ok": False, "error": f"LanguageTool: {e}"}), 500
-
-        # Aplicar correcciones SIN tocar alternativas
-        texto_corregido_base    = apply_lt_corrections(texto, matches, protected_spans=spans_alternativas)
-        texto_corregido_puro    = post_correcciones(texto_corregido_base)
-
-        # Por si alguna regla "post" tocara algo dentro del span, restauramos exactamente:
-        texto_corregido_puro    = restaurar_segmentos_protegidos(texto, texto_corregido_puro, spans_alternativas)
+        
+        
 
         # Marcado de eliminaciones (se genera desde el puro para que el diff ignore alternativas)
         texto_corregido_marcado = insertar_marcas_eliminacion(texto, texto_corregido_puro)
@@ -1609,294 +1726,137 @@ def corregir_archivo():
         traceback.print_exc()
         return jsonify({"ok": False, "error": str(e)}), 500
 
+# ====== PROTEGER ALTERNATIVAS POR DOCX (numId) + fallback texto ======
+
+_RX_ALT_TEXT = re.compile(r'^\s*\(?\s*[A-Ea-e]\s*[\)\.\-]\s+')  # A) / A. / (A) / A- ...
+
+def _is_question_start_by_numpr(p, active_q_numId="1"):
+    """True si el párrafo es inicio de pregunta por numPr (numId preguntas, ilvl=0)."""
+    numId, ilvl = _get_numid_ilvl(p)
+    return (numId is not None and ilvl == 0 and str(numId) == str(active_q_numId))
+
+def _detect_active_question_numId(doc: Document, fallback="1") -> str:
+    """
+    Detecta el numId real de preguntas recorriendo párrafos:
+    primer párrafo que parezca pregunta por numeración (ilvl=0) => ese numId.
+    Si no encuentra, usa fallback.
+    """
+    for p in doc.paragraphs:
+        numId, ilvl = _get_numid_ilvl(p)
+        if numId is not None and ilvl == 0:
+            # heurística: preguntas suelen ser numId con números 1.. etc (igual que tu flujo)
+            # si quieres, aquí podrías filtrar por texto tipo "1)" pero normalmente basta.
+            return str(numId)
+    return str(fallback)
+
+def detectar_spans_alternativas_docx(path_docx: str, active_q_numId: str | None = None):
+    """
+    Devuelve spans (ini, fin) en el TEXTO extraído (join con \n) que corresponden a alternativas.
+    Regla:
+      - Si el párrafo tiene numPr: alternativa = (ilvl=0 AND numId != q_numId)
+      - Fallback: si el texto del párrafo empieza con A) / B) / etc.
+    """
+    doc = DocxDocument(path_docx)
+
+    if active_q_numId is None:
+        active_q_numId = _detect_active_question_numId(doc, fallback="1")
+
+    spans = []
+    pos = 0
+
+    # mismo join que extraer_texto_docx: "\n".join(p.text for p in doc.paragraphs)
+    for p in doc.paragraphs:
+        txt = p.text or ""
+        L = len(txt)
+
+        numId, ilvl = _get_numid_ilvl(p)
+
+        is_alt = False
+        # 1) criterio fuerte por numId/ilvl
+        if numId is not None and ilvl == 0 and str(numId) != str(active_q_numId):
+            is_alt = True
+
+        # 2) fallback por texto A)...
+        if not is_alt:
+            if _RX_ALT_TEXT.match((txt or "").strip()):
+                is_alt = True
+
+        if is_alt:
+            spans.append((pos, pos + L))
+
+        pos += L + 1  # +1 por el "\n"
+
+    return spans
+
+from collections import Counter
+
+def detectar_numid_preguntas_smart(doc: Document, fallback="1") -> str:
+    """
+    Elige el numId más probable de PREGUNTAS:
+    el numId más frecuente en párrafos ilvl=0 con texto "largo".
+    """
+    c = Counter()
+    for p in doc.paragraphs:
+        numId, ilvl = _get_numid_ilvl(p)
+        txt = (p.text or "").strip()
+        if numId is not None and ilvl == 0 and len(txt) >= 25:
+            c[str(numId)] += 1
+    return c.most_common(1)[0][0] if c else str(fallback)
+
+def detectar_indices_alternativas_por_numid(doc: Document, active_q_numId: str | None = None, max_alts=10):
+    """
+    Devuelve set(indices) de párrafos que son alternativas.
+    Usa la misma lógica que tu _apply_reorder:
+      - detecta inicio de pregunta
+      - luego captura el bloque de alternativas (mismo numId distinto al de pregunta)
+    """
+    if active_q_numId is None:
+        active_q_numId = detectar_numid_preguntas_smart(doc, fallback="1")
+
+    paras = doc.paragraphs
+    alt_idx = set()
+
+    i = 0
+    while i < len(paras):
+        p = paras[i]
+
+        if _is_question_start_paragraph(p, active_q_numId=active_q_numId):
+            q_numId, _ = _get_numid_ilvl(p)
+            i += 1
+
+            first_alt_numId = None
+            alts = 0
+
+            while i < len(paras):
+                p2 = paras[i]
+
+                if _is_question_start_paragraph(p2, active_q_numId=active_q_numId):
+                    break
+
+                numId2, ilvl2 = _get_numid_ilvl(p2)
+
+                if numId2 is not None and ilvl2 == 0 and numId2 != q_numId:
+                    if first_alt_numId is None:
+                        first_alt_numId = numId2
+
+                    if numId2 == first_alt_numId:
+                        alt_idx.add(i)
+                        alts += 1
+                        # si quieres limitar, corta; si no, comenta estas 2 líneas
+                        if alts >= max_alts:
+                            pass
+                    else:
+                        break
+
+                i += 1
+
+            continue
+
+        i += 1
+
+    return alt_idx, str(active_q_numId)
 
 #
-# ====== LLM (Ollama) ======
-
-
-# =========================
-# ====== LLM (llama.cpp embebido) ======
-# =========================
-# ====== LLM (llama.cpp / llama-cpp-python) ======
-import os, requests, traceback
-from llama_cpp import Llama
-
-LLAMA_MODEL_PATH = os.path.join(BASE_DIR, "models", "qwen2.5-7b-instruct-q4_k_m.gguf")
-
-LLAMA_N_CTX = int(os.environ.get("LLAMA_N_CTX", "2048"))
-LLAMA_THREADS = int(os.environ.get("LLAMA_THREADS", str(max(2, (os.cpu_count() or 8) // 2))))
-LLAMA_GPU_LAYERS = int(os.environ.get("LLAMA_GPU_LAYERS", "0"))  # 0 = CPU
-
-_LLAMA = None
-
-
-_RX_ALT_LINE = re.compile(r'^\s*[A-E]\)\s', re.MULTILINE)
-_RX_NUM_PREFIX = re.compile(r'^(\s*(?:\(?\d+\)?[.)])\s+)', re.UNICODE)
-
-def proteger_lineas_alternativas(texto: str):
-    """
-    Reemplaza líneas A)–E) por placeholders para que el LLM NO LAS TOQUE.
-    """
-    mapping = {}
-    out_lines = []
-    k = 0
-    for ln in (texto or "").splitlines():
-        if _RX_ALTERNATIVA.match(ln):
-            key = f"[[ALT_{k}]]"
-            mapping[key] = ln
-            out_lines.append(key)
-            k += 1
-        else:
-            out_lines.append(ln)
-    return "\n".join(out_lines), mapping
-
-def restaurar_placeholders(texto: str, mapping: dict):
-    out = texto or ""
-    for key, original_line in mapping.items():
-        out = out.replace(key, original_line)
-    return out
-
-def restaurar_prefijos_numerados(original: str, corregido: str) -> str:
-    """
-    Si una línea del original inicia con '1) ' o '1. ' o '(1) ',
-    fuerza a que el corregido conserve ESE prefijo exacto.
-    """
-    o_lines = (original or "").splitlines()
-    c_lines = (corregido or "").splitlines()
-
-    n = min(len(o_lines), len(c_lines))
-    for i in range(n):
-        mo = _RX_NUM_PREFIX.match(o_lines[i] or "")
-        if mo:
-            pref = mo.group(1)
-            mc = _RX_NUM_PREFIX.match(c_lines[i] or "")
-            # Quitar prefijo existente del corregido y poner el original
-            if mc:
-                c_lines[i] = pref + (c_lines[i][mc.end():] if len(c_lines[i]) >= mc.end() else "")
-            else:
-                c_lines[i] = pref + c_lines[i].lstrip()
-    return "\n".join(c_lines)
-
-def get_llama():
-    global _LLAMA
-    if _LLAMA is None:
-        if not os.path.exists(LLAMA_MODEL_PATH):
-            raise RuntimeError(f"No existe el modelo GGUF: {LLAMA_MODEL_PATH}")
-        _LLAMA = Llama(
-            model_path=LLAMA_MODEL_PATH,
-            n_ctx=LLAMA_N_CTX,
-            n_threads=LLAMA_THREADS,
-            n_gpu_layers=LLAMA_GPU_LAYERS,
-            verbose=False,
-        )
-    return _LLAMA
-
-@app.route("/api/lm/status", methods=["GET"])
-def api_lm_status():
-    try:
-        ok_file = os.path.exists(LLAMA_MODEL_PATH)
-        if not ok_file:
-            return jsonify({"ok": False, "engine": "llama.cpp", "error": "No se encontró el GGUF", "model_path": LLAMA_MODEL_PATH})
-        # No cargamos el modelo aquí para que sea rápido (lazy load)
-        return jsonify({
-            "ok": True,
-            "engine": "llama.cpp",
-            "model_path": LLAMA_MODEL_PATH,
-            "n_ctx": LLAMA_N_CTX,
-            "threads": LLAMA_THREADS,
-            "gpu_layers": LLAMA_GPU_LAYERS
-        })
-    except Exception as e:
-        return jsonify({"ok": False, "engine": "llama.cpp", "error": str(e)})
-    
-def llama_chat(messages_or_prompt, temperature=0.05, max_tokens=400):
-    llm = get_llama()
-
-    # Acepta string o messages[]
-    if isinstance(messages_or_prompt, str):
-        messages = [{"role": "user", "content": messages_or_prompt}]
-    else:
-        messages = messages_or_prompt
-
-    out = llm.create_chat_completion(
-        messages=messages,
-        temperature=float(temperature),
-        top_p=0.9,
-        repeat_penalty=1.10,
-        max_tokens=int(max_tokens),
-    )
-
-    # ✅ Evitar list index out of range
-    choices = out.get("choices") if isinstance(out, dict) else None
-    if not choices:
-        raise RuntimeError(f"LLM sin 'choices'. Respuesta cruda: {out}")
-
-    msg = choices[0].get("message") if isinstance(choices[0], dict) else None
-    content = (msg or {}).get("content") if isinstance(msg, dict) else None
-    if not content:
-        # Algunos builds devuelven 'text'
-        content = choices[0].get("text") if isinstance(choices[0], dict) else None
-
-    if not content:
-        raise RuntimeError(f"LLM sin contenido. choice[0]={choices[0]}")
-
-    return content
-
-
-
-@app.route("/api/lm/chat", methods=["POST"])
-def api_lm_chat():
-    data = request.get_json(force=True) or {}
-    prompt = (data.get("prompt") or "").strip()
-    if not prompt:
-        return jsonify({"ok": False, "error": "prompt vacío"}), 400
-
-    system = (data.get("system") or "Responde en español, claro y breve.").strip()
-    temperature = data.get("temperature", 0.2)
-    max_tokens  = data.get("max_tokens", 512)
-
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": prompt},
-    ]
-
-    try:
-        text = llama_chat(messages, temperature=temperature, max_tokens=max_tokens)
-        return jsonify({"ok": True, "text": text})
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-
-def _chunks_by_paragraphs(text: str, max_chars=3500):
-    parts = text.split("\n\n")
-    buff = []
-    cur = 0
-    for p in parts:
-        add = (("\n\n" if buff else "") + p)
-        if cur + len(add) > max_chars and buff:
-            yield "".join(buff)
-            buff = [p]
-            cur = len(p)
-        else:
-            buff.append(add)
-            cur += len(add)
-    if buff:
-        yield "".join(buff)
-
-def lm_corregir_texto(texto: str) -> str:
-    """
-    Corrección conservadora (ortografía/gramática/puntuación) SIN reescritura.
-    Protege alternativas A)–E) con placeholders (robusto).
-    """
-    if not (texto or "").strip():
-        return texto
-
-    # Proteger alternativas antes de chunking (mejor)
-    texto_prot, alt_map = proteger_lineas_alternativas(texto)
-
-    system = (
-        "Eres un corrector ortográfico y gramatical profesional en español (Perú). "
-        "Corrige SOLO errores reales: tildes, concordancia, ortografía y puntuación. "
-        "NO reescribas por estilo, NO uses sinónimos, NO cambies el orden de ideas. "
-        "NO agregues ni quites líneas. Mantén exactamente los saltos de línea. "
-        "No cambies números, fórmulas, símbolos, variables ni unidades."
-        "Devuelve SOLO el texto corregido."
-    )
-
-    out_chunks = []
-    for chunk in _chunks_by_paragraphs(texto_prot, max_chars=2600):
-        messages = [
-            {"role": "system", "content": system},
-            {"role": "user", "content": f"TEXTO:\n{chunk}\n\nDevuelve SOLO el texto corregido."},
-        ]
-        try:
-            fixed = llama_chat(messages, temperature=0.05, max_tokens=400).strip()
-        except Exception as e:
-            print("[LM] chunk falló:", e)
-            fixed = chunk  # fallback seguro
-
-
-        # Guardas: si el modelo cambia demasiado, no descartes tan agresivo
-        # (0.70 es alto y te bloquea correcciones). Usa 0.55.
-        sim = SequenceMatcher(None, chunk, fixed).ratio() if fixed else 0.0
-        if sim < 0.55 or not fixed:
-            fixed = chunk
-
-        out_chunks.append(fixed)
-
-    merged = "\n\n".join(out_chunks)
-
-    # Restaurar alternativas exactas (por placeholder, robusto)
-    merged = restaurar_placeholders(merged, alt_map)
-
-    # Forzar prefijos numerados (1) / 1) / 1. si se tocó algo
-    merged = restaurar_prefijos_numerados(texto, merged)
-
-    return merged
-
-@app.route("/api/lm/corregir_archivo", methods=["POST"])
-def corregir_archivo_lm():
-    """
-    Entrada: multipart/form-data con 'archivo' (DOCX)
-    Salida: igual estilo que tu endpoint LT: genera DOCX corregido y devuelve ruta de descarga.
-    """
-    try:
-        if 'archivo' not in request.files:
-            return jsonify({"ok": False, "error": "Falta 'archivo'"}), 400
-
-        up = request.files['archivo']
-        if not up.filename:
-            return jsonify({"ok": False, "error": "Nombre de archivo vacío"}), 400
-
-        nombre_archivo = secure_filename(up.filename)
-        path_in = os.path.join(UPLOAD_DIR, nombre_archivo)
-        up.save(path_in)
-
-        if not nombre_archivo.lower().endswith('.docx'):
-            return jsonify({"ok": False, "error": "Ahora solo se admite .docx."}), 400
-
-        # 1) extraer texto
-        texto = extraer_texto_docx(path_in)
-        texto = normalize_ocr_noise(texto)
-
-        # 2) proteger alternativas (tu lógica)
-        spans_alternativas = detectar_spans_alternativas(texto)
-
-        # 3) corregir con LLM
-        texto_corregido_base = lm_corregir_texto(texto)
-
-        # 4) post reglas (opcional: puedes activar si quieres)
-        texto_corregido_puro = post_correcciones(texto_corregido_base)
-
-        
-
-
-        # 6) marcado de eliminaciones + docx salida
-        texto_corregido_marcado = insertar_marcas_eliminacion(texto, texto_corregido_puro)
-
-        base = os.path.splitext(os.path.basename(nombre_archivo))[0]
-        out_docx_preview = os.path.join(DESCARGAS_DIR, f"{base}_lm_corregido.docx")
-        out_docx_clean   = os.path.join(DESCARGAS_DIR, f"{base}_lm_corregido_limpio.docx")
-
-        generar_docx_corregido(path_in, texto_corregido_marcado, out_docx_preview,
-                               highlight=True, texto_original_para_highlight=texto)
-        generar_docx_corregido(path_in, texto_corregido_puro, out_docx_clean, highlight=False)
-
-        return jsonify({
-            "ok": True,
-            "engine": "llama.cpp (embedded)",
-            "nombre_archivo_base": base,
-            "descargas": {
-                "docx": f"/api/descargas/{os.path.basename(out_docx_clean)}"
-            },
-            "texto_original": texto[:50000],
-            "texto_corregido": texto_corregido_marcado[:50000],
-        })
-
-    except Exception as e:
-        traceback.print_exc()
-        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 #--------------------------------
@@ -1907,28 +1867,88 @@ def corregir_archivo_lm():
 def obtener_examenes():
     try:
         conn = get_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT idexamenes, nombre, numero, institucion, anio FROM examenes")
-        examenes = cursor.fetchall()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT idexamenes, nombre, numero, institucion, anio
+            FROM examenes
+            ORDER BY idexamenes DESC
+        """)
+        examenes = _row_to_dict_list(cursor)
         cursor.close()
         conn.close()
         return jsonify(examenes)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"status": "error", "detalle": str(e)}), 500
 
 
 @app.route('/api/examenes/<int:idexamen>', methods=['DELETE'])
 def eliminar_examen(idexamen):
+    conn = None
+    cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM examenes WHERE idexamenes = %s", (idexamen,))
+
+        # 1) buscar datos del examen antes de borrar
+        cursor.execute("""
+            SELECT archivo_ruta, archivo_nombre
+            FROM examenes
+            WHERE idexamenes = ?
+        """, (idexamen,))
+        examen = cursor.fetchone()
+
+        if not examen:
+            return jsonify({'error': 'Examen no encontrado'}), 404
+
+        archivo_ruta = examen["archivo_ruta"] if examen["archivo_ruta"] else None
+
+        # 2) borrar preguntas asociadas al examen
+        cursor.execute("""
+            DELETE FROM preguntas
+            WHERE examenes_idexamenes = ?
+        """, (idexamen,))
+
+        # 3) borrar examen
+        cursor.execute("""
+            DELETE FROM examenes
+            WHERE idexamenes = ?
+        """, (idexamen,))
+
         conn.commit()
-        cursor.close()
-        conn.close()
-        return jsonify({'mensaje': 'Examen eliminado correctamente'})
+
+        # 4) borrar carpeta de preguntas partidas
+        carpeta_partida = os.path.join(app.config['PREGUNTAS_DIR'], f"examen_{idexamen}")
+        if os.path.isdir(carpeta_partida):
+            shutil.rmtree(carpeta_partida, ignore_errors=True)
+
+        # 5) opcional: borrar archivo DOCX original importado
+        if archivo_ruta and os.path.isfile(archivo_ruta):
+            try:
+                os.remove(archivo_ruta)
+            except Exception as e:
+                print(f"[eliminar_examen] aviso al borrar DOCX original: {e}")
+
+        return jsonify({'mensaje': 'Examen y sus preguntas eliminados correctamente'})
     except Exception as e:
+        try:
+            if conn:
+                conn.rollback()
+        except Exception:
+            pass
         return jsonify({'error': str(e)}), 500
+    finally:
+        try:
+            if cursor:
+                cursor.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
 
 
 
@@ -1968,7 +1988,7 @@ def importar_examen():
         conn = get_connection()
         cursor = conn.cursor()
         # Verificar si ya existe un archivo con el mismo nombre
-        cursor.execute("SELECT COUNT(*) FROM examenes WHERE archivo_nombre = %s", (filename,))
+        cursor.execute("SELECT COUNT(*) FROM examenes WHERE archivo_nombre = ?", (filename,))
         existe = cursor.fetchone()[0]
 
         if existe > 0:
@@ -1980,7 +2000,7 @@ def importar_examen():
 
         sql = """
             INSERT INTO examenes (nombre, numero, institucion, anio, archivo_nombre, archivo_ruta)
-            VALUES (%s, %s, %s, %s, %s, %s)
+            VALUES (?, ?, ?, ?, ?, ?)
         """
         cursor.execute(sql, (nombre, numero, institucion, anio, filename, ruta_archivo))
         conn.commit()
@@ -2001,9 +2021,9 @@ def exportar_examen(idexamen):
     # 1) Obtener ruta del DOCX desde la BD
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         cur.execute(
-            "SELECT archivo_ruta, archivo_nombre FROM examenes WHERE idexamenes=%s",
+            "SELECT archivo_ruta, archivo_nombre FROM examenes WHERE idexamenes=?",
             (idexamen,)
         )
         row = cur.fetchone()
@@ -2124,9 +2144,9 @@ def generar_pdf(ruta_word: str) -> str:
 def examen_nombre(idexamen):
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         cur.execute(
-            "SELECT archivo_nombre FROM examenes WHERE idexamenes=%s",
+            "SELECT archivo_nombre FROM examenes WHERE idexamenes=?",
             (idexamen,)
         )
         row = cur.fetchone()
@@ -2147,14 +2167,14 @@ def temas_listar():
     include_all = request.args.get("all") == "1"
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         # Opción con LEFT JOIN + COUNT(idpreguntas) (robusta y eficiente)
         if include_all:
             cur.execute("""
                 SELECT t.id, t.nombre, t.activo,
                        COALESCE(COUNT(p.idpreguntas), 0) AS n_preguntas
-                FROM temas t
+                FROM temario t
                 LEFT JOIN preguntas p ON p.tema_id = t.id
                 GROUP BY t.id, t.nombre, t.activo
                 ORDER BY t.nombre
@@ -2163,14 +2183,14 @@ def temas_listar():
             cur.execute("""
                 SELECT t.id, t.nombre, t.activo,
                        COALESCE(COUNT(p.idpreguntas), 0) AS n_preguntas
-                FROM temas t
+                FROM temario t
                 LEFT JOIN preguntas p ON p.tema_id = t.id
                 WHERE t.activo = 1
                 GROUP BY t.id, t.nombre, t.activo
                 ORDER BY t.nombre
             """)
 
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         cur.close(); conn.close()
         return jsonify(rows)
     except Exception as e:
@@ -2186,11 +2206,11 @@ def temas_crear():
     try:
         conn = get_connection(); cur = conn.cursor()
         # Evitar duplicados (case-insensitive)
-        cur.execute("SELECT id FROM temas WHERE LOWER(nombre)=LOWER(%s)", (nombre,))
+        cur.execute("SELECT id FROM temario WHERE LOWER(nombre)=LOWER(?)", (nombre,))
         if cur.fetchone():
             cur.close(); conn.close()
             return jsonify({"error": "Ya existe un curso con ese nombre"}), 409
-        cur.execute("INSERT INTO temas (nombre, activo) VALUES (%s, 1)", (nombre,))
+        cur.execute("INSERT INTO temario (nombre, activo) VALUES (?, 1)", (nombre,))
         conn.commit()
         nuevo_id = cur.lastrowid
         cur.close(); conn.close()
@@ -2208,11 +2228,11 @@ def temas_editar(tema_id):
     try:
         conn = get_connection(); cur = conn.cursor()
         # Chequeo de duplicado
-        cur.execute("SELECT id FROM temas WHERE LOWER(nombre)=LOWER(%s) AND id<>%s", (nombre, tema_id))
+        cur.execute("SELECT id FROM temario WHERE LOWER(nombre)=LOWER(?) AND id<>?", (nombre, tema_id))
         if cur.fetchone():
             cur.close(); conn.close()
             return jsonify({"error": "Ya existe otro curso con ese nombre"}), 409
-        cur.execute("UPDATE temas SET nombre=%s WHERE id=%s", (nombre, tema_id))
+        cur.execute("UPDATE temario SET nombre=? WHERE id=?", (nombre, tema_id))
         conn.commit()
         cur.close(); conn.close()
         return jsonify({"exito": True})
@@ -2225,7 +2245,7 @@ def temas_toggle(tema_id):
     """Habilitar/Deshabilitar (soft-delete)."""
     try:
         conn = get_connection(); cur = conn.cursor()
-        cur.execute("UPDATE temas SET activo=1-activo WHERE id=%s", (tema_id,))
+        cur.execute("UPDATE temario SET activo=1-activo WHERE id=?", (tema_id,))
         conn.commit()
         cur.close(); conn.close()
         return jsonify({"exito": True})
@@ -2244,7 +2264,7 @@ def temas_eliminar(tema_id):
     try:
         conn = get_connection(); cur = conn.cursor()
         # ¿tiene preguntas?
-        cur.execute("SELECT COUNT(*) FROM preguntas WHERE tema_id=%s", (tema_id,))
+        cur.execute("SELECT COUNT(*) FROM preguntas WHERE tema_id=?", (tema_id,))
         n = cur.fetchone()[0]
 
         if n > 0 and not force:
@@ -2252,8 +2272,8 @@ def temas_eliminar(tema_id):
             return jsonify({"error": f"El tema tiene {n} preguntas. Deshabilítalo o elimina con force=1."}), 409
 
         if force:
-            cur.execute("DELETE FROM preguntas WHERE tema_id=%s", (tema_id,))
-        cur.execute("DELETE FROM temas WHERE id=%s", (tema_id,))
+            cur.execute("DELETE FROM preguntas WHERE tema_id=?", (tema_id,))
+        cur.execute("DELETE FROM temario WHERE id=?", (tema_id,))
         conn.commit()
         cur.close(); conn.close()
         return jsonify({"exito": True})
@@ -2310,6 +2330,30 @@ def _norm_tema(s: str) -> str:
     """
     return _norm(s).upper()
 
+def _parrafo_esta_vacio_o_es_solo_salto(p):
+    if p.tag != W + "p":
+        return False
+
+    # texto visible
+    txt = "".join((t.text or "") for t in p.findall(".//w:t", ns_doc)).strip()
+
+    # saltos de página dentro del párrafo
+    brs = p.findall(".//w:br", ns_doc)
+    solo_page_break = (
+        txt == "" and
+        len(brs) > 0 and
+        all(br.get(W + "type") == "page" for br in brs)
+    )
+
+    # vacío total, sin dibujos/tablas/ecuaciones
+    tiene_drawing = p.find(".//w:drawing", ns_doc) is not None
+    tiene_pict    = p.find(".//w:pict", ns_doc) is not None
+    tiene_math    = p.find(".//m:oMath", NS) is not None or p.find(".//m:oMathPara", NS) is not None
+
+    vacio_real = (txt == "" and not brs and not tiene_drawing and not tiene_pict and not tiene_math)
+
+    return vacio_real or solo_page_break
+
 def _slug(s: str) -> str:
     t = _norm(s)
     t = t.replace(" ", "_")
@@ -2329,48 +2373,217 @@ def is_centered_bold_heading(p):
 
 def _reempacar_docx(work_dir: str, elementos_xml, destino_docx: str):
     tmp = tempfile.mkdtemp(prefix="docx_")
-    shutil.copytree(work_dir, tmp, dirs_exist_ok=True)
+    try:
+        shutil.copytree(work_dir, tmp, dirs_exist_ok=True)
 
-    doc_path = os.path.join(tmp, 'word', 'document.xml')
-    tree = ET.parse(doc_path)
-    root = tree.getroot()
-    body = root.find(W + 'body')
+        doc_path = os.path.join(tmp, "word", "document.xml")
+        tree = ET.parse(doc_path)
+        root = tree.getroot()
+        body = root.find(W + "body")
 
-    # 1) sectPr original (igual que ya tenías)
-    sectPr = body.find(W + 'sectPr')
-    if sectPr is None and len(list(body)) > 0:
-        last = list(body)[-1]
-        if last.tag == W + 'p':
-            pPr = last.find(W + 'pPr')
-            if pPr is not None:
-                sectPr = pPr.find(W + 'sectPr')
-    if sectPr is None:
-        sectPr = ET.Element(W + 'sectPr')
+        if body is None:
+            raise RuntimeError("No se encontró word/document.xml body")
 
-    # 2) limpiar body
-    for ch in list(body):
-        body.remove(ch)
+        originales = list(body)
 
-    # 3) añadir SOLO contenido saneado
-    for el in elementos_xml:
-        frag = copy.deepcopy(el)
-        _sanear_fragmento(frag)
-        body.append(frag)
+        # rescatar sectPr final del documento base
+        sectPr_final = None
 
-    # 4) remate válido: p vacío + sectPr final
-    body.append(ET.Element(W + 'p'))
-    body.append(copy.deepcopy(sectPr))
+        direct_sect = body.find(W + "sectPr")
+        if direct_sect is not None:
+            sectPr_final = copy.deepcopy(direct_sect)
 
-    tree.write(doc_path, xml_declaration=True, encoding='UTF-8', method='xml')
+        if sectPr_final is None:
+            for it in reversed(originales):
+                if it.tag == W + "p":
+                    pPr = it.find(W + "pPr")
+                    if pPr is not None:
+                        sp = pPr.find(W + "sectPr")
+                        if sp is not None:
+                            sectPr_final = copy.deepcopy(sp)
+                            break
 
-    with zipfile.ZipFile(destino_docx, 'w') as z:
-        for base, _, files in os.walk(tmp):
-            for f in files:
-                p = os.path.join(base, f)
-                z.write(p, os.path.relpath(p, tmp))
-    shutil.rmtree(tmp, ignore_errors=True)
+        if sectPr_final is None:
+            sectPr_final = ET.Element(W + "sectPr")
+
+        # vaciar body
+        for ch in list(body):
+            body.remove(ch)
+
+        appended = 0
+
+      # meter solo bloques válidos
+        for el in elementos_xml:
+            frag = copy.deepcopy(el)
+            _sanear_fragmento(frag)
+
+            # SOLO párrafos o tablas
+            if frag.tag not in {W + "p", W + "tbl"}:
+                continue
+
+            # quitar sectPr interno de párrafos
+            if frag.tag == W + "p":
+                pPr = frag.find(W + "pPr")
+                if pPr is not None:
+                    sp = pPr.find(W + "sectPr")
+                    if sp is not None:
+                        pPr.remove(sp)
+
+            body.append(frag)
+            appended += 1
+
+        # si quedó vacío, crea un párrafo vacío
+        if appended == 0:
+            body.append(ET.Element(W + "p"))
+
+        # asegurar que no haya sectPr directos antes del final
+        for ch in list(body):
+            if ch.tag == W + "sectPr":
+                body.remove(ch)
+
+        # cerrar con un único sectPr final
+        while len(body):
+            last = list(body)[-1]
+            if _parrafo_esta_vacio_o_es_solo_salto(last):
+                body.remove(last)
+            else:
+                break
 
 
+        body.append(copy.deepcopy(sectPr_final))
+        _normalizar_root_documento(root)
+
+        tree.write(doc_path, xml_declaration=True, encoding="UTF-8", method="xml")
+        root.set(
+            "{http://schemas.openxmlformats.org/markup-compatibility/2006}Ignorable",
+            "w14 wp14 wps a14"
+        )
+
+        with zipfile.ZipFile(destino_docx, "w", zipfile.ZIP_DEFLATED) as z:
+            for base, _, files in os.walk(tmp):
+                for f in files:
+                    p = os.path.join(base, f)
+                    z.write(p, os.path.relpath(p, tmp))
+
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+def guardar_pregunta_docx_wordcom(origen_docx: str, destino_docx: str, elementos_xml) -> tuple[bool, str | None]:
+    """
+    Prueba: crear un DOCX NUEVO limpio con Word y pegar dentro el contenido
+    extraído de la pregunta como texto plano estructurado.
+    No toca la detección XML; solo cambia la forma de guardar el DOCX final.
+    """
+    pythoncom.CoInitialize()
+    word = None
+    doc = None
+    try:
+        # 1) reconstruir texto visible desde los nodos XML detectados
+        bloques = []
+        for el in elementos_xml:
+            if el.tag == W + "p":
+                txt = paragraph_text(el)
+                bloques.append(txt if txt is not None else "")
+            elif el.tag == W + "tbl":
+                # fallback simple para tablas: marca visual
+                bloques.append("[TABLA]")
+
+        texto = "\r\n".join(bloques).strip()
+
+        # 2) crear docx nuevo limpio con Word
+        word = win32.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        doc = word.Documents.Add()
+
+        if texto:
+            doc.Content.Text = texto
+        else:
+            doc.Content.Text = ""
+
+        wdFormatXMLDocument = 12
+        doc.SaveAs(os.path.abspath(destino_docx), FileFormat=wdFormatXMLDocument)
+        doc.Close(False)
+        doc = None
+
+        if os.path.exists(destino_docx) and os.path.getsize(destino_docx) > 0:
+            return True, None
+
+        return False, "Word no generó el archivo."
+
+    except Exception as e:
+        try:
+            if doc is not None:
+                doc.Close(False)
+        except Exception:
+            pass
+        return False, str(e)
+
+    finally:
+        try:
+            if word is not None:
+                word.Quit()
+        except Exception:
+            pass
+        pythoncom.CoUninitialize()
+
+def guardar_pregunta_docx_desde_fuente_wordcom(origen_docx: str, destino_docx: str, elementos_xml) -> tuple[bool, str | None]:
+    """
+    Crea un DOCX NUEVO y limpio con Word, insertando el contenido visible
+    de la pregunta detectada. Aquí no se reconstruye document.xml a mano.
+    """
+    pythoncom.CoInitialize()
+    word = None
+    doc_new = None
+
+    try:
+        # reconstruir texto visible desde los nodos detectados
+        bloques = []
+        for el in elementos_xml:
+            if el.tag == W + "p":
+                txt = paragraph_text(el)
+                bloques.append(txt if txt is not None else "")
+            elif el.tag == W + "tbl":
+                # por ahora fallback textual
+                bloques.append("[TABLA]")
+
+        texto = "\r\n".join(bloques).strip()
+
+        word = win32.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        doc_new = word.Documents.Add()
+
+        if texto:
+            doc_new.Content.Text = texto
+        else:
+            doc_new.Content.Text = ""
+
+        wdFormatXMLDocument = 12
+        doc_new.SaveAs(os.path.abspath(destino_docx), FileFormat=wdFormatXMLDocument)
+        doc_new.Close(False)
+        doc_new = None
+
+        if os.path.exists(destino_docx) and os.path.getsize(destino_docx) > 0:
+            return True, None
+
+        return False, "Word no generó el archivo."
+    except Exception as e:
+        try:
+            if doc_new is not None:
+                doc_new.Close(False)
+        except Exception:
+            pass
+        return False, str(e)
+    finally:
+        try:
+            if word is not None:
+                word.Quit()
+        except Exception:
+            pass
+        pythoncom.CoUninitialize()
 def reparar_docx_inplace(path_in: str) -> None:
     pythoncom.CoInitialize()
     try:
@@ -2388,6 +2601,208 @@ def reparar_docx_inplace(path_in: str) -> None:
         except: pass
         pythoncom.CoUninitialize()
 
+def reparar_docx_fuerte(path_in: str) -> tuple[bool, str | None]:
+    """
+    Intenta abrir el DOCX con OpenAndRepair y re-guardarlo como DOCX limpio.
+    Devuelve (ok, error).
+    """
+    tmp_fixed = os.path.splitext(path_in)[0] + "_fixed.docx"
+
+    pythoncom.CoInitialize()
+    word = None
+    doc = None
+    try:
+        word = win32.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        # 1) abrir reparando
+        doc = word.Documents.Open(
+            path_in,
+            ReadOnly=False,
+            OpenAndRepair=True,
+            ConfirmConversions=False,
+            AddToRecentFiles=False,
+            Visible=False,
+        )
+
+        # 2) guardar como DOCX nuevo
+        wdFormatXMLDocument = 12
+        doc.SaveAs(tmp_fixed, FileFormat=wdFormatXMLDocument)
+        doc.Close(False)
+        doc = None
+
+        # 3) reemplazar el original por el reparado
+        if os.path.exists(tmp_fixed) and os.path.getsize(tmp_fixed) > 0:
+            shutil.move(tmp_fixed, path_in)
+            return True, None
+
+        return False, "Word no generó archivo reparado."
+
+    except Exception as e:
+        try:
+            if doc is not None:
+                doc.Close(False)
+        except Exception:
+            pass
+        try:
+            if os.path.exists(tmp_fixed):
+                os.remove(tmp_fixed)
+        except Exception:
+            pass
+        return False, str(e)
+
+    finally:
+        try:
+            if word is not None:
+                word.Quit()
+        except Exception:
+            pass
+        pythoncom.CoUninitialize()
+
+def normalizar_docx_fuente(path_in: str) -> tuple[str | None, str | None]:
+    """
+    Abre el DOCX fuente con Word (OpenAndRepair) y lo guarda como un DOCX nuevo limpio.
+    Devuelve (ruta_docx_limpio, error).
+    """
+    tmpdir = tempfile.mkdtemp(prefix="src_clean_")
+    path_out = os.path.join(
+        tmpdir,
+        os.path.splitext(os.path.basename(path_in))[0] + "_clean.docx"
+    )
+
+    pythoncom.CoInitialize()
+    word = None
+    doc = None
+    try:
+        word = win32.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        doc = word.Documents.Open(
+            os.path.abspath(path_in),
+            ReadOnly=False,
+            OpenAndRepair=True,
+            ConfirmConversions=False,
+            AddToRecentFiles=False,
+            Visible=False,
+        )
+
+        wdFormatXMLDocument = 12
+        doc.SaveAs(os.path.abspath(path_out), FileFormat=wdFormatXMLDocument)
+        doc.Close(False)
+        doc = None
+
+        if os.path.exists(path_out) and os.path.getsize(path_out) > 0:
+            return path_out, None
+
+        return None, "Word no generó el DOCX fuente limpio."
+    except Exception as e:
+        try:
+            if doc is not None:
+                doc.Close(False)
+        except Exception:
+            pass
+        return None, str(e)
+    finally:
+        try:
+            if word is not None:
+                word.Quit()
+        except Exception:
+            pass
+        pythoncom.CoUninitialize()
+
+def _texto_visible_de_bloque(el):
+    if el.tag == W + "p":
+        return (paragraph_text(el) or "").strip()
+    if el.tag == W + "tbl":
+        return "[TABLA]"
+    return ""
+
+def _buscar_rango_por_texto(doc, texto, start_pos=0):
+    """
+    Busca texto en Word y devuelve el Range si lo encuentra.
+    """
+    rng = doc.Range(start_pos, doc.Content.End)
+    find = rng.Find
+    find.ClearFormatting()
+    find.Text = texto
+    find.Forward = True
+    find.Wrap = 0  # wdFindStop
+    ok = find.Execute()
+    if ok:
+        return rng
+    return None
+
+def guardar_pregunta_docx_desde_rango_wordcom(origen_docx: str, destino_docx: str, elementos_xml) -> tuple[bool, str | None]:
+    pythoncom.CoInitialize()
+    word = None
+    src = None
+    dst = None
+
+    try:
+        # extraer anclas visibles
+        bloques_visibles = []
+        for el in elementos_xml:
+            txt = _texto_visible_de_bloque(el)
+            if txt:
+                bloques_visibles.append(txt)
+
+        if not bloques_visibles:
+            return False, "No se pudo obtener texto visible de la pregunta."
+
+        texto_inicio = bloques_visibles[0][:200].strip()
+        texto_fin = bloques_visibles[-1][:200].strip()
+
+        word = win32.DispatchEx("Word.Application")
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        src = word.Documents.Open(os.path.abspath(origen_docx), ReadOnly=True)
+        dst = word.Documents.Add()
+
+        rng_ini = _buscar_rango_por_texto(src, texto_inicio, 0)
+        if rng_ini is None:
+            return False, f"No se encontró inicio: {texto_inicio}"
+
+        rng_fin = _buscar_rango_por_texto(src, texto_fin, rng_ini.Start)
+        if rng_fin is None:
+            return False, f"No se encontró fin: {texto_fin}"
+
+        rng_copy = src.Range(rng_ini.Start, rng_fin.End)
+        dst.Range(0, 0).FormattedText = rng_copy.FormattedText
+
+        wdFormatXMLDocument = 12
+        dst.SaveAs(os.path.abspath(destino_docx), FileFormat=wdFormatXMLDocument)
+
+        dst.Close(False)
+        dst = None
+        src.Close(False)
+        src = None
+
+        if os.path.exists(destino_docx) and os.path.getsize(destino_docx) > 0:
+            return True, None
+
+        return False, "Word no generó el archivo."
+    except Exception as e:
+        return False, str(e)
+    finally:
+        try:
+            if dst is not None:
+                dst.Close(False)
+        except Exception:
+            pass
+        try:
+            if src is not None:
+                src.Close(False)
+        except Exception:
+            pass
+        try:
+            if word is not None:
+                word.Quit()
+        except Exception:
+            pass
+        pythoncom.CoUninitialize()
 # -----------------------------------------------------------------------------------
 # CRUD PREGUNTAS / PARTIR EXAMEN POR TEMAS (ROBUSTO)
 # -----------------------------------------------------------------------------------
@@ -2575,8 +2990,8 @@ def partir_y_guardar(idexamen):
 
     # ====== 1) Traer examen y TEMAS desde BD ======
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT archivo_ruta, archivo_nombre FROM examenes WHERE idexamenes=%s", (idexamen,))
+        conn = get_connection(); cur = conn.cursor()
+        cur.execute("SELECT archivo_ruta, archivo_nombre FROM examenes WHERE idexamenes=?", (idexamen,))
         exam = cur.fetchone()
         if not exam:
             cur.close(); conn.close()
@@ -2585,8 +3000,18 @@ def partir_y_guardar(idexamen):
         if not os.path.isfile(ruta_docx):
             cur.close(); conn.close()
             return jsonify({"error": f"Archivo DOCX no encontrado: {ruta_docx}"}), 500
+        
+        ruta_docx_split = ruta_docx
+        ruta_docx_limpio_tmp = None
 
-        cur.execute("SELECT id, nombre FROM temas")
+        ruta_docx_limpio_tmp, err_clean = normalizar_docx_fuente(ruta_docx)
+        if ruta_docx_limpio_tmp:
+            print(f"[PARTIR][SOURCE_CLEAN_OK] usando fuente limpia: {ruta_docx_limpio_tmp}")
+            ruta_docx_split = ruta_docx_limpio_tmp
+        else:
+            print(f"[PARTIR][SOURCE_CLEAN_BAD] se usará original: {err_clean}")
+
+        cur.execute("SELECT id, nombre FROM temario")
         temas_rows = cur.fetchall()
         cur.close(); conn.close()
     except Exception as e:
@@ -2631,7 +3056,7 @@ def partir_y_guardar(idexamen):
     if overwrite:
         try:
             conn = get_connection(); cur = conn.cursor()
-            cur.execute("DELETE FROM preguntas WHERE examenes_idexamenes=%s", (idexamen,))
+            cur.execute("DELETE FROM preguntas WHERE examenes_idexamenes=?", (idexamen,))
             conn.commit()
             cur.close(); conn.close()
         except Exception as e:
@@ -2643,7 +3068,7 @@ def partir_y_guardar(idexamen):
     # ====== 3) Unzip DOCX y numbering ======
     tmp_root = tempfile.mkdtemp(prefix="split_")
     work = os.path.join(tmp_root, "work"); os.mkdir(work)
-    with zipfile.ZipFile(ruta_docx, "r") as z:
+    with zipfile.ZipFile(ruta_docx_split, "r") as z:
         z.extractall(work)
 
     num_fmt_map = {}
@@ -2767,22 +3192,52 @@ def partir_y_guardar(idexamen):
 
             for idx, contenido in enumerate(preguntas, start=1):
                 nombre_archivo = f"{slugify(tema_nombre_bd)}_pregunta_{idx}.docx"
+               # ruta_archivo = os.path.abspath(os.path.join(out_dir, nombre_archivo))
+               # _reempacar_docx(work, contenido, ruta_archivo)
                 ruta_archivo = os.path.abspath(os.path.join(out_dir, nombre_archivo))
-                _reempacar_docx(work, contenido, ruta_archivo)
                 try:
-                    reparar_docx_inplace(ruta_archivo)   # ← limpia cualquier rastro dañino
-                except Exception:
-                    pass  # continúa aunque no se pueda reparar
+                    _reempacar_docx(work, contenido, ruta_archivo)
+                    ok_save, err_save = True, None
+                except Exception as e:
+                    ok_save, err_save = False, str(e)
+
+                if not ok_save:
+                    print(f"[PARTIR][SAVE_BAD] {ruta_archivo}: {err_save}")
+                    continue
+
+                print(f"[PARTIR][DOCX] creado: {ruta_archivo}")
+                print(f"[PARTIR][DOCX] existe={os.path.exists(ruta_archivo)} size={os.path.getsize(ruta_archivo) if os.path.exists(ruta_archivo) else -1}")
+
+                # 1) prueba rápida con python-docx
+                try:
+                    _ = DocxDocument(ruta_archivo)
+                    print(f"[PARTIR][DOCX_OK] python-docx abrió {ruta_archivo}")
+                except Exception as e:
+                    print(f"[PARTIR][DOCX_BAD] python-docx no pudo abrir {ruta_archivo}: {repr(e)}")
+
+                # 2) reparación fuerte con Word
+                #ok_fix, err_fix = reparar_docx_fuerte(ruta_archivo)
+                #if ok_fix:
+                #    print(f"[PARTIR][REPAIR_STRONG_OK] {ruta_archivo}")
+                #else:
+                #    print(f"[PARTIR][REPAIR_STRONG_BAD] {ruta_archivo}: {err_fix}")
+
+                # 3) validar el resultado final reparado
+                try:
+                    _ = DocxDocument(ruta_archivo)
+                    print(f"[PARTIR][POST_REPAIR_OK] python-docx abrió reparado {ruta_archivo}")
+                except Exception as e:
+                    print(f"[PARTIR][POST_REPAIR_BAD] sigue dañado {ruta_archivo}: {repr(e)}")
 
 
                 cur.execute("""
                     SELECT 1 FROM preguntas
-                    WHERE examenes_idexamenes=%s AND tema_id=%s AND numero_p=%s
+                    WHERE examenes_idexamenes=? AND tema_id=? AND numero_p=?
                 """, (idexamen, tema_id, idx))
                 if not cur.fetchone():
                     cur.execute("""
                         INSERT INTO preguntas (examenes_idexamenes, tema_id, numero_p, archivo_nombre, archivo_ruta)
-                        VALUES (%s, %s, %s, %s, %s)
+                        VALUES (?, ?, ?, ?, ?)
                     """, (idexamen, tema_id, idx, nombre_archivo, ruta_archivo))
                     insertados += 1
 
@@ -2797,6 +3252,11 @@ def partir_y_guardar(idexamen):
             pass
         shutil.rmtree(tmp_root, ignore_errors=True)
         return jsonify({"error": f"Fallo guardando en BD: {e}"}), 500
+    if ruta_docx_limpio_tmp:
+        try:
+            shutil.rmtree(os.path.dirname(ruta_docx_limpio_tmp), ignore_errors=True)
+        except Exception:
+            pass
 
     shutil.rmtree(tmp_root, ignore_errors=True)
     return jsonify({
@@ -2814,21 +3274,25 @@ def partir_y_guardar(idexamen):
 # === TEMAS DE UN EXAMEN (para el modal "Buscar") ===
 def _temas_de_examen_impl(idexamen: int):
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
+        conn = get_connection()
+        cur = conn.cursor()
         cur.execute("""
             SELECT  t.id, t.nombre, t.activo,
                     COALESCE(COUNT(p.idpreguntas), 0) AS n_preguntas
-            FROM temas t
+            FROM temario t
             LEFT JOIN preguntas p
                    ON p.tema_id = t.id
-                  AND p.examenes_idexamenes = %s
+                  AND p.examenes_idexamenes = ?
             GROUP BY t.id, t.nombre, t.activo
-            ORDER BY t.nombre;
+            ORDER BY t.nombre
         """, (idexamen,))
-        rows = cur.fetchall()
-        cur.close(); conn.close()
+        rows = _row_to_dict_list(cur)
+        cur.close()
+        conn.close()
         return jsonify(rows)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 # Un único handler que normaliza el id (venga como string o int)
@@ -2884,9 +3348,9 @@ def preguntas_listar():
     where = []
     params = []
     if examen_id is not None:
-        where.append("examenes_idexamenes=%s"); params.append(examen_id)
+        where.append("examenes_idexamenes=?"); params.append(examen_id)
     if tema_id is not None:
-        where.append("tema_id=%s"); params.append(tema_id)
+        where.append("tema_id=?"); params.append(tema_id)
 
     sql = """
         SELECT idpreguntas, examenes_idexamenes, tema_id,
@@ -2898,9 +3362,9 @@ def preguntas_listar():
     sql += " ORDER BY numero_p"
 
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
+        conn = get_connection(); cur = conn.cursor()
         cur.execute(sql, tuple(params))
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         cur.close(); conn.close()
         return jsonify(rows)
     except Exception as e:
@@ -2918,7 +3382,7 @@ def _sanitize_clave(clave: str) -> str:
 def grupos_listar():
     include_all = request.args.get("all") == "1"
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
+        conn = get_connection(); cur = conn.cursor()
         sql = """
             SELECT g.idgrupo, g.clave, g.nombre, g.activo, g.fecha_creacion,
                    COALESCE(SUM(gt.cantidad), 0) AS total_preguntas
@@ -2932,7 +3396,7 @@ def grupos_listar():
             ORDER BY g.clave
         """
         cur.execute(sql)
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         cur.close(); conn.close()
         return jsonify(rows)
     except Exception as e:
@@ -2955,12 +3419,12 @@ def grupos_crear():
 
     try:
         conn = get_connection(); cur = conn.cursor()
-        cur.execute("SELECT 1 FROM grupos WHERE UPPER(clave)=UPPER(%s)", (clave,))
+        cur.execute("SELECT 1 FROM grupos WHERE UPPER(clave)=UPPER(?)", (clave,))
         if cur.fetchone():
             cur.close(); conn.close()
             return jsonify({"error": f"Ya existe un grupo con clave '{clave}'"}), 409
 
-        cur.execute("INSERT INTO grupos (clave, nombre, activo) VALUES (%s,%s,1)", (clave, nombre))
+        cur.execute("INSERT INTO grupos (clave, nombre, activo) VALUES (?,?,1)", (clave, nombre))
         idgrupo = cur.lastrowid
 
         for c in cuotas:
@@ -2969,8 +3433,8 @@ def grupos_crear():
                 continue
             cur.execute("""
                 INSERT INTO grupo_tema (grupos_idgrupo, tema_id, cantidad)
-                VALUES (%s,%s,%s)
-                ON DUPLICATE KEY UPDATE cantidad=VALUES(cantidad)
+                VALUES (?,?,?)
+                ON CONFLICT(grupos_idgrupo, tema_id) DO UPDATE SET cantidad=excluded.cantidad
             """, (idgrupo, tema_id, cant))
 
         conn.commit()
@@ -2997,20 +3461,20 @@ def grupos_editar(idgrupo):
         clave = _sanitize_clave(clave)
         if not clave:
             return jsonify({"error": "La 'clave' no puede ser vacía"}), 400
-        updates.append("clave=%s"); params.append(clave)
+        updates.append("clave=?"); params.append(clave)
 
     if nombre is not None:
         nombre = (nombre or "").strip()
         if len(nombre) > 100:
             return jsonify({"error": "El 'nombre' admite máximo 100 caracteres"}), 400
-        updates.append("nombre=%s"); params.append(nombre)
+        updates.append("nombre=?"); params.append(nombre)
 
     if activo is not None:
         try:
             activo = 1 if int(activo) else 0
         except Exception:
             return jsonify({"error": "El campo 'activo' debe ser 0 o 1"}), 400
-        updates.append("activo=%s"); params.append(activo)
+        updates.append("activo=?"); params.append(activo)
 
     if not updates:
         return jsonify({"error": "No hay campos para actualizar"}), 400
@@ -3019,13 +3483,13 @@ def grupos_editar(idgrupo):
         conn = get_connection(); cur = conn.cursor()
 
         # Chequeo de duplicado de clave si se cambia
-        if "clave=%s" in updates:
-            cur.execute("SELECT idgrupo FROM grupos WHERE UPPER(clave)=UPPER(%s) AND idgrupo<>%s", (clave, idgrupo))
+        if "clave=?" in updates:
+            cur.execute("SELECT idgrupo FROM grupos WHERE UPPER(clave)=UPPER(?) AND idgrupo<>?", (clave, idgrupo))
             if cur.fetchone():
                 cur.close(); conn.close()
                 return jsonify({"error": f"Ya existe otro grupo con clave '{clave}'"}), 409
 
-        sql = f"UPDATE grupos SET {', '.join(updates)} WHERE idgrupo=%s"
+        sql = f"UPDATE grupos SET {', '.join(updates)} WHERE idgrupo=?"
         params.append(idgrupo)
         cur.execute(sql, tuple(params))
         conn.commit()
@@ -3040,7 +3504,7 @@ def grupos_toggle(idgrupo):
     """Activa/Desactiva un grupo (soft)."""
     try:
         conn = get_connection(); cur = conn.cursor()
-        cur.execute("UPDATE grupos SET activo = 1 - activo WHERE idgrupo=%s", (idgrupo,))
+        cur.execute("UPDATE grupos SET activo = 1 - activo WHERE idgrupo=?", (idgrupo,))
         conn.commit()
         cur.close(); conn.close()
         return jsonify({"exito": True})
@@ -3052,32 +3516,30 @@ def grupos_toggle(idgrupo):
 def grupos_eliminar(idgrupo):
     """
     Borrado definitivo.
-    - Bloquea si hay cuotas en grupo_tema o exámenes generados.
-    - ?force=1 elimina primero sus cuotas (NO borra exámenes generados).
+    - Bloquea si hay cuotas en grupo_tema
+    - ?force=1 elimina primero sus cuotas
     """
     force = request.args.get("force") == "1"
     try:
         conn = get_connection(); cur = conn.cursor()
 
-        cur.execute("SELECT COUNT(*) FROM grupo_tema WHERE grupos_idgrupo=%s", (idgrupo,))
-        n_gt = cur.fetchone()[0]
-        cur.execute("SELECT COUNT(*) FROM examen_generado WHERE grupos_idgrupo=%s", (idgrupo,))
-        n_gen = cur.fetchone()[0]
+        cur.execute("SELECT COUNT(*) FROM grupo_tema WHERE grupos_idgrupo=?", (idgrupo,))
+        n_gt = int(cur.fetchone()[0] or 0)
 
-        if (n_gt > 0 or n_gen > 0) and not force:
+        if n_gt > 0 and not force:
             cur.close(); conn.close()
-            return jsonify({"error": f"No se puede borrar: cuotas={n_gt}, generados={n_gen}. Desactívalo o usa force=1."}), 409
+            return jsonify({"error": f"No se puede borrar: cuotas={n_gt}. Desactívalo o usa force=1."}), 409
 
         if force and n_gt > 0:
-            cur.execute("DELETE FROM grupo_tema WHERE grupos_idgrupo=%s", (idgrupo,))
+            cur.execute("DELETE FROM grupo_tema WHERE grupos_idgrupo=?", (idgrupo,))
 
-        # Por seguridad NO borramos examen_generado. Si existe FK, el delete fallará.
-        cur.execute("DELETE FROM grupos WHERE idgrupo=%s", (idgrupo,))
+        cur.execute("DELETE FROM grupos WHERE idgrupo=?", (idgrupo,))
         conn.commit()
         cur.close(); conn.close()
         return jsonify({"exito": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 
 # =======================
@@ -3087,16 +3549,16 @@ def grupos_eliminar(idgrupo):
 @app.route("/api/grupos/<clave>/cuotas", methods=["GET"])
 def grupos_cuotas_get(clave):
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
+        conn = get_connection(); cur = conn.cursor()
         cur.execute("""
             SELECT t.id AS tema_id, t.nombre AS tema, gt.cantidad
             FROM grupo_tema gt
             JOIN grupos g ON g.idgrupo = gt.grupos_idgrupo
-            JOIN temas  t ON t.id     = gt.tema_id
-            WHERE g.clave = %s
+            JOIN temario  t ON t.id     = gt.tema_id
+            WHERE g.clave = ?
             ORDER BY t.nombre
         """, (clave.upper(),))
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         cur.close(); conn.close()
         return jsonify(rows)
     except Exception as e:
@@ -3108,15 +3570,15 @@ def grupos_cuotas_get(clave):
 @app.route("/api/grupos/<int:idgrupo>/cuotas", methods=["GET"])
 def grupo_cuotas_get(idgrupo):
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
+        conn = get_connection(); cur = conn.cursor()
         cur.execute("""
             SELECT gt.tema_id, t.nombre AS tema, gt.cantidad
             FROM grupo_tema gt
-            JOIN temas t ON t.id = gt.tema_id
-            WHERE gt.grupos_idgrupo = %s
-            ORDER BY t.nombre
+            JOIN temario t ON t.id = gt.tema_id
+            WHERE gt.grupos_idgrupo = ?
+            ORDER BY gt.orden, t.nombre
         """, (idgrupo,))
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         cur.close(); conn.close()
         return jsonify(rows)
     except Exception as e:
@@ -3134,21 +3596,29 @@ def grupo_cuotas_put(idgrupo):
         tema_ids = [int(c["tema_id"]) for c in cuotas if "tema_id" in c]
         # Borra las que ya no están
         if tema_ids:
+            placeholders = ",".join(["?"] * len(tema_ids))
             cur.execute(
-                "DELETE FROM grupo_tema WHERE grupos_idgrupo=%s AND tema_id NOT IN (%s)" %
-                ("%s", ",".join(["%s"]*len(tema_ids))),
+                f"DELETE FROM grupo_tema WHERE grupos_idgrupo=? AND tema_id NOT IN ({placeholders})",
                 (idgrupo, *tema_ids)
             )
         else:
-            cur.execute("DELETE FROM grupo_tema WHERE grupos_idgrupo=%s", (idgrupo,))
+            cur.execute("DELETE FROM grupo_tema WHERE grupos_idgrupo=?", (idgrupo,))
 
         # Upsert de cada cuota (asegúrate de tener UNIQUE (grupos_idgrupo, tema_id))
         for c in cuotas:
             cur.execute("""
-                INSERT INTO grupo_tema (grupos_idgrupo, tema_id, cantidad)
-                VALUES (%s, %s, %s)
-                ON DUPLICATE KEY UPDATE cantidad=VALUES(cantidad)
-            """, (idgrupo, int(c["tema_id"]), int(c["cantidad"])))
+                INSERT INTO grupo_tema (grupos_idgrupo, tema_id, cantidad, orden)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(grupos_idgrupo, tema_id)
+                DO UPDATE SET
+                    cantidad = excluded.cantidad,
+                    orden = excluded.orden
+            """, (
+                idgrupo,
+                int(c["tema_id"]),
+                int(c["cantidad"]),
+                int(c.get("orden", 0))
+            ))
 
         conn.commit()
         cur.close(); conn.close()
@@ -3171,10 +3641,10 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
         return jsonify({"error": "formato inválido (word|pdf)"}), 400
 
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
+        conn = get_connection(); cur = conn.cursor()
 
         # Datos del grupo
-        cur.execute("SELECT idgrupo, clave, nombre FROM grupos WHERE idgrupo=%s", (idgrupo,))
+        cur.execute("SELECT idgrupo, clave, nombre FROM grupos WHERE idgrupo=?", (idgrupo,))
         g = cur.fetchone()
         if not g:
             cur.close(); conn.close()
@@ -3185,8 +3655,8 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
         cur.execute("""
             SELECT gt.tema_id, t.nombre AS tema, gt.cantidad
             FROM grupo_tema gt
-            JOIN temas t ON t.id = gt.tema_id
-            WHERE gt.grupos_idgrupo = %s
+            JOIN temario t ON t.id = gt.tema_id
+            WHERE gt.grupos_idgrupo = ?
             ORDER BY t.nombre
         """, (idgrupo,))
         cuotas = cur.fetchall()
@@ -3208,7 +3678,7 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
         cur.execute(
             "SELECT tema_id, COUNT(*) AS disponibles "
             "FROM preguntas "
-            "WHERE tema_id IN (" + ",".join(["%s"]*len(tema_ids)) + ") "
+            "WHERE tema_id IN (" + ",".join(["?"]*len(tema_ids)) + ") "
             "GROUP BY tema_id", tuple(tema_ids)
         )
         disp = cur.fetchall()
@@ -3239,82 +3709,220 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
 
         # Selección aleatoria
         # --- Selección aleatoria agrupada por tema (respeta el orden de cuotas) ---
+                # =========================================================
+        # DEBUG PASO 1: construir selección agrupada por tema
+        # Aquí sabremos exactamente qué archivos entran al examen
+        # =========================================================
+        print("\n" + "=" * 80)
+        print(f"[GEN_EXAMEN] Inicio generación grupo id={idgrupo} clave={clave}")
+        print(f"[GEN_EXAMEN] formato={formato}")
+        print(f"[GEN_EXAMEN] total cuotas={len(cuotas)}")
+        print("=" * 80)
+
         grouped = []  # [(tema_nombre, [ruta_docx, ...]), ...]
         for c in cuotas:
             tema_nombre = c["tema"]
             cantidad = int(c["cantidad"])
             if cantidad <= 0:
+                print(f"[GEN_EXAMEN][SKIP] tema='{tema_nombre}' cantidad=0")
                 continue
+
+            print(f"[GEN_EXAMEN][DB] buscando preguntas tema='{tema_nombre}' cantidad={cantidad}")
 
             cur.execute("""
                 SELECT archivo_ruta
                 FROM preguntas
-                WHERE tema_id = %s
-                ORDER BY RAND()
-                LIMIT %s
+                WHERE tema_id = ?
+                ORDER BY RANDOM()
+                LIMIT ?
             """, (c["tema_id"], cantidad))
             filas = cur.fetchall()
+
+            print(f"[GEN_EXAMEN][DB] tema='{tema_nombre}' encontradas={len(filas)}")
+
             if len(filas) < cantidad:
                 cur.close(); conn.close()
                 return jsonify({"ok": False, "error": "Stock insuficiente inesperado."}), 409
 
             paths = [os.path.abspath(f["archivo_ruta"]) for f in filas]
+
+            # DEBUG: listar cada archivo elegido
+            for k, p in enumerate(paths, start=1):
+                existe = os.path.exists(p)
+                tam = os.path.getsize(p) if existe else -1
+                print(f"[GEN_EXAMEN][PATH] tema='{tema_nombre}' idx={k}/{len(paths)} existe={existe} size={tam} path={p}")
+
             grouped.append((tema_nombre, paths))
 
-            # justo después de construir 'grouped'
+        # DEBUG: revisar si algún grupo quedó vacío
         vacios = [(t, len(fs)) for (t, fs) in grouped if not fs]
         if vacios:
-            return jsonify({"ok": False, "error": "No se encontraron preguntas para algunos temas",
-                            "detalles": [{"tema": t, "encontradas": n} for t, n in vacios]}), 409
+            print("[GEN_EXAMEN][ERROR] temas vacíos:", vacios)
+            return jsonify({
+                "ok": False,
+                "error": "No se encontraron preguntas para algunos temario",
+                "detalles": [{"tema": t, "encontradas": n} for t, n in vacios]
+            }), 409
 
-                # --- Unir y normalizar (igual que ya tienes) ---
-               # --- Unir y normalizar ---
+        # =========================================================
+        # DEBUG PASO 2: aplanar lista final de DOCX a unir
+        # Aquí vemos el ORDEN exacto en que se intentará insertar
+        # =========================================================
         ts = time.strftime("%Y-%m-%d %H-%M")
-        # timestamp legible
         friendly = f"Examen del grupo {clave} - {ts}"
-        # NOMBRE AMIGABLE
-
         base_name = f"{friendly}.docx"
-
-
         destino_docx = os.path.join(app.config['DESCARGAS_FOLDER'], base_name)
 
-        # Puedes forzar COM con ?com=1 (Windows). Por defecto usamos el camino Python (estable).
-        usar_com = (request.args.get("com") == "1") and _com_disponible()
-        if not usar_com and Composer is None and _com_disponible():
-            usar_com = True 
+        flat = []
+        for tema, files in grouped:
+            for f in files:
+                flat.append((os.path.abspath(f), False))
+
+        print(f"[GEN_EXAMEN][FLAT] total archivos a unir={len(flat)}")
+        for i, (p, _flag) in enumerate(flat, start=1):
+            existe = os.path.exists(p)
+            tam = os.path.getsize(p) if existe else -1
+            print(f"[GEN_EXAMEN][FLAT_ITEM] {i}/{len(flat)} existe={existe} size={tam} path={p}")
+
+        # DEBUG: validar si hay archivos faltantes antes del merge
+        faltan_en_disco = [p for (p, _flag) in flat if not os.path.exists(p)]
+        if faltan_en_disco:
+            print("[GEN_EXAMEN][ERROR] faltan archivos en disco:")
+            for p in faltan_en_disco:
+                print("   -", p)
+            return jsonify({
+                "ok": False,
+                "error": "Hay preguntas seleccionadas cuyo archivo no existe en disco.",
+                "detalles": [{"path": p, "motivo": "archivo no existe"} for p in faltan_en_disco]
+            }), 409
+
+        # =========================================================
+        # DEBUG PASO 3: probar apertura simple de cada DOCX antes del merge
+        # Si uno ya viene dañado, aquí lo detectamos antes de unir
+        # =========================================================
+        docx_invalidos = []
+        docx_reparacion_fallida = []
+
+        for i, (p, _flag) in enumerate(flat, start=1):
+            try:
+                _ = DocxDocument(p)
+                print(f"[GEN_EXAMEN][DOCX_OK] {i}/{len(flat)} {p}")
+                # si abre bien con python-docx, NO lo fuerces a reparar
+                continue
+            except Exception as e:
+                print(f"[GEN_EXAMEN][DOCX_BAD] {i}/{len(flat)} path={p} error={repr(e)}")
+
+            # solo si realmente falló, intenta reparación fuerte
+            ok_fix, err_fix = reparar_docx_fuerte(p)
+            if ok_fix:
+                print(f"[GEN_EXAMEN][PREMERGE_REPAIR_OK] {i}/{len(flat)} {p}")
+                try:
+                    _ = DocxDocument(p)
+                    print(f"[GEN_EXAMEN][POST_REPAIR_OK] {i}/{len(flat)} {p}")
+                except Exception as e2:
+                    print(f"[GEN_EXAMEN][POST_REPAIR_BAD] {i}/{len(flat)} {p} -> {repr(e2)}")
+                    docx_reparacion_fallida.append((p, f"Reparó pero sigue inválido: {e2}"))
+            else:
+                print(f"[GEN_EXAMEN][PREMERGE_REPAIR_BAD] {i}/{len(flat)} {p} -> {err_fix}")
+                docx_reparacion_fallida.append((p, err_fix or "sin detalle"))
+
+        if docx_reparacion_fallida:
+            return jsonify({
+                "ok": False,
+                "error": "Hay preguntas con DOCX realmente dañados antes del merge.",
+                "detalles": [{"path": p, "motivo": m} for (p, m) in docx_reparacion_fallida]
+            }), 409
+
+        # =========================================================
+        # DEBUG PASO 4: merge final
+        # =========================================================
         malos = []
-        if usar_com:
-            # COM (Word) + títulos
+        print(f"[GEN_EXAMEN][MERGE] destino_docx={destino_docx}")
+        print(f"[GEN_EXAMEN][MERGE] _com_disponible()={_com_disponible()} Composer={Composer is not None}")
+
+        if _com_disponible():
+            print("[GEN_EXAMEN][MERGE] usando _merge_grouped_with_headings_wordcom(grouped, destino_docx)")
             destino_docx, _, malos = _merge_grouped_with_headings_wordcom(grouped, destino_docx)
         else:
-            # Python (docxcompose) + títulos
+            print("[GEN_EXAMEN][MERGE] usando _merge_grouped_with_headings(grouped, destino_docx)")
             destino_docx, _, malos = _merge_grouped_with_headings(grouped, destino_docx)
-            # Normaliza numeración decimal como en tu Colab
-            try:
-                _post_merge_fix_numbering(destino_docx)    # fuerza numId=1 ilvl=0 para 'decimal'
-            except Exception:
-                pass
-            # Secciones continuas y limpieza opcional
-            try:
-                _hacer_secciones_continuas(destino_docx)   # cambia nextPage->continuous y quita <w:br type="page"/>
-            except Exception:
-                pass
-       # ... después de producir destino_docx (con COM o con python) ...
+       
+
+        print(f"[GEN_EXAMEN][MERGE] terminado destino={destino_docx}")
+        print(f"[GEN_EXAMEN][MERGE] malos={malos}")
+
+        if malos:
+            print("⚠️ Fallaron inserciones en merge:")
+            for p, m in malos:
+                print(f"   - path={p}")
+                print(f"     motivo={m}")
+            return jsonify({
+                "ok": False,
+                "error": "No se pudo armar el examen completo porque algunas preguntas no pudieron insertarse.",
+                "detalles": [{"path": p, "motivo": m} for (p, m) in malos]
+            }), 409
+
+        # =========================================================
+        # DEBUG PASO 5: verificar DOCX resultante
+        # =========================================================
+        existe_final = os.path.exists(destino_docx)
+        size_final = os.path.getsize(destino_docx) if existe_final else -1
+        print(f"[GEN_EXAMEN][FINAL_DOCX] existe={existe_final} size={size_final} path={destino_docx}")
+
         try:
-            # 🔁 Convierte cualquier viñeta a numeración 1., 2., 3., …
-            bullets_to_numbers_docx(destino_docx)
-        except Exception as _e:
-            # no abortes la generación por esto: lo dejamos como advertencia silenciosa
-           print("bullet->decimal warning:", _e)
+            _ = DocxDocument(destino_docx)
+            print("[GEN_EXAMEN][FINAL_DOCX] DocxDocument abrió el resultado correctamente")
+        except Exception as e:
+            print("[GEN_EXAMEN][FINAL_DOCX_BAD] el DOCX final ya salió dañado:", repr(e))
+            return jsonify({
+                "ok": False,
+                "error": f"El DOCX final quedó inválido después del merge. Detalle: {e}"
+            }), 500
 
-
-
-        # Reparación/compactado con Word si está disponible (opcional pero útil tras editar XML)
+        # =========================================================
+        # DEBUG PASO 6: reparación con Word
+        # =========================================================
         try:
+            print("[GEN_EXAMEN][REPAIR] intentando reparar_docx_inplace...")
             reparar_docx_inplace(destino_docx)
-        except Exception:
-            pass
+            print("[GEN_EXAMEN][REPAIR] OK")
+        except Exception as e:
+            print("[GEN_EXAMEN][REPAIR] aviso:", repr(e))
+
+        # Puedes forzar COM con ?com=1 (Windows). Por defecto usamos el camino Python (estable).
+        #usar_com = (request.args.get("com") == "1") and _com_disponible()
+        #if not usar_com and Composer is None and _com_disponible():
+         #   usar_com = True 
+        #malos = []
+        #if usar_com:
+            # COM (Word) + títulos
+        #    destino_docx, _, malos = _merge_grouped_with_headings_wordcom(grouped, destino_docx)
+        #else:
+            # Python (docxcompose) + títulos
+        #    destino_docx, _, malos = _merge_grouped_with_headings(grouped, destino_docx)
+            # Normaliza numeración decimal como en tu Colab
+        #    try:
+        #        _post_merge_fix_numbering(destino_docx)    # fuerza numId=1 ilvl=0 para 'decimal'
+        #    except Exception:
+        #        pass
+            # Secciones continuas y limpieza opcional
+        #    try:
+        #        _hacer_secciones_continuas(destino_docx)   # cambia nextPage->continuous y quita <w:br type="page"/>
+        #    except Exception:
+        #        pass
+        
+       # ... después de producir destino_docx (con COM o con python) ...
+        # Temporalmente desactivado para no alterar el DOCX final recién unido
+        # try:
+        #     bullets_to_numbers_docx(destino_docx)
+        # except Exception as _e:
+        #    print("bullet->decimal warning:", _e)
+
+        # try:
+        #     reparar_docx_inplace(destino_docx)
+        # except Exception:
+        #     pass
+
         # === Vista previa HTML (Word -> Web Page, Filtered) ===
       #  try:
             # Carpeta única por examen dentro de /static/previews
@@ -3344,40 +3952,44 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
         ruta_pdf_inline = None
 
             # 🔧 Normaliza el DOCX con Word para evitar “archivo corrompido”
-        try:
-            tmp_norm = os.path.join(app.config['DESCARGAS_FOLDER'], "_tmp_norm.docx")
-            resave_docx_formatted(destino_docx, tmp_norm)
-            shutil.move(tmp_norm, destino_docx)  # reescribe el original normalizado
-        except Exception as _e:
-            print("[normalize] aviso:", _e)
+      # try:
+    #     tmp_norm = os.path.join(app.config['DESCARGAS_FOLDER'], "_tmp_norm.docx")
+    #     resave_docx_formatted(destino_docx, tmp_norm)
+    #     shutil.move(tmp_norm, destino_docx)
+    # except Exception as _e:
+    #     print("[normalize] aviso:", _e)
 
        # 1) convertir DOCX -> PDF directamente al destino final
+         #   pdf_error = None
+
         try:
             pdf_generado = docx_a_pdf(destino_docx, pdf_final)
             print("[PDF grupos] OK:", pdf_generado, "size=",
                 os.path.getsize(pdf_generado) if os.path.exists(pdf_generado) else 0)
 
-            ruta_rel_pdf    = f"/api/descargas/{pdf_name}"         # descarga
+            ruta_rel_pdf    = f"/api/descargas/{pdf_name}"
             ruta_pdf_dl     = ruta_rel_pdf
-            ruta_pdf_inline = f"/descargas/{pdf_name}"             # preview en <iframe>
+            ruta_pdf_inline = f"/api/descargas/{pdf_name}"
         except Exception as e:
+            pdf_error = str(e)
             print("[PDF grupos] ERROR al convertir:", repr(e))
-            ruta_rel_pdf = ruta_pdf_dl = ruta_pdf_inline = None     # forzar fallback a HTML
+            traceback.print_exc()
+            ruta_rel_pdf = ruta_pdf_dl = ruta_pdf_inline = None
 
 
         # 2) rutas de descarga del DOCX (esto ya lo tenías)
         ruta_docx_dl = f"/api/descargas/{base_name}"
 
+       
         # 3) decidir qué mostrar en el iframe
-        if ruta_pdf_inline:
-            # tenemos PDF bueno → forzamos PDF
-            preview_url  = ruta_pdf_inline
-            preview_kind = "pdf"
-        else:
-            # no hubo PDF → generamos HTML como siempre
-            html_abs = generar_html_desde_docx(destino_docx, nombre_base=f"{friendly}_preview")
-            preview_url  = f"/descargas/{os.path.basename(html_abs)}" if html_abs else None
-            preview_kind = "html"
+        if not ruta_pdf_inline:
+            return jsonify({
+                "ok": False,
+                "error": f"No se pudo generar el PDF del examen para la vista previa. Detalle: {pdf_error or 'sin detalle'}"
+            }), 500
+
+        preview_url = ruta_pdf_inline
+        preview_kind = "pdf"
 
         # 4) armar respuesta
         result = {
@@ -3416,7 +4028,7 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
 
 
     except Exception as e:
-        import traceback; traceback.print_exc()
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -3430,7 +4042,7 @@ def grupos_generar_doc_por_id(idgrupo: int):
 def grupos_generar_doc_por_clave(clave: str):
     try:
         conn = get_connection(); cur = conn.cursor()
-        cur.execute("SELECT idgrupo FROM grupos WHERE UPPER(clave)=UPPER(%s)", (clave,))
+        cur.execute("SELECT idgrupo FROM grupos WHERE UPPER(clave)=UPPER(?)", (clave,))
         row = cur.fetchone()
         cur.close(); conn.close()
         if not row:
@@ -3488,13 +4100,90 @@ def _tiene_texto_o_contenido(p):
         data = b''.join(z.read(n) for n in names if n in z.namelist())
     return any(pat in data for pat in patterns)
 
+def _build_parent_map(root):
+    return {child: parent for parent in root.iter() for child in list(parent)}
+
+def _drop_node(node, parent_map):
+    parent = parent_map.get(node)
+    if parent is not None:
+        try:
+            parent.remove(node)
+        except Exception:
+            pass
+
+def _unwrap_node(node, parent_map):
+    """
+    Quita el nodo contenedor pero conserva sus hijos en la misma posición.
+    """
+    parent = parent_map.get(node)
+    if parent is None:
+        return
+
+    children = list(node)
+    try:
+        idx = list(parent).index(node)
+    except ValueError:
+        idx = len(list(parent))
+
+    # insertar hijos en la posición del wrapper
+    for off, ch in enumerate(children):
+        node.remove(ch)
+        parent.insert(idx + off, ch)
+
+    try:
+        parent.remove(node)
+    except Exception:
+        pass
+
+def _strip_rsid_attrs(root):
+    for node in root.iter():
+        for attr in list(node.attrib.keys()):
+            # rsidR, rsidRPr, rsidDel, rsidP, etc.
+            if attr.startswith(W + "rsid") or attr.endswith("}rsid") or "rsid" in attr:
+                node.attrib.pop(attr, None)
+
+
+def _normalizar_root_documento(root):
+    MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
+    WORD2010 = "http://schemas.microsoft.com/office/word/2010/wordml"
+
+    ignorable_attr = "{%s}Ignorable" % MC
+
+    # Si usas ns2 para paraId/textId, Word no necesita que diga w14 si no existe.
+    # Lo más seguro aquí es dejar solo prefijos realmente presentes.
+    # En tu caso, el prefijo real visible es ns2.
+    ignorable_actual = root.attrib.get(ignorable_attr, "")
+
+    # Si existe ns2 en el root, usa ns2 como ignorable en lugar de w14
+    tiene_ns2 = any(
+        k.startswith("{http://www.w3.org/2000/xmlns/}") and v == WORD2010
+        for k, v in root.attrib.items()
+    )
+
+    if tiene_ns2:
+        root.set("{http://schemas.openxmlformats.org/markup-compatibility/2006}Ignorable", "w14 w15 w16se w16cid wp14")
+    else:
+        # si no quieres arriesgarte, mejor quitarlo que dejarlo inválido
+        root.attrib.pop(ignorable_attr, None)
+
 def _sanear_fragmento(el):
     """
-    Elimina elementos que suelen quedar desbalanceados al recortar:
-    bookmarks, rangos de comentarios, control de cambios, proofErr, y
-    sectPr internos (conservaremos solo el sectPr final en el body).
+    Sanea fragmento OOXML sin romper el esquema de Word.
+    Regla clave:
+    - NO desenvolver w:sdt de forma genérica
+    - si aparece w:sdt, extraer SOLO su w:sdtContent
     """
-    BAD_TAGS = {
+
+    SAFE_UNWRAP_TAGS = {
+        W + "ins",
+        W + "moveFrom",
+        W + "moveTo",
+        W + "smartTag",
+        W + "hyperlink",
+        W + "customXml",
+    }
+
+    DROP_TAGS = {
         W + "bookmarkStart",
         W + "bookmarkEnd",
         W + "commentRangeStart",
@@ -3503,32 +4192,142 @@ def _sanear_fragmento(el):
         W + "proofErr",
         W + "permStart",
         W + "permEnd",
-        W + "moveFrom",
-        W + "moveTo",
-        W + "ins",
-        W + "del",
-        W + "smartTag",
-        W + "sectPr",  # NO queremos sectPr dentro de párrafos copiados
+        W + "lastRenderedPageBreak",
+        W + "sectPr",
+        W + "sdtPr",
+        W + "sdtEndPr",
     }
-    # recorrer en profundidad y borrar las malas
-    for bad in list(el.iter()):
-        if bad.tag in BAD_TAGS:
-            parent = bad.getparent() if hasattr(bad, "getparent") else None
-            # ElementTree estándar no tiene getparent; hacemos workaround:
-            if parent is None:
-                # buscar padre manualmente
-                for anc in el.iter():
-                    for ch in list(anc):
-                        if ch is bad:
-                            anc.remove(ch)
-                            break
-            else:
-                parent.remove(bad)
-    # limpia atributos de control de cambios/rastros
-    for node in el.iter():
-        for attr in list(node.attrib.keys()):
-            if any(k in attr for k in ("rsid",)):  # rsidR, rsidDel, etc.
-                node.attrib.pop(attr, None)
+
+    DELETE_CONTENT_TAGS = {
+        W + "del",
+        W + "delText",
+        W + "moveFromRangeStart",
+        W + "moveFromRangeEnd",
+        W + "moveToRangeStart",
+        W + "moveToRangeEnd",
+    }
+
+    def _build_parent_map_local(root):
+        return {child: parent for parent in root.iter() for child in list(parent)}
+
+    def _drop_node_local(node, parent_map):
+        parent = parent_map.get(node)
+        if parent is not None:
+            try:
+                parent.remove(node)
+            except Exception:
+                pass
+
+    def _unwrap_node_local(node, parent_map):
+        parent = parent_map.get(node)
+        if parent is None:
+            return
+
+        children = list(node)
+        try:
+            idx = list(parent).index(node)
+        except ValueError:
+            idx = len(list(parent))
+
+        for off, ch in enumerate(children):
+            try:
+                node.remove(ch)
+            except Exception:
+                pass
+            parent.insert(idx + off, ch)
+
+        try:
+            parent.remove(node)
+        except Exception:
+            pass
+
+    def _unwrap_sdt_content_only(node, parent_map):
+        """
+        Para w:sdt:
+        NO insertar w:sdtPr / w:sdtEndPr.
+        SOLO insertar hijos de w:sdtContent.
+        """
+        parent = parent_map.get(node)
+        if parent is None:
+            return
+
+        sdt_content = node.find(W + "sdtContent")
+        if sdt_content is None:
+            try:
+                parent.remove(node)
+            except Exception:
+                pass
+            return
+
+        children = list(sdt_content)
+        try:
+            idx = list(parent).index(node)
+        except ValueError:
+            idx = len(list(parent))
+
+        for off, ch in enumerate(children):
+            try:
+                sdt_content.remove(ch)
+            except Exception:
+                pass
+            parent.insert(idx + off, ch)
+
+        try:
+            parent.remove(node)
+        except Exception:
+            pass
+
+    def _strip_rsid_attrs_local(root):
+        for node in root.iter():
+            for attr in list(node.attrib.keys()):
+                if attr.startswith(W + "rsid") or attr.endswith("}rsid") or "rsid" in attr:
+                    node.attrib.pop(attr, None)
+
+    changed = True
+    while changed:
+        changed = False
+        parent_map = _build_parent_map_local(el)
+
+        for node in list(el.iter()):
+            if node is el:
+                continue
+
+            tag = node.tag
+
+            # tratamiento especial para SDT
+            if tag == W + "sdt":
+                _unwrap_sdt_content_only(node, parent_map)
+                changed = True
+                break
+
+            # wrappers realmente seguros
+            if tag in SAFE_UNWRAP_TAGS:
+                _unwrap_node_local(node, parent_map)
+                changed = True
+                break
+
+            # nodos que sí conviene borrar
+            if tag in DROP_TAGS or tag in DELETE_CONTENT_TAGS:
+                _drop_node_local(node, parent_map)
+                changed = True
+                break
+
+    if el.tag == W + "p":
+        pPr = el.find(W + "pPr")
+        if pPr is not None:
+            sp = pPr.find(W + "sectPr")
+            if sp is not None:
+                pPr.remove(sp)
+
+    if el.tag == W + "p":
+        pPr = el.find(W + "pPr")
+        if pPr is not None and len(list(pPr)) == 0:
+            try:
+                el.remove(pPr)
+            except Exception:
+                pass
+
+    _strip_rsid_attrs_local(el)
 
 def _post_merge_fix_numbering(docx_path: str):
     """
@@ -3737,6 +4536,7 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path):
         # Si TODO lo que no es título falló, verás solo títulos → devuélvelo en JSON
         if malos:
             print("⚠️ Archivos que Word no pudo insertar:", malos[:5], "… total:", len(malos))
+            print("⚠️ Fallaron inserciones en merge:", malos)
         return out, [], malos
     finally:
         for p in tmp_titles:
@@ -3745,12 +4545,6 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path):
 
 
 def _merge_with_word(marked_paths, out_path):
-    """
-    marked_paths: [(path, is_title)]
-    Inserta cada archivo con Word. PageBreak solo tras preguntas (is_title=False).
-    Hace fallback copiando FormattedText si InsertFile falla.
-    Filtra inexistentes y vacíos antes de llamar a Word.
-    """
     import os, pythoncom
     import win32com.client as win32
 
@@ -3758,16 +4552,14 @@ def _merge_with_word(marked_paths, out_path):
     wdFormatXMLDocument = 12
     wdPageBreak = 7
 
-    # Filtrado previo (evita rutas malas que 'matan' el merge)
     cleaned = []
     for p, is_title in marked_paths:
         if not p or not os.path.isfile(p):
             continue
         try:
-            if _tiene_texto_o_contenido(p):  # ya la tienes definida
+            if _tiene_texto_o_contenido(p):
                 cleaned.append((os.path.abspath(p), is_title))
         except Exception:
-            # si no puedo leer el zip, lo salto
             continue
 
     pythoncom.CoInitialize()
@@ -3786,10 +4578,8 @@ def _merge_with_word(marked_paths, out_path):
         for p_abs, is_title in cleaned:
             try:
                 r = end_range()
-                # InsertFile suele preservar más formato que FormattedText
                 r.InsertFile(p_abs)
             except Exception as e:
-                # Fallback: abrir y volcar FormattedText (sin portapapeles)
                 malos.append((p_abs, f"InsertFile: {e}"))
                 try:
                     doc_src = word.Documents.Open(
@@ -3797,31 +4587,28 @@ def _merge_with_word(marked_paths, out_path):
                         AddToRecentFiles=False, Revert=False, Visible=False,
                         OpenAndRepair=True
                     )
-                    src = doc_src.Content
-                    dst = end_range()
-                    dst.FormattedText = src.FormattedText
-                    doc_src.Close(False)
+                    try:
+                        r = end_range()
+                        r.FormattedText = doc_src.Range().FormattedText
+                    finally:
+                        doc_src.Close(False)
                 except Exception as e2:
                     malos.append((p_abs, f"FormattedText: {e2}"))
-                    continue  # este archivo definitivamente no entró
+                    continue
 
-            # 👇 Salto de página SOLO después de preguntas
-            if not is_title:
-                end_range().InsertBreak(wdPageBreak)
+            # salto SOLO después de pregunta, nunca después del título
+            
 
-        try:
-            doc_dest.SaveAs2(out_path, FileFormat=wdFormatXMLDocument)
-        except Exception:
-            doc_dest.SaveAs(out_path, FileFormat=wdFormatXMLDocument)
+        doc_dest.SaveAs(out_path, FileFormat=wdFormatXMLDocument)
         doc_dest.Close(False)
-        return out_path, [], malos
+        return out_path, None, malos
+
     finally:
-        try: word.Quit()
-        except: pass
+        try:
+            word.Quit()
+        except Exception:
+            pass
         pythoncom.CoUninitialize()
-
-
-
 
 def aplanar_listas_a_texto(docx_path: str):
     """
@@ -4621,6 +5408,15 @@ def api_pdf_from_docx():
         pdf_path = os.path.join(app.config['DESCARGAS_FOLDER'], pdf_name)
 
         # usa tu función robusta
+        # Normalizar DOCX antes de convertir
+        try:
+            tmp_norm = os.path.join(app.config['DESCARGAS_FOLDER'], "_tmp_preview_norm.docx")
+            resave_docx_formatted(docx_path, tmp_norm)
+            shutil.move(tmp_norm, docx_path)
+        except Exception as e:
+            print("[pdf_from_docx] aviso normalizando DOCX:", e)
+
+        # convertir a PDF
         try:
             final_pdf = docx_a_pdf(docx_path, pdf_path)
         except Exception as e:
@@ -4638,44 +5434,31 @@ def api_pdf_from_docx():
         import traceback; traceback.print_exc()
         return jsonify(ok=False, error=str(e)), 500
 
-@app.get("/api/render_docx_guardado/<path:nombre>")
-def render_docx_guardado(nombre):
-    """
-    Convierte un DOCX guardado a HTML para previsualizar en el iframe.
-    """
-    import os, traceback
-    warnings = []
+@app.route("/api/render_docx_guardado/<path:nombre_docx>")
+def render_docx_guardado(nombre_docx):
+    if nombre_docx.endswith("_corregido_limpio.docx"):
+        candidato_preview = nombre_docx.replace("_corregido_limpio.docx", "_corregido.docx")
+        preview_path = os.path.join(DESCARGAS_DIR, candidato_preview)
+        if os.path.exists(preview_path):
+            nombre_docx = candidato_preview
+
+    docx_path = os.path.join(DESCARGAS_DIR, nombre_docx)
+    if not os.path.exists(docx_path):
+        return jsonify({"ok": False, "error": "No existe DOCX"}), 404
+
     try:
-        fname = os.path.basename(nombre.replace("\\", "/"))
-        if "/" in fname or "\\" in fname:
-            return jsonify(ok=False, error="nombre inválido"), 400
+        base_in = os.path.splitext(nombre_docx)[0]
+        h = _sha1_file(docx_path)[:12]  # <- hash del DOCX corregido ACTUAL
 
-        docx_path = os.path.join(app.config["DESCARGAS_FOLDER"], fname)
-        if not os.path.isfile(docx_path):
-            return jsonify(ok=False, error=f"No existe: {docx_path}"), 404
-
-        base_name = os.path.splitext(fname)[0]
-
-        html_path = None
-        if _com_disponible():
-            try:
-                html_path, w = _exportar_html_con_word(docx_path, base_name)
-                warnings.extend(w)
-            except Exception as e:
-                warnings.append(f"word_fallback:{e}")
-        if html_path is None:
-            html_path, w = _exportar_html_con_mammoth(docx_path, base_name)
-            warnings.extend(w)
-
-        rel_url = f"/static/previews/{os.path.basename(html_path)}"
-        return jsonify(ok=True, html_url=rel_url, warnings=warnings)
-
+        pdf_path = generar_pdf_preview(
+            docx_path,
+            nombre_base=f"{base_in}_{h}_preview"   # <- ahora cambia si cambia el DOCX
+        )
+        pdf_name = os.path.basename(pdf_path)
+        return jsonify({"ok": True, "html_url": f"/descargas/{pdf_name}"})
     except Exception as e:
         traceback.print_exc()
-        return jsonify(ok=False, error=f"{e.__class__.__name__}: {e}"), 500
-
-
-
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 def to_pdf_insert_only(src, dst):
     """Abre un doc en blanco y hace InsertFile(src) -> ExportAsFixedFormat(dst)."""
@@ -4853,14 +5636,14 @@ def _insert_pregunta_from_doc(conn, tema_id, doc_name, doc_path):
     cur.execute("""
         SELECT COALESCE(MAX(numero_p), 0) + 1
         FROM preguntas
-        WHERE tema_id = %s AND examenes_idexamenes IS NULL
+        WHERE tema_id = ? AND examenes_idexamenes IS NULL
     """, (tema_id,))
     next_num = cur.fetchone()[0] or 1
 
     cur.execute("""
         INSERT INTO preguntas
             (examenes_idexamenes, tema_id, numero_p, archivo_nombre, archivo_ruta)
-        VALUES (NULL, %s, %s, %s, %s)
+        VALUES (NULL, ?, ?, ?, ?)
     """, (tema_id, next_num, doc_name, doc_path))
 
     cur.close()
@@ -4871,17 +5654,17 @@ def _insert_pregunta_from_doc(conn, tema_id, doc_name, doc_path):
 def banco_listar():
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         cur.execute("""
             SELECT td.id, td.tema_id, t.nombre AS tema_nombre,
                    td.doc_preguntas_nombre, td.doc_preguntas_ruta,
                    td.doc_sol_nombre, td.doc_sol_ruta,
                    td.fecha_creacion
             FROM tema_docs td
-            INNER JOIN temas t ON t.id = td.tema_id
+            INNER JOIN temario t ON t.id = td.tema_id
             ORDER BY t.nombre
         """)
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         return jsonify(rows)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -4934,7 +5717,7 @@ def banco_importar_tema():
         # Siempre INSERT en tema_docs (permite varios DOCX por tema)
         cur.execute("""
             INSERT INTO tema_docs(tema_id, doc_preguntas_nombre, doc_preguntas_ruta)
-            VALUES(%s, %s, %s)
+            VALUES(?, ?, ?)
         """, (tema_id, doc_name, doc_path))
 
         # Crear también la pregunta asociada en `preguntas`
@@ -4979,13 +5762,13 @@ def banco_reemplazar_preguntas(id):
         return jsonify({"error": msg, "n_preguntas": n_p}), 400
 
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
     # 1) Obtener datos actuales del registro
     cur.execute("""
         SELECT tema_id, doc_preguntas_ruta
         FROM tema_docs
-        WHERE id = %s
+        WHERE id = ?
     """, (id,))
     row = cur.fetchone()
     if not row:
@@ -4999,20 +5782,20 @@ def banco_reemplazar_preguntas(id):
     # 2) Actualizar tema_docs
     cur.execute("""
         UPDATE tema_docs
-        SET doc_preguntas_nombre = %s,
-            doc_preguntas_ruta   = %s
-        WHERE id = %s
+        SET doc_preguntas_nombre = ?,
+            doc_preguntas_ruta   = ?
+        WHERE id = ?
     """, (doc_name, doc_path, id))
 
     # 3) Intentar actualizar la fila correspondiente en `preguntas`
     cur2 = conn.cursor()
     cur2.execute("""
         UPDATE preguntas
-        SET archivo_nombre = %s,
-            archivo_ruta   = %s
-        WHERE tema_id = %s
+        SET archivo_nombre = ?,
+            archivo_ruta   = ?
+        WHERE tema_id = ?
           AND examenes_idexamenes IS NULL
-          AND archivo_ruta = %s
+          AND archivo_ruta = ?
     """, (doc_name, doc_path, tema_id, old_ruta))
 
     if cur2.rowcount == 0:
@@ -5040,19 +5823,27 @@ def banco_agregar_solucionario():
             return jsonify({"error":"tema_id y doc_solucionario son obligatorios"}), 400
 
         sol_name, sol_path = _save_docx(fsol, BANCO_SOL_DIR)
+        try:
+            _validar_docx_real(sol_path)
+        except Exception as e:
+            try:
+                os.remove(sol_path)
+            except Exception:
+                pass
+            return jsonify({"error": f"Solucionario inválido: {e}"}), 400
 
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT id FROM tema_docs WHERE tema_id=%s", (tema_id,))
+        cur.execute("SELECT id FROM tema_docs WHERE tema_id=?", (tema_id,))
         exist = cur.fetchone()
         if not exist:
             return jsonify({"error":"Primero importa el tema (doc preguntas)."}), 400
 
         cur.execute("""
             UPDATE tema_docs
-            SET doc_sol_nombre=%s, doc_sol_ruta=%s
-            WHERE tema_id=%s
+            SET doc_sol_nombre=?, doc_sol_ruta=?
+            WHERE tema_id=?
         """, (sol_name, sol_path, tema_id))
 
         conn.commit()
@@ -5066,8 +5857,8 @@ def banco_agregar_solucionario():
 @app.route("/api/banco_preguntas/<int:id>/download/preguntas", methods=["GET"])
 def banco_download_preguntas(id):
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
-    cur.execute("SELECT doc_preguntas_ruta, doc_preguntas_nombre FROM tema_docs WHERE id=%s", (id,))
+    cur = conn.cursor()
+    cur.execute("SELECT doc_preguntas_ruta, doc_preguntas_nombre FROM tema_docs WHERE id=?", (id,))
     row = cur.fetchone()
     cur.close(); conn.close()
     if not row or not os.path.exists(row["doc_preguntas_ruta"]):
@@ -5078,8 +5869,8 @@ def banco_download_preguntas(id):
 @app.route("/api/banco_preguntas/<int:id>/download/solucionario", methods=["GET"])
 def banco_download_sol(id):
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
-    cur.execute("SELECT doc_sol_ruta, doc_sol_nombre FROM tema_docs WHERE id=%s", (id,))
+    cur = conn.cursor()
+    cur.execute("SELECT doc_sol_ruta, doc_sol_nombre FROM tema_docs WHERE id=?", (id,))
     row = cur.fetchone()
     cur.close(); conn.close()
     if not row or not row["doc_sol_ruta"] or not os.path.exists(row["doc_sol_ruta"]):
@@ -5100,7 +5891,7 @@ def banco_editar(id):
         conn = get_connection()
         cur = conn.cursor()
         if tema_id:
-            cur.execute("UPDATE tema_docs SET tema_id=%s WHERE id=%s", (tema_id, id))
+            cur.execute("UPDATE tema_docs SET tema_id=? WHERE id=?", (tema_id, id))
         conn.commit()
         return jsonify({"ok": True})
     except Exception as e:
@@ -5116,11 +5907,19 @@ def banco_reemplazar_sol(id):
     fsol = request.files.get("doc_solucionario")
     if not fsol: return jsonify({"error":"doc_solucionario es obligatorio"}), 400
     sol_name, sol_path = _save_docx(fsol, BANCO_SOL_DIR)
+    try:
+        _validar_docx_real(sol_path)
+    except Exception as e:
+        try:
+            os.remove(sol_path)
+        except Exception:
+            pass
+        return jsonify({"error": f"Solucionario inválido: {e}"}), 400
     conn = get_connection(); cur = conn.cursor()
     cur.execute("""
         UPDATE tema_docs
-        SET doc_sol_nombre=%s, doc_sol_ruta=%s
-        WHERE id=%s
+        SET doc_sol_nombre=?, doc_sol_ruta=?
+        WHERE id=?
     """, (sol_name, sol_path, id))
     conn.commit(); cur.close(); conn.close()
     return jsonify({"ok": True})
@@ -5129,12 +5928,12 @@ def banco_reemplazar_sol(id):
 def banco_eliminar(id):
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         cur.execute("""
             SELECT tema_id, doc_preguntas_ruta, doc_sol_ruta
             FROM tema_docs
-            WHERE id = %s
+            WHERE id = ?
         """, (id,))
         row = cur.fetchone()
         if not row:
@@ -5145,14 +5944,14 @@ def banco_eliminar(id):
         sol_ruta = row["doc_sol_ruta"]
 
         # 1) Borrar solo este registro del banco
-        cur.execute("DELETE FROM tema_docs WHERE id = %s", (id,))
+        cur.execute("DELETE FROM tema_docs WHERE id = ?", (id,))
 
         # 2) Borrar SOLO la pregunta asociada a este DOCX
         cur.execute("""
             DELETE FROM preguntas
-            WHERE tema_id = %s
+            WHERE tema_id = ?
               AND examenes_idexamenes IS NULL
-              AND archivo_ruta = %s
+              AND archivo_ruta = ?
         """, (tema_id, doc_ruta))
 
         conn.commit()
@@ -5176,10 +5975,10 @@ from zipfile import ZipFile
 @app.route("/api/banco_preguntas/<int:id>/download", methods=["GET"])
 def banco_download_full(id):
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
     cur.execute("""SELECT doc_preguntas_nombre, doc_preguntas_ruta,
                           doc_sol_nombre, doc_sol_ruta
-                   FROM tema_docs WHERE id=%s""", (id,))
+                   FROM tema_docs WHERE id=?""", (id,))
     row = cur.fetchone()
     cur.close(); conn.close()
 
@@ -5238,14 +6037,14 @@ def matriz_crear_db():
 
     try:
         conn = get_connection(); cur = conn.cursor()
-        cur.execute("INSERT INTO matriz (nombre) VALUES (%s)", (nombre,))
+        cur.execute("INSERT INTO matriz (nombre) VALUES (?)", (nombre,))
         matriz_id = cur.lastrowid
 
         # inserta detalle
         for tema_id, cantidad in norm:
             cur.execute(
-                "INSERT INTO matriz_detalle (matriz_id, tema_id, cantidad) VALUES (%s,%s,%s) "
-                "ON DUPLICATE KEY UPDATE cantidad=VALUES(cantidad)",
+                "INSERT INTO matriz_detalle (matriz_id, tema_id, cantidad) VALUES (?,?,?) "
+                "ON CONFLICT(matriz_id, tema_id) DO UPDATE SET cantidad=excluded.cantidad",
                 (matriz_id, tema_id, cantidad)
             )
 
@@ -5267,7 +6066,7 @@ def matriz_listar_db():
     search = (request.args.get("search") or "").strip()
 
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
+        conn = get_connection(); cur = conn.cursor()
 
         base_sql = """
             SELECT m.id, m.nombre, m.fecha_creacion,
@@ -5278,25 +6077,25 @@ def matriz_listar_db():
         """
         where = []; params = []
         if search:
-            where.append("(m.nombre LIKE %s OR m.id = %s)")
+            where.append("(m.nombre LIKE ? OR m.id = ?)")
             params.extend([f"%{search}%", search if search.isdigit() else 0])
         if where:
             base_sql += " WHERE " + " AND ".join(where)
         base_sql += " GROUP BY m.id ORDER BY m.id DESC"
         cur.execute(base_sql, tuple(params))
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
 
         if detail and rows:
             ids = [r["id"] for r in rows]
-            fmt = ",".join(["%s"]*len(ids))
+            fmt = ",".join(["?"]*len(ids))
             cur.execute(f"""
                 SELECT md.id, md.matriz_id, md.tema_id, t.nombre AS tema_nombre, md.cantidad, md.archivo_ruta
                 FROM matriz_detalle md
-                JOIN temas t ON t.id = md.tema_id
+                JOIN temario t ON t.id = md.tema_id
                 WHERE md.matriz_id IN ({fmt})
                 ORDER BY md.matriz_id, t.nombre
             """, tuple(ids))
-            dets = cur.fetchall()
+            dets = _row_to_dict_list(cur)
             by_m = {}
             for d in dets:
                 by_m.setdefault(d["matriz_id"], []).append(d)
@@ -5313,8 +6112,8 @@ def matriz_listar_db():
 @app.route("/api/matriz/<int:matriz_id>", methods=["GET"])
 def matriz_get_db(matriz_id:int):
     try:
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT id, nombre, fecha_creacion FROM matriz WHERE id=%s", (matriz_id,))
+        conn = get_connection(); cur = conn.cursor()
+        cur.execute("SELECT id, nombre, fecha_creacion FROM matriz WHERE id=?", (matriz_id,))
         head = cur.fetchone()
         if not head:
             cur.close(); conn.close()
@@ -5323,8 +6122,8 @@ def matriz_get_db(matriz_id:int):
         cur.execute("""
             SELECT md.id, md.tema_id, t.nombre AS tema_nombre, md.cantidad, md.archivo_ruta
             FROM matriz_detalle md
-            JOIN temas t ON t.id = md.tema_id
-            WHERE md.matriz_id = %s
+            JOIN temario t ON t.id = md.tema_id
+            WHERE md.matriz_id = ?
             ORDER BY t.nombre
         """, (matriz_id,))
         items = cur.fetchall()
@@ -5356,28 +6155,30 @@ def matriz_upload_db(matriz_id:int):
     filename = f"tema_{tema_id}.docx"
     dest_path = os.path.abspath(os.path.join(dest_dir, filename))
     f.save(dest_path)
+   
 
     try:
+        _validar_docx_real(dest_path)
         conn = get_connection(); cur = conn.cursor()
 
         # verifica que el detalle exista
-        cur.execute("SELECT id FROM matriz_detalle WHERE matriz_id=%s AND tema_id=%s", (matriz_id, tema_id))
+        cur.execute("SELECT id FROM matriz_detalle WHERE matriz_id=? AND tema_id=?", (matriz_id, tema_id))
         row = cur.fetchone()
         if not row:
             # si no existe, crea la fila con cantidad 0
             cur.execute(
-                "INSERT INTO matriz_detalle (matriz_id, tema_id, cantidad, archivo_ruta) VALUES (%s,%s,%s,%s)",
+                "INSERT INTO matriz_detalle (matriz_id, tema_id, cantidad, archivo_ruta) VALUES (?,?,?,?)",
                 (matriz_id, tema_id, int(cantidad or 0), dest_path)
             )
         else:
             if cantidad is not None:
                 cur.execute(
-                    "UPDATE matriz_detalle SET archivo_ruta=%s, cantidad=%s WHERE matriz_id=%s AND tema_id=%s",
+                    "UPDATE matriz_detalle SET archivo_ruta=?, cantidad=? WHERE matriz_id=? AND tema_id=?",
                     (dest_path, int(cantidad or 0), matriz_id, tema_id)
                 )
             else:
                 cur.execute(
-                    "UPDATE matriz_detalle SET archivo_ruta=%s WHERE matriz_id=%s AND tema_id=%s",
+                    "UPDATE matriz_detalle SET archivo_ruta=? WHERE matriz_id=? AND tema_id=?",
                     (dest_path, matriz_id, tema_id)
                 )
 
@@ -5388,16 +6189,355 @@ def matriz_upload_db(matriz_id:int):
         try: conn.rollback()
         except: pass
         return jsonify({"error": str(e)}), 500
+        
+def _validar_docx_real(path_docx: str):
+    import zipfile
+    import xml.etree.ElementTree as ET
+
+    if not zipfile.is_zipfile(path_docx):
+        raise ValueError("File is not a zip file")
+
+    with zipfile.ZipFile(path_docx, "r") as z:
+        names = set(z.namelist())
+
+        if "word/document.xml" not in names:
+            raise ValueError("Falta word/document.xml")
+
+        ET.fromstring(z.read("word/document.xml"))
+
+        # validar numbering.xml si existe
+        if "word/numbering.xml" in names:
+            ET.fromstring(z.read("word/numbering.xml"))
+
+        # validar relaciones del documento si existen
+        if "word/_rels/document.xml.rels" in names:
+            ET.fromstring(z.read("word/_rels/document.xml.rels"))
+
+        # validar content types
+        if "[Content_Types].xml" in names:
+            ET.fromstring(z.read("[Content_Types].xml"))
 
 
-# POST /api/matriz/<id>/generar  -> une por tema (título + contenido), respetando 'cantidad'
+def _reparar_docx_generado(path_docx: str):
+    """
+    Repara un DOCX ya generado sin tocar la lógica de detección/construcción.
+    """
+    # 1) corregir numbering.xml / numPr
+    try:
+        _post_merge_fix_numbering(path_docx)
+    except Exception as e:
+        print("[REPAIR][post_merge_fix_numbering]", path_docx, repr(e), flush=True)
+
+    # 2) normalizar bullets -> números si aplica
+    try:
+        bullets_to_numbers_docx(path_docx)
+    except Exception as e:
+        print("[REPAIR][bullets_to_numbers_docx]", path_docx, repr(e), flush=True)
+
+    # 3) reparación fuerte con Word
+    try:
+        ok_fix, err_fix = reparar_docx_fuerte(path_docx)
+        if not ok_fix:
+            print("[REPAIR][reparar_docx_fuerte BAD]", path_docx, err_fix, flush=True)
+            try:
+                reparar_docx_inplace(path_docx)
+            except Exception as e2:
+                print("[REPAIR][reparar_docx_inplace BAD]", path_docx, repr(e2), flush=True)
+    except Exception as e:
+        print("[REPAIR][Word repair exception]", path_docx, repr(e), flush=True)
+
+    # 4) validación final
+    try:
+        _validar_docx_real(path_docx)
+    except Exception as e:
+        print("[REPAIR][VALIDACION FINAL BAD]", path_docx, repr(e), flush=True)
+        raise
+
+
+
+def _reparar_docx_bytes(docx_bytes: bytes, nombre_base: str = "tmp_generado") -> bytes:
+    tmp_dir = tempfile.mkdtemp(prefix="repair_bytes_")
+    try:
+        tmp_path = os.path.join(tmp_dir, f"{nombre_base}.docx")
+        with open(tmp_path, "wb") as f:
+            f.write(docx_bytes)
+
+        _reparar_docx_generado(tmp_path)
+
+        with open(tmp_path, "rb") as f:
+            return f.read()
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+def _asegurar_docx_bytes_valido_como_grupo(docx_bytes: bytes, nombre_base: str = "tmp_generado") -> bytes:
+    """
+    Misma idea que en grupos:
+    - guardar bytes a temporal
+    - validar con python-docx
+    - si falla, intentar reparación fuerte
+    - luego reparación ligera inplace
+    - volver a validar
+    """
+    tmp_dir = tempfile.mkdtemp(prefix="temas_bytes_")
+    try:
+        tmp_path = os.path.join(tmp_dir, f"{nombre_base}.docx")
+        with open(tmp_path, "wb") as f:
+            f.write(docx_bytes)
+
+        # validar inicial
+        try:
+            _ = DocxDocument(tmp_path)
+        except Exception as e:
+            ok_fix, err_fix = reparar_docx_fuerte(tmp_path)
+            if ok_fix:
+                try:
+                    _ = DocxDocument(tmp_path)
+                except Exception as e2:
+                    raise RuntimeError(
+                        f"El DOCX '{nombre_base}' sigue inválido después de reparar: {e2}"
+                    )
+            else:
+                raise RuntimeError(
+                    f"El DOCX '{nombre_base}' quedó inválido: {err_fix or e}"
+                )
+
+        # reparación ligera igual que grupos
+        try:
+            reparar_docx_inplace(tmp_path)
+        except Exception as e:
+            print(f"[TEMAS][REPAIR][{nombre_base}] aviso:", repr(e), flush=True)
+
+        # validar final
+        try:
+            _ = DocxDocument(tmp_path)
+        except Exception as e:
+            raise RuntimeError(
+                f"El DOCX '{nombre_base}' quedó inválido después de reparar inplace: {e}"
+            )
+
+        with open(tmp_path, "rb") as f:
+            return f.read()
+
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+def _reconstruir_numbering_desde_documento(docx_path: str):
+    """
+    Reconstruye un numbering.xml mínimo y válido a partir de los numId/ilvl
+    realmente usados en document.xml.
+
+    - Conserva _post_merge_fix_numbering()
+    - No aplana listas
+    - Evita que numbering.xml quede inconsistente
+    """
+    import zipfile
+    import xml.etree.ElementTree as ET
+
+    NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    W = "{%s}" % NS_W
+    ns = {"w": NS_W}
+
+    REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    REL = "{%s}" % REL_NS
+
+    CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+    CT = "{%s}" % CT_NS
+
+    ET.register_namespace("w", NS_W)
+
+    with zipfile.ZipFile(docx_path, "r") as zin:
+        files = {n: zin.read(n) for n in zin.namelist()}
+
+    if "word/document.xml" not in files:
+        return
+
+    # -----------------------------
+    # 1) Leer document.xml y detectar numeraciones usadas
+    # -----------------------------
+    root_doc = ET.fromstring(files["word/document.xml"])
+    usados = []   # [(numId, ilvl)]
+    for p in root_doc.findall(".//w:p", ns):
+        numPr = p.find("./w:pPr/w:numPr", ns)
+        if numPr is None:
+            continue
+
+        numId_el = numPr.find("./w:numId", ns)
+        ilvl_el = numPr.find("./w:ilvl", ns)
+
+        if numId_el is None:
+            continue
+
+        numId = str(numId_el.get(W + "val") or "1")
+        ilvl = str(ilvl_el.get(W + "val") if ilvl_el is not None else "0")
+        par = (numId, ilvl)
+        if par not in usados:
+            usados.append(par)
+
+    if not usados:
+        return
+
+    # -----------------------------
+    # 2) Intentar inferir formatos antiguos desde numbering.xml actual
+    # -----------------------------
+    fmt_prev = {}  # (numId, ilvl) -> numFmt
+    if "word/numbering.xml" in files:
+        try:
+            old_root = ET.fromstring(files["word/numbering.xml"])
+
+            abs_map = {}
+            for absN in old_root.findall(".//w:abstractNum", ns):
+                abs_id = absN.get(W + "abstractNumId")
+                if abs_id is None:
+                    continue
+                for lvl in absN.findall("./w:lvl", ns):
+                    ilvl = str(lvl.get(W + "ilvl", "0"))
+                    nfmt = lvl.find("./w:numFmt", ns)
+                    if nfmt is not None:
+                        abs_map[(abs_id, ilvl)] = nfmt.get(W + "val", "decimal")
+
+            for num in old_root.findall(".//w:num", ns):
+                numId = num.get(W + "numId")
+                abs_el = num.find("./w:abstractNumId", ns)
+                if numId is None or abs_el is None:
+                    continue
+                abs_id = abs_el.get(W + "val")
+                for (a_id, ilvl), fmt in abs_map.items():
+                    if a_id == abs_id:
+                        fmt_prev[(str(numId), str(ilvl))] = fmt
+        except Exception:
+            pass
+
+    def _fmt_para(numId: str, ilvl: str) -> str:
+        # prioridad: lo que se pudo leer del numbering viejo
+        fmt = fmt_prev.get((numId, ilvl))
+        if fmt:
+            return fmt
+
+        # reglas de fallback
+        if numId == "1":
+            return "decimal"
+
+        # alternativas típicas A), B), C)...
+        return "upperLetter"
+
+    def _lvltext_para(fmt: str, ilvl: str) -> str:
+        n = int(ilvl) + 1
+        if fmt == "decimal":
+            return f"%{n}."
+        if fmt in ("upperLetter", "lowerLetter"):
+            return f"%{n})"
+        if fmt in ("upperRoman", "lowerRoman"):
+            return f"%{n}."
+        return f"%{n}."
+
+    # -----------------------------
+    # 3) Crear numbering.xml limpio
+    # -----------------------------
+    root_num = ET.Element(W + "numbering")
+
+    abs_id_counter = 0
+    for numId, ilvl in usados:
+        fmt = _fmt_para(numId, ilvl)
+        lvlText = _lvltext_para(fmt, ilvl)
+
+        abs_id = str(abs_id_counter)
+        abs_id_counter += 1
+
+        abstractNum = ET.SubElement(root_num, W + "abstractNum", {
+            W + "abstractNumId": abs_id
+        })
+        ET.SubElement(abstractNum, W + "multiLevelType", {
+            W + "val": "singleLevel"
+        })
+
+        lvl = ET.SubElement(abstractNum, W + "lvl", {
+            W + "ilvl": str(ilvl)
+        })
+        ET.SubElement(lvl, W + "start", {W + "val": "1"})
+        ET.SubElement(lvl, W + "numFmt", {W + "val": fmt})
+        ET.SubElement(lvl, W + "lvlText", {W + "val": lvlText})
+        ET.SubElement(lvl, W + "lvlJc", {W + "val": "left"})
+
+        pPr = ET.SubElement(lvl, W + "pPr")
+        ET.SubElement(pPr, W + "ind", {
+            W + "left": "720",
+            W + "hanging": "360"
+        })
+
+        num = ET.SubElement(root_num, W + "num", {
+            W + "numId": str(numId)
+        })
+        ET.SubElement(num, W + "abstractNumId", {
+            W + "val": abs_id
+        })
+
+    files["word/numbering.xml"] = ET.tostring(
+        root_num, encoding="utf-8", xml_declaration=True
+    )
+
+    # -----------------------------
+    # 4) Asegurar relación en document.xml.rels
+    # -----------------------------
+    rels_name = "word/_rels/document.xml.rels"
+    if rels_name in files:
+        rels_root = ET.fromstring(files[rels_name])
+    else:
+        rels_root = ET.Element(REL + "Relationships")
+
+    existe_rel = False
+    max_rid = 0
+    for r in rels_root.findall(REL + "Relationship"):
+        rid = r.get("Id", "")
+        if r.get("Type") == "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering":
+            existe_rel = True
+        if rid.startswith("rId"):
+            try:
+                max_rid = max(max_rid, int(rid[3:]))
+            except Exception:
+                pass
+
+    if not existe_rel:
+        ET.SubElement(rels_root, REL + "Relationship", {
+            "Id": f"rId{max_rid + 1}",
+            "Type": "http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering",
+            "Target": "numbering.xml"
+        })
+
+    files[rels_name] = ET.tostring(
+        rels_root, encoding="utf-8", xml_declaration=True
+    )
+
+    # -----------------------------
+    # 5) Asegurar override en [Content_Types].xml
+    # -----------------------------
+    ct_name = "[Content_Types].xml"
+    if ct_name in files:
+        ct_root = ET.fromstring(files[ct_name])
+        existe_override = False
+        for el in list(ct_root):
+            if el.tag == CT + "Override" and el.get("PartName") == "/word/numbering.xml":
+                existe_override = True
+                break
+
+        if not existe_override:
+            ET.SubElement(ct_root, CT + "Override", {
+                "PartName": "/word/numbering.xml",
+                "ContentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"
+            })
+
+        files[ct_name] = ET.tostring(
+            ct_root, encoding="utf-8", xml_declaration=True
+        )
+
+    _safe_rezip(docx_path, files)
+        
 # POST /api/matriz/<id>/generar  -> une por tema (título + contenido), respetando 'cantidad'
 @app.route("/api/matriz/<int:matriz_id>/generar", methods=["POST"])
 def matriz_generar_db(matriz_id:int):
     try:
         # --- Lee cabecera + detalle ---
-        conn = get_connection(); cur = conn.cursor(dictionary=True)
-        cur.execute("SELECT id, nombre FROM matriz WHERE id=%s", (matriz_id,))
+        conn = get_connection(); cur = conn.cursor()
+        cur.execute("SELECT id, nombre FROM matriz WHERE id=?", (matriz_id,))
         head = cur.fetchone()
         if not head:
             cur.close(); conn.close()
@@ -5406,11 +6546,11 @@ def matriz_generar_db(matriz_id:int):
         cur.execute("""
             SELECT md.tema_id, t.nombre AS tema_nombre, md.cantidad, md.archivo_ruta
             FROM matriz_detalle md
-            JOIN temas t ON t.id = md.tema_id
-            WHERE md.matriz_id=%s
+            JOIN temario t ON t.id = md.tema_id
+            WHERE md.matriz_id=?
             ORDER BY t.nombre
         """, (matriz_id,))
-        dets = cur.fetchall()
+        dets = _row_to_dict_list(cur)
         cur.close(); conn.close()
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -5450,45 +6590,115 @@ def matriz_generar_db(matriz_id:int):
     out_path  = os.path.join(app.config['DESCARGAS_FOLDER'], base_name)
 
     # --- Recorte y merge ---
+    # --- Recorte y merge (estilo grupos) ---
     temp_files = []
-    grouped = []  # [(titulo, [paths])]
+    grouped = []   # [(tema, [docx_recortado])]
     try:
         for d in dets:
             tema = d["tema_nombre"]
             src  = os.path.abspath(d["archivo_ruta"])
             cant = int(d.get("cantidad") or 0)
 
-            if cant > 0:
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-                tmp.close()
+            # en matriz, 0 no debe meter el DOCX completo
+            if cant <= 0:
+                continue
+
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+            tmp.close()
+
+            try:
                 _cut_docx_first_n_questions(src, cant, tmp.name)
-                temp_files.append(tmp.name)
-                use_path = tmp.name
-            else:
-                use_path = src
+            except Exception as e:
+                return jsonify({
+                    "ok": False,
+                    "error": f"Falló el DOCX del tema '{tema}': {e}",
+                    "archivo": src
+                }), 500
 
-            grouped.append((tema, [use_path]))
+            temp_files.append(tmp.name)
 
-        # Une con título por tema
-        out, _, _ = _merge_grouped_with_headings(grouped, out_path)
+            # validar el temporal recortado
+            try:
+                _ = DocxDocument(tmp.name)
+            except Exception as e:
+                ok_fix, err_fix = reparar_docx_fuerte(tmp.name)
+                if ok_fix:
+                    try:
+                        _ = DocxDocument(tmp.name)
+                    except Exception as e2:
+                        return jsonify({
+                            "ok": False,
+                            "error": f"El DOCX recortado del tema '{tema}' sigue inválido.",
+                            "detalle": str(e2),
+                            "archivo": src
+                        }), 500
+                else:
+                    return jsonify({
+                        "ok": False,
+                        "error": f"El DOCX recortado del tema '{tema}' quedó inválido.",
+                        "detalle": err_fix or str(e),
+                        "archivo": src
+                    }), 500
 
-        # Normalizaciones opcionales
-        try: _post_merge_fix_numbering(out)
-        except Exception: pass
-        try: bullets_to_numbers_docx(out)
-        except Exception: pass
-        try: reparar_docx_inplace(out)
-        except Exception: pass
+            grouped.append((tema, [tmp.name]))
+
+        if not grouped:
+            return jsonify({
+                "ok": False,
+                "error": "La matriz no tiene temas con cantidad mayor a 0."
+            }), 400
+
+        malos = []
+
+        # mismo criterio que grupos
+        if _com_disponible():
+            out, _, malos = _merge_grouped_with_headings_wordcom(grouped, out_path)
+        else:
+            out, _, malos = _merge_grouped_with_headings(grouped, out_path)
+
+        if malos:
+            return jsonify({
+                "ok": False,
+                "error": "No se pudo armar la matriz completa porque algunos archivos no pudieron insertarse.",
+                "detalles": [{"path": p, "motivo": m} for (p, m) in malos]
+            }), 409
+
+        # validar resultado final como en grupos
+        try:
+            _ = DocxDocument(out)
+        except Exception as e:
+            return jsonify({
+                "ok": False,
+                "error": f"El DOCX final de la matriz quedó inválido después del merge. Detalle: {e}"
+            }), 500
+
+        # opcional: solo reparación ligera, sin tocar numbering.xml
+        try:
+            reparar_docx_inplace(out)
+        except Exception as e:
+            print("[MATRIZ][REPAIR] aviso:", repr(e), flush=True)
+
+        # validar otra vez
+        try:
+            _ = DocxDocument(out)
+        except Exception as e:
+            return jsonify({
+                "ok": False,
+                "error": f"El DOCX final de la matriz quedó inválido después de reparar. Detalle: {e}"
+            }), 500
 
         return send_file(out, as_attachment=True, download_name=os.path.basename(out))
 
     except Exception as e:
-        import traceback; traceback.print_exc()
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     finally:
         for p in temp_files:
-            try: os.remove(p)
-            except Exception: pass
+            try:
+                os.remove(p)
+            except Exception:
+                pass
 
 
 W_NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -5548,48 +6758,66 @@ def _find_question_spans(doc_xml_path: str, numbering_xml_path: str, max_q: int)
     return spans
 
 def _cut_docx_first_n_questions(src_docx: str, n: int, out_docx: str):
-    """
-    Crea un DOCX con solo las primeras n preguntas del src.
-    Si no detecta preguntas, copia el original.
-    """
     if n <= 0:
         d = DocxDocument()
         d.save(out_docx)
         return
 
-    with tempfile.TemporaryDirectory() as td:
-        with zipfile.ZipFile(src_docx, "r") as z:
-            z.extractall(td)
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            with zipfile.ZipFile(src_docx, "r") as z:
+                z.extractall(td)
 
-        doc_xml = os.path.join(td, "word", "document.xml")
-        num_xml = os.path.join(td, "word", "numbering.xml")
+            doc_xml = os.path.join(td, "word", "document.xml")
+            num_xml = os.path.join(td, "word", "numbering.xml")
 
-        spans = _find_question_spans(doc_xml, num_xml, n)
-        if not spans:
-            shutil.copyfile(src_docx, out_docx)
-            return
+            spans = _find_question_spans(doc_xml, num_xml, n)
+            if not spans:
+                shutil.copyfile(src_docx, out_docx)
+                return
 
-        tree_doc = ET.parse(doc_xml)
-        root_doc = tree_doc.getroot()
-        body = root_doc.find(f"{W_NS}body")
-        all_p = list(body.findall(f"./{W_NS}p"))
+            tree_doc = ET.parse(doc_xml)
+            root_doc = tree_doc.getroot()
+            body = root_doc.find(f"{W_NS}body")
+            if body is None:
+                raise RuntimeError("No se encontró body en document.xml")
 
-        keep = set()
-        for s, e in spans:
-            keep.update(range(s, e))
+            # Hijos reales del body: párrafos y tablas en orden
+            body_children = list(body)
 
-        for idx, p in enumerate(all_p):
-            if idx not in keep:
-                body.remove(p)
+            seleccion = []
+            para_idx = -1
+            dentro_span = False
 
-        tree_doc.write(doc_xml, encoding="utf-8", xml_declaration=True)
+            def _esta_en_spans(idx: int) -> bool:
+                for s, e in spans:
+                    if s <= idx < e:
+                        return True
+                return False
 
-        with zipfile.ZipFile(out_docx, "w", zipfile.ZIP_DEFLATED) as outz:
-            for root, _dirs, files in os.walk(td):
-                for f in files:
-                    full = os.path.join(root, f)
-                    rel  = os.path.relpath(full, td)
-                    outz.write(full, rel)
+            for ch in body_children:
+                if ch.tag == f"{W_NS}p":
+                    para_idx += 1
+                    dentro_span = _esta_en_spans(para_idx)
+                    if dentro_span:
+                        seleccion.append(copy.deepcopy(ch))
+                elif ch.tag == f"{W_NS}tbl":
+                    # si la tabla cae dentro de una pregunta seleccionada, conservarla
+                    if dentro_span:
+                        seleccion.append(copy.deepcopy(ch))
+
+            if not seleccion:
+                shutil.copyfile(src_docx, out_docx)
+                return
+
+            # 👇 aquí está el cambio clave: rehacer el DOCX con la función robusta
+            _reempacar_docx(td, seleccion, out_docx)
+
+            # validación final
+            _validar_docx_real(out_docx)
+
+    except Exception as e:
+        raise RuntimeError(f"Error procesando DOCX '{os.path.basename(src_docx)}': {e}")
 
 
 _WNS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -5695,7 +6923,7 @@ def matriz_generar_desde_banco():
         return jsonify({"error": "items/doc_ids inválidos"}), 400
 
     if not doc_ids and not tema_ids_all:
-        return jsonify({"error": "No hay información de temas."}), 400
+        return jsonify({"error": "No hay información del temario."}), 400
 
     doc_ids = sorted(set(doc_ids))
     tema_ids_all = sorted(x for x in tema_ids_all if x > 0)
@@ -5703,14 +6931,14 @@ def matriz_generar_desde_banco():
     # --- Traer nombres de temas y docs ---
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         # Mapa tema_id -> nombre (para que exista aunque no tenga banco)
         tema_name_map = {}
         if tema_ids_all:
-            fmt_t = ",".join(["%s"] * len(tema_ids_all))
+            fmt_t = ",".join(["?"] * len(tema_ids_all))
             cur.execute(
-                f"SELECT id, nombre FROM temas WHERE id IN ({fmt_t})",
+                f"SELECT id, nombre FROM temario WHERE id IN ({fmt_t})",
                 tuple(tema_ids_all)
             )
             for r in cur.fetchall():
@@ -5719,17 +6947,17 @@ def matriz_generar_desde_banco():
         # Mapa doc_id -> fila (solo si hay doc_ids)
         rows = []
         if doc_ids:
-            fmt_d = ",".join(["%s"] * len(doc_ids))
+            fmt_d = ",".join(["?"] * len(doc_ids))
             cur.execute(f"""
                 SELECT td.id,
                        td.tema_id,
                        t.nombre AS tema_nombre,
                        td.doc_preguntas_ruta
                 FROM tema_docs td
-                JOIN temas t ON t.id = td.tema_id
+                JOIN temario t ON t.id = td.tema_id
                 WHERE td.id IN ({fmt_d})
             """, tuple(doc_ids))
-            rows = cur.fetchall()
+            rows = _row_to_dict_list(cur)
 
         cur.close()
         conn.close()
@@ -5757,9 +6985,9 @@ def matriz_generar_desde_banco():
             if not row:
                 continue
             # Si viene el nombre desde tema_docs, lo usamos
-            if row.get("tema_nombre"):
+            if row["tema_nombre"]:
                 tema_nombre = row["tema_nombre"]
-            ruta = row.get("doc_preguntas_ruta")
+            ruta = row["doc_preguntas_ruta"]
             if not ruta or not os.path.isfile(ruta):
                 faltantes_arch.append({"tema_id": tema_id, "tema_nombre": tema_nombre, "doc_id": did})
                 continue
@@ -5775,7 +7003,7 @@ def matriz_generar_desde_banco():
         }), 400
 
     if not grouped_data:
-        return jsonify({"error": "No hay temas válidos para generar la matriz."}), 400
+        return jsonify({"error": "No hay temario válidos para generar la matriz."}), 400
 
     # Nombre de salida
     ts = time.strftime("%Y-%m-%d %H-%M")
@@ -5875,21 +7103,21 @@ def matriz_generar_desde_banco_solucionario():
         return jsonify({"error": "items/doc_ids inválidos"}), 400
 
     if not doc_ids and not tema_ids_all:
-        return jsonify({"error": "No hay información de temas."}), 400
+        return jsonify({"error": "No hay información del temario."}), 400
 
     doc_ids = sorted(set(doc_ids))
     tema_ids_all = sorted(x for x in tema_ids_all if x > 0)
 
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         # Mapa tema_id -> nombre
         tema_name_map = {}
         if tema_ids_all:
-            fmt_t = ",".join(["%s"] * len(tema_ids_all))
+            fmt_t = ",".join(["?"] * len(tema_ids_all))
             cur.execute(
-                f"SELECT id, nombre FROM temas WHERE id IN ({fmt_t})",
+                f"SELECT id, nombre FROM temario WHERE id IN ({fmt_t})",
                 tuple(tema_ids_all)
             )
             for r in cur.fetchall():
@@ -5897,17 +7125,17 @@ def matriz_generar_desde_banco_solucionario():
 
         rows = []
         if doc_ids:
-            fmt_d = ",".join(["%s"] * len(doc_ids))
+            fmt_d = ",".join(["?"] * len(doc_ids))
             cur.execute(f"""
                 SELECT td.id,
                        td.tema_id,
                        t.nombre AS tema_nombre,
                        td.doc_sol_ruta
                 FROM tema_docs td
-                JOIN temas t ON t.id = td.tema_id
+                JOIN temario t ON t.id = td.tema_id
                 WHERE td.id IN ({fmt_d})
             """, tuple(doc_ids))
-            rows = cur.fetchall()
+            rows = _row_to_dict_list(cur)
 
         cur.close()
         conn.close()
@@ -5940,10 +7168,10 @@ def matriz_generar_desde_banco_solucionario():
                 })
                 continue
 
-            if row.get("tema_nombre"):
+            if row["tema_nombre"]:
                 tema_nombre = row["tema_nombre"]
 
-            ruta = row.get("doc_sol_ruta")
+            ruta = row["doc_sol_ruta"]
             if not ruta:
                 faltantes_sol.append({
                     "tema_id": tema_id,
@@ -5990,12 +7218,23 @@ def matriz_generar_desde_banco_solucionario():
 
             if paths:
                 # Igual que en matriz_generar_desde_banco: 1 pregunta por DOCX
-                for src in paths:
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-                    tmp.close()
+               for src in paths:
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+                tmp.close()
+                try:
+                    _validar_docx_real(src)
                     _cut_docx_first_n_questions(src, 1, tmp.name)
-                    temp_files.append(tmp.name)
-                    new_paths.append(tmp.name)
+                except Exception as e:
+                    try:
+                        os.remove(tmp.name)
+                    except Exception:
+                        pass
+                    return jsonify({
+                        "error": f"Error procesando DOCX '{os.path.basename(src)}': {e}"
+                    }), 400
+
+                temp_files.append(tmp.name)
+                new_paths.append(tmp.name)
             else:
                 # Tema sin preguntas seleccionadas: docx vacío para que salga el título
                 tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
@@ -6055,7 +7294,7 @@ def banco_resumen_temas():
     """
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         cur.execute("""
             SELECT
@@ -6068,14 +7307,14 @@ def banco_resumen_temas():
                         THEN 1 ELSE 0
                     END
                 ) AS n_docs_con_sol
-            FROM temas t
+            FROM temario t
             LEFT JOIN tema_docs td ON td.tema_id = t.id
             WHERE t.activo = 1
             GROUP BY t.id, t.nombre
             ORDER BY t.nombre
         """)
 
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         cur.close()
         conn.close()
         return jsonify(rows)
@@ -6097,23 +7336,23 @@ def temas_listar_cuad():
     include_all = request.args.get("all") == "1"
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         if include_all:
             cur.execute("""
                 SELECT t.id, t.nombre, t.activo
-                FROM temas t
+                FROM temario t
                 ORDER BY t.nombre
             """)
         else:
             cur.execute("""
                 SELECT t.id, t.nombre, t.activo
-                FROM temas t
+                FROM temario t
                 WHERE t.activo = 1
                 ORDER BY t.nombre
             """)
 
-        rows = cur.fetchall()
+        rows = _row_to_dict_list(cur)
         cur.close()
         conn.close()
         return jsonify(rows)
@@ -6152,8 +7391,8 @@ def _leer_matriz_detalle(cur, matriz_id: int):
                d.cantidad,
                d.archivo_ruta
         FROM matriz_detalle d
-        JOIN temas t ON t.id = d.tema_id
-        WHERE d.matriz_id = %s
+        JOIN temario t ON t.id = d.tema_id
+        WHERE d.matriz_id = ?
         ORDER BY t.nombre          -- orden alfabético de la matriz
         """,
         (matriz_id,),
@@ -6167,7 +7406,7 @@ def _leer_config_grupos(cur):
       {
         idgrupo: {
           idgrupo, clave, nombre,
-          temas: [ {tema_id, tema_nombre, cantidad}, ... ]
+          temario: [ {tema_id, tema_nombre, cantidad}, ... ]
                  # en el MISMO orden que ves en el modal
         },
         ...
@@ -6184,7 +7423,7 @@ def _leer_config_grupos(cur):
         FROM grupos g
         LEFT JOIN grupo_tema gt
                ON gt.grupos_idgrupo = g.idgrupo
-        LEFT JOIN temas t
+        LEFT JOIN temario t
                ON t.id = gt.tema_id
         WHERE g.activo = 1
         ORDER BY g.idgrupo, t.nombre   -- 👈 mismo orden que el modal (por nombre de tema)
@@ -6258,6 +7497,7 @@ def _armar_docx_grupo(nombre_grupo: str, clave: str, bloques: list, ruta: str):
     os.makedirs(os.path.dirname(ruta), exist_ok=True)
     doc.save(ruta)
 
+#descargar  grupos cuadernillos.js
 
 @app.route("/api/grupos/generar", methods=["POST"])
 def api_generar_por_grupos():
@@ -6296,7 +7536,7 @@ def api_generar_por_grupos():
             nombres = {}
             if tema_ids:
                 cur.execute(
-                    f"SELECT id, nombre FROM temas WHERE id IN ({','.join(['%s']*len(tema_ids))})",
+                    f"SELECT id, nombre FROM temario WHERE id IN ({','.join(['?']*len(tema_ids))})",
                     tema_ids,
                 )
                 for tid, nom in cur.fetchall():
@@ -6384,7 +7624,7 @@ def api_generar_por_grupos():
         cur.execute(
             """
             INSERT INTO gen_lote(matriz_id, nombre, usuario)
-            VALUES (%s, %s, %s)
+            VALUES (?, ?, ?)
             """,
             (
                 matriz_id_for_lote,
@@ -6398,21 +7638,60 @@ def api_generar_por_grupos():
         # -------------------------
         # 4) Recortes DOCX por tema
         # -------------------------
+                # -------------------------
+        # 4) Recortes DOCX por tema
+        # -------------------------
         temp_files = []
         docx_por_tema = {}
 
         for t_id, qs in cuotas_por_tema.items():
             cuota = next(iter(qs))
             info = md_por_tema[t_id]
-            src = info["archivo_ruta"]
+            src = os.path.abspath(info["archivo_ruta"])
             titulo = info["tema_nombre"]
 
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
             tmp.close()
-            _cut_docx_first_n_questions(src, cuota, tmp.name)
-            temp_files.append(tmp.name)
-            docx_por_tema[t_id] = {"path": tmp.name, "titulo": titulo, "n": cuota}
 
+            try:
+                _cut_docx_first_n_questions(src, cuota, tmp.name)
+            except Exception as e:
+                return jsonify({
+                    "ok": False,
+                    "error": f"Falló el recorte del tema '{titulo}': {e}",
+                    "archivo": src
+                }), 500
+
+            temp_files.append(tmp.name)
+
+            # validar el temporal recortado
+            try:
+                _ = DocxDocument(tmp.name)
+            except Exception as e:
+                ok_fix, err_fix = reparar_docx_fuerte(tmp.name)
+                if ok_fix:
+                    try:
+                        _ = DocxDocument(tmp.name)
+                    except Exception as e2:
+                        return jsonify({
+                            "ok": False,
+                            "error": f"El DOCX recortado del tema '{titulo}' sigue inválido.",
+                            "detalle": str(e2),
+                            "archivo": src
+                        }), 500
+                else:
+                    return jsonify({
+                        "ok": False,
+                        "error": f"El DOCX recortado del tema '{titulo}' quedó inválido.",
+                        "detalle": err_fix or str(e),
+                        "archivo": src
+                    }), 500
+
+            docx_por_tema[t_id] = {
+                "path": tmp.name,
+                "titulo": titulo,
+                "n": cuota
+            }
         # -------------------------
         # 5) Generar DOCX por grupo
         # -------------------------
@@ -6422,17 +7701,17 @@ def api_generar_por_grupos():
         docxs_generados = []
 
         for gid, ginfo in grupos_cfg.items():
-            # IMPORTANTE: aquí ya vienen en el mismo orden que el modal,
-            # porque _leer_config_grupos ordena por t.nombre
             bloques = []
             for rel in ginfo["temas"]:
                 t_id = int(rel["tema_id"])
                 cant = int(rel["cantidad"] or 0)
                 if cant <= 0:
                     continue
+
                 tema_doc = docx_por_tema.get(t_id)
                 if not tema_doc:
                     continue
+
                 bloques.append((tema_doc["titulo"], [tema_doc["path"]]))
 
             if not bloques:
@@ -6442,30 +7721,49 @@ def api_generar_por_grupos():
             nom_grupo = (ginfo.get("nombre") or "").strip() or f"Grupo {clave}"
             out_path = os.path.join(lote_dir, f"grupo_{clave}.docx")
 
-            out_docx, _, _ = _merge_grouped_with_headings(bloques, out_path)
+            malos = []
 
+            if _com_disponible():
+                out_docx, _, malos = _merge_grouped_with_headings_wordcom(bloques, out_path)
+            else:
+                out_docx, _, malos = _merge_grouped_with_headings(bloques, out_path)
+
+            if malos:
+                return jsonify({
+                    "ok": False,
+                    "error": f"No se pudo armar completamente el grupo '{clave}'.",
+                    "detalles": [{"path": p, "motivo": m} for (p, m) in malos]
+                }), 409
+
+            # validar resultado final
             try:
-                _post_merge_fix_numbering(out_docx)
-            except Exception:
-                pass
-            try:
-                bullets_to_numbers_docx(out_docx)
-            except Exception:
-                pass
+                _ = DocxDocument(out_docx)
+            except Exception as e:
+                return jsonify({
+                    "ok": False,
+                    "error": f"El DOCX final del grupo '{clave}' quedó inválido después del merge. Detalle: {e}"
+                }), 500
+
+            # reparación ligera
             try:
                 reparar_docx_inplace(out_docx)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[GRUPOS][REPAIR][{clave}] aviso:", repr(e), flush=True)
+
+            # validar otra vez
+            try:
+                _ = DocxDocument(out_docx)
+            except Exception as e:
+                return jsonify({
+                    "ok": False,
+                    "error": f"El DOCX final del grupo '{clave}' quedó inválido después de reparar. Detalle: {e}"
+                }), 500
 
             docxs_generados.append(out_docx)
-
-        if not docxs_generados:
-            return jsonify({"error": "No se generó ningún examen de grupo."}), 400
-
         # -------------------------
         # 6) ZIP
         # -------------------------
-        zip_path = os.path.join(lote_dir, f"lote_{lote_id}.zip")
+        zip_path = os.path.join(lote_dir, f"grupos_{lote_id}.zip")
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for p in docxs_generados:
                 zf.write(p, os.path.basename(p))
@@ -6498,12 +7796,18 @@ def api_generar_por_grupos():
 @app.route("/api/grupos/lote/<int:lote_id>/zip", methods=["GET"])
 def api_descargar_zip_lote(lote_id):
     lote_dir = os.path.join(GRUPOS_OUT_DIR, f"lote_{lote_id}")
-    zip_path = os.path.join(lote_dir, f"lote_{lote_id}.zip")
+    zip_path = os.path.join(lote_dir, f"grupos_{lote_id}.zip")
+    print("[ZIP DESCARGA] zip_path =", zip_path, flush=True)
+    print("[ZIP DESCARGA] download_name =", f"grupos_{lote_id}.zip", flush=True)
+
     if not os.path.isfile(zip_path):
         return jsonify({"error": "ZIP no encontrado"}), 404
-    return send_file(zip_path, as_attachment=True,
-                     download_name=f"lote_{lote_id}.zip")
 
+    return send_file(
+        zip_path,
+        as_attachment=True,
+        download_name=f"grupos_{lote_id}.zip"
+    )
 # ----------------- Utils -----------------
 def sha256sum(path):
     h = hashlib.sha256()
@@ -6684,7 +7988,7 @@ def api_generar_grupos_from_docx():
         cur.execute(
             """
             INSERT INTO gen_lote(matriz_id, nombre, usuario)
-            VALUES (%s, %s, %s)
+            VALUES (?, ?, ?)
             """,
             (
                 None,
@@ -6707,12 +8011,39 @@ def api_generar_grupos_from_docx():
 
             # 👇 Saltamos el párrafo del título para que NO se duplique
             start_preg = min(end_idx, start_idx + 1)
-
             tmp_out = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
             tmp_out.close()
-            _extract_tema_docx_range(tmp_in.name, start_preg, end_idx, tmp_out.name)
+
+            try:
+                _extract_tema_docx_range(tmp_in.name, start_preg, end_idx, tmp_out.name)
+            except Exception as e:
+                return jsonify({
+                    "ok": False,
+                    "error": f"Falló la extracción del tema '{nom_real}': {e}"
+                }), 500
 
             temp_files.append(tmp_out.name)
+
+            try:
+                _ = DocxDocument(tmp_out.name)
+            except Exception as e:
+                ok_fix, err_fix = reparar_docx_fuerte(tmp_out.name)
+                if ok_fix:
+                    try:
+                        _ = DocxDocument(tmp_out.name)
+                    except Exception as e2:
+                        return jsonify({
+                            "ok": False,
+                            "error": f"El DOCX extraído del tema '{nom_real}' sigue inválido.",
+                            "detalle": str(e2)
+                        }), 500
+                else:
+                    return jsonify({
+                        "ok": False,
+                        "error": f"El DOCX extraído del tema '{nom_real}' quedó inválido.",
+                        "detalle": err_fix or str(e)
+                    }), 500
+
             docx_por_tema[t_id] = {
                 "path": tmp_out.name,
                 "titulo": nom_real,
@@ -6747,28 +8078,47 @@ def api_generar_grupos_from_docx():
             nom_grupo = (ginfo.get("nombre") or "").strip() or f"Grupo {clave}"
             out_path = os.path.join(lote_dir, f"grupo_{clave}.docx")
 
-            out_docx, _, _ = _merge_grouped_with_headings(bloques, out_path)
+            malos = []
+
+            if _com_disponible():
+                out_docx, _, malos = _merge_grouped_with_headings_wordcom(bloques, out_path)
+            else:
+                out_docx, _, malos = _merge_grouped_with_headings(bloques, out_path)
+
+            if malos:
+                return jsonify({
+                    "ok": False,
+                    "error": f"No se pudo armar completamente el grupo '{clave}'.",
+                    "detalles": [{"path": p, "motivo": m} for (p, m) in malos]
+                }), 409
 
             try:
-                _post_merge_fix_numbering(out_docx)
-            except Exception:
-                pass
-            try:
-                bullets_to_numbers_docx(out_docx)
-            except Exception:
-                pass
+                _ = DocxDocument(out_docx)
+            except Exception as e:
+                return jsonify({
+                    "ok": False,
+                    "error": f"El DOCX final del grupo '{clave}' quedó inválido después del merge. Detalle: {e}"
+                }), 500
+
             try:
                 reparar_docx_inplace(out_docx)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[GRUPOS_FROM_DOCX][REPAIR][{clave}] aviso:", repr(e), flush=True)
 
+            try:
+                _ = DocxDocument(out_docx)
+            except Exception as e:
+                return jsonify({
+                    "ok": False,
+                    "error": f"El DOCX final del grupo '{clave}' quedó inválido después de reparar. Detalle: {e}"
+                }), 500
             docxs_generados.append(out_docx)
 
         if not docxs_generados:
             return jsonify({"error": "No se generó ningún examen de grupo."}), 400
 
         # 7) ZIP final
-        zip_path = os.path.join(lote_dir, f"lote_{lote_id}.zip")
+        zip_path = os.path.join(lote_dir, f"grupos_{lote_id}.zip")
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             for p in docxs_generados:
                 zf.write(p, os.path.basename(p))
@@ -6924,8 +8274,7 @@ def _apply_reorder(doc: Document, claves, modo="P"):
             # aplicar reorder si hay bloque válido
             if len(alt_paras) >= 2:
                 rkey = map_claves.get(qnum, {})
-                target = rkey.get("p" if modo=="P" else "q") or "A"
-
+                target = (rkey.get(modo) or "A")
                 new_order = _reorder_alt_paragraphs(alt_paras[:5], target)
 
                 # 🔥 mover XML completo preservando estilo
@@ -6943,6 +8292,154 @@ def _apply_reorder(doc: Document, claves, modo="P"):
             continue
 
         i += 1
+
+
+def pick_n_distinct_letters(n=2, exclude=None):
+    """Devuelve n letras distintas A–E, opcionalmente excluyendo una."""
+    pool = [x for x in VALID_LETTERS if (exclude is None or x != exclude)]
+    if n > len(pool):
+        raise ValueError("No hay suficientes letras para cumplir la regla.")
+    return random.sample(pool, n)
+
+def pick_distinct_for_tipos(tipos_count: int, exclude_origen: str = None):
+    """
+    Devuelve una lista de letras distintas (A–E) de tamaño tipos_count.
+    Si exclude_origen está definido y hay suficientes letras, lo evita.
+    """
+    pool = VALID_LETTERS[:]
+
+    ex = (exclude_origen or "").strip().upper()
+    if ex in pool and tipos_count <= (len(pool) - 1):
+        pool.remove(ex)
+
+    if tipos_count > len(pool):
+        # No hay suficientes letras únicas (p.ej. 6 tipos con solo 5 letras)
+        raise ValueError(f"No hay suficientes letras distintas para {tipos_count} tipos.")
+
+    return random.sample(pool, tipos_count)
+
+def ensure_tipos(conn, examen_id, grupo_id, codigos=("P","Q")):
+    """
+    Crea o reactiva tipos.
+    - Mantiene orden existente si ya existe.
+    - Si es nuevo, lo agrega al final (MAX(orden)+1).
+    """
+    codigos = [ _norm_code(c) for c in (codigos or []) ]
+    codigos = [ c for c in codigos if c ] or ["P","Q"]
+
+    cur = conn.cursor()
+
+    # existentes
+    cur.execute("""
+        SELECT id, codigo, orden, activo
+        FROM claves_tipo
+        WHERE examen_id=? AND grupo_id=?
+    """, (examen_id, grupo_id))
+    ex = {r["codigo"]: r for r in cur.fetchall()}
+
+    # siguiente orden
+    cur.execute("""
+        SELECT COALESCE(MAX(orden),0) AS m
+        FROM claves_tipo
+        WHERE examen_id=? AND grupo_id=?
+    """, (examen_id, grupo_id))
+    next_order = int(cur.fetchone()["m"] or 0) + 1
+
+    for c in codigos:
+        if c in ex:
+            # reactiva si estaba apagado
+            if int(ex[c]["activo"] or 0) == 0:
+                cur.execute("UPDATE claves_tipo SET activo=1 WHERE id=?", (ex[c]["id"],))
+        else:
+            cur.execute("""
+                INSERT INTO claves_tipo (examen_id, grupo_id, codigo, orden, activo)
+                VALUES (?,?,?,?,1)
+            """, (examen_id, grupo_id, c, next_order))
+            next_order += 1
+
+    conn.commit()
+
+    # ids activos
+    cur.execute("""
+        SELECT id, codigo
+        FROM claves_tipo
+        WHERE examen_id=? AND grupo_id=? AND activo=1
+        ORDER BY orden
+    """, (examen_id, grupo_id))
+    tipos = cur.fetchall()
+    cur.close()
+    return {t["codigo"]: t["id"] for t in tipos}
+
+def fetch_claves_pivot(conn, examen_id, grupo_id):
+    """
+    Devuelve lista:
+      [{"numero_pregunta":1,"origen":"A","P":"D","Q":"B"}, ...]
+    y lista de tipos activos ["P","Q",...]
+    """
+    cur = conn.cursor()
+
+    # tipos activos
+    cur.execute("""
+        SELECT id, codigo
+        FROM claves_tipo
+        WHERE examen_id=? AND grupo_id=? AND activo=1
+        ORDER BY orden
+    """, (examen_id, grupo_id))
+    tipos = cur.fetchall()
+    tipo_ids = {t["id"]: t["codigo"] for t in tipos}
+    tipo_codes = [t["codigo"] for t in tipos]
+
+    # cabecera preguntas
+    cur.execute("""
+        SELECT id AS cr_id, numero_pregunta, origen
+        FROM claves_respuesta
+        WHERE examen_id=? AND grupo_id=?
+        ORDER BY numero_pregunta
+    """, (examen_id, grupo_id))
+    base = cur.fetchall()
+
+    if not base:
+        cur.close()
+        return [], tipo_codes
+
+    # detalles
+    cr_ids = [b["cr_id"] for b in base]
+    fmt = ",".join(["?"] * len(cr_ids))
+    cur.execute(f"""
+        SELECT claves_respuesta_id, tipo_id, clave
+        FROM claves_respuesta_detalle
+        WHERE claves_respuesta_id IN ({fmt})
+    """, tuple(cr_ids))
+    det = cur.fetchall()
+    cur.close()
+
+    # pivot
+    det_map = {}
+    for d in det:
+        code = tipo_ids.get(d["tipo_id"])
+        if not code:
+            continue
+        det_map.setdefault(d["claves_respuesta_id"], {})[code] = d["clave"]
+
+    rows = []
+    for b in base:
+        row = {"numero_pregunta": b["numero_pregunta"], "origen": b["origen"]}
+        row.update(det_map.get(b["cr_id"], {}))
+        # compatibilidad frontend viejo si espera p/q:
+        if "P" in row: row["p"] = row["P"]
+        if "Q" in row: row["q"] = row["Q"]
+        rows.append(row)
+
+    return rows, tipo_codes
+
+def upsert_detalle(cur, cr_id, tipo_id, clave):
+    cur.execute("""
+        INSERT INTO claves_respuesta_detalle (claves_respuesta_id, tipo_id, clave)
+        VALUES (?,?,?)
+        ON CONFLICT(claves_respuesta_id, tipo_id) DO UPDATE SET
+          clave=excluded.clave,
+          fecha_actualizacion=CURRENT_TIMESTAMP
+    """, (cr_id, tipo_id, clave))
 
 
 
@@ -6967,10 +8464,10 @@ def generar_docx_pq_para_grupo(ruta_docx, claves, clave_grupo, nombre_base):
 # Listado de grupos (para el select)
 @app.route("/api/grupos", methods=["GET"])
 def api_grupos():
-    conn = get_connection(); cur = conn.cursor(dictionary=True)
+    conn = get_connection(); cur = conn.cursor()
     # Ajusta campos: idgrupo, clave, nombre, activo
     cur.execute("SELECT idgrupo AS id, clave, nombre FROM grupos WHERE activo=1 ORDER BY clave")
-    data = cur.fetchall()
+    data = _row_to_dict_list(cur)
     cur.close(); conn.close()
     return jsonify(data)
 
@@ -6979,182 +8476,233 @@ def api_grupos():
 # --- DELETE /api/examenes/importados/<id> ---
 @app.route("/api/examenes/importados/<int:id>", methods=["DELETE"])
 def api_examen_importado_eliminar(id):
-    """
-    Elimina un examen importado:
-    - Borra registro de BD
-    - Opcional: borra archivo físico (si existe)
-    """
     borrar_archivo = request.args.get("delete_file", "1") == "1"
 
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
 
         # 1) Obtener ruta antes de borrar
-        cur.execute("SELECT ruta FROM examenes_importados WHERE id=%s", (id,))
+        cur.execute("SELECT ruta FROM examenes_importados WHERE id=?", (id,))
         row = cur.fetchone()
+        if row:
+            row = dict(row)
+
         if not row:
-            cur.close(); conn.close()
+            cur.close()
+            conn.close()
             return jsonify(ok=False, error="Examen no encontrado."), 404
 
-        ruta = row.get("ruta")
+        ruta = row["ruta"] if row["ruta"] else None
 
         # 2) Borrar de BD
-        cur.execute("DELETE FROM examenes_importados WHERE id=%s", (id,))
+        cur.execute("DELETE FROM examenes_importados WHERE id=?", (id,))
         conn.commit()
 
-        cur.close(); conn.close()
+        cur.close()
+        conn.close()
 
         # 3) Borrar archivo físico si se pide
         if borrar_archivo and ruta and os.path.exists(ruta):
             try:
                 os.remove(ruta)
             except Exception:
-                # si falla borrar archivo, no rompemos la respuesta
                 pass
 
         return jsonify(ok=True), 200
 
     except Exception as e:
         try:
-            cur.close(); conn.close()
+            cur.close()
+            conn.close()
         except Exception:
             pass
         return jsonify(ok=False, error=str(e)), 500
 
+
+
+
 @app.route("/api/claves/ensure", methods=["POST"])
 def api_claves_ensure():
     data = request.get_json(force=True)
-    examen_id = int(data.get("examen_id") or 0)
-    grupo_id  = int(data.get("grupo_id") or 0)
-    if not examen_id or not grupo_id:
-        return jsonify(ok=False, error="Faltan examen_id/grupo_id"), 400
+    examen_ids = data.get("examen_ids") or []
+    grupo_id   = int(data.get("grupo_id") or 0)
+    tipos      = data.get("tipos") or ["P", "Q"]
 
-    conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    totales = []
+    for examen_id in examen_ids:
+        total = api_claves_ensure_internal(int(examen_id), grupo_id, tipos)
+        totales.append({"examen_id": int(examen_id), "total": total})
 
-    # total de preguntas del examen importado
-    cur.execute("SELECT total_preguntas FROM examenes_importados WHERE id=%s", (examen_id,))
-    ex = cur.fetchone()
-    total = int(ex["total_preguntas"] or 0) if ex else 0
-    if total <= 0:
-        cur.close(); conn.close()
-        return jsonify(ok=False, error="Examen sin preguntas detectadas"), 409
-
-    # ¿ya existen claves?
-    cur.execute("""
-        SELECT COUNT(*) AS n
-        FROM claves_respuesta
-        WHERE examen_id=%s AND grupo_id=%s
-    """, (examen_id, grupo_id))
-    n = int(cur.fetchone()["n"])
-
-    if n == 0:
-        # crear todas las filas con P/Q válidas
-        rows = []
-        for i in range(total):
-            origen = "A"
-            p, q = pick_two_distinct_letters()   # ✅ ahora puede incluir "A"
-            rows.append((i+1, origen, p, q, examen_id, grupo_id))
+    return jsonify(ok=True, items=totales)
 
 
-        cur.executemany("""
-            INSERT INTO claves_respuesta
-                (numero_pregunta, origen, p, q, examen_id, grupo_id, fecha_actualizacion)
-            VALUES (%s,%s,%s,%s,%s,%s,NOW())
-        """, rows)
-        conn.commit()
 
-    else:
-        # si ya existen, repara cualquier p/q inválida
-        cur.execute("""
-            SELECT id, origen, p, q
-            FROM claves_respuesta
-            WHERE examen_id=%s AND grupo_id=%s
-            ORDER BY numero_pregunta
-        """, (examen_id, grupo_id))
-        filas = cur.fetchall()
+VALID_SET = set(VALID_LETTERS)
 
-        valid = {"A","B","C","D","E"}
-        for r in filas:
-            origen = (r["origen"] or "A").upper()
+BASE_KEYS = {"NUMERO_PREGUNTA", "ORIGEN", "ID", "CR_ID"}  # solo campos base
 
-            p = (r["p"] or "").upper()
-            q = (r["q"] or "").upper()
+def _norm_code(x):
+    c = (str(x or "")).strip().upper()
+    if not c or len(c) > 10:
+        return None
+    if not re.match(r"^[A-Z0-9_]+$", c):
+        return None
+    return c
 
-            if p not in valid:
-                p = random.choice(list(valid))
-            if q not in valid or q == p:
-                q = random.choice([x for x in valid if x != p])
+def _infer_tipos_from_filas(filas):
+    """
+    - detecta tipos por columnas: P, Q, R, S...
+    - si viene compat 'p'/'q' => lo mapea a P/Q
+    """
+    seen = set()
+    ordered = []
+    for r in filas or []:
+        for k in (r or {}).keys():
+            ks = str(k or "").strip()
+            if not ks:
+                continue
 
-            cur.execute("""
-                UPDATE claves_respuesta
-                SET p=%s, q=%s, fecha_actualizacion=NOW()
-                WHERE id=%s
-            """, (p, q, r["id"]))
-        conn.commit()
+            # compat con frontend viejo
+            if ks.lower() == "p":
+                code = "P"
+            elif ks.lower() == "q":
+                code = "Q"
+            else:
+                code = _norm_code(ks)
 
-    cur.close(); conn.close()
-    return jsonify(ok=True, total=total)
+            if not code or code in BASE_KEYS:
+                continue
+
+            if code not in seen:
+                seen.add(code)
+                ordered.append(code)
+    return ordered
+
+
 
 
 @app.route("/api/claves/guardar", methods=["POST"])
 def api_claves_guardar():
     data = request.get_json(force=True)
+
     examen_id = int(data.get("examen_id") or 0)
     grupo_id  = int(data.get("grupo_id")  or 0)
     filas     = data.get("filas") or []
+    tipos_in  = data.get("tipos")  # opcional: ["P","Q","R","S"]
 
     if not examen_id or not grupo_id:
         return jsonify(ok=False, error="Faltan examen_id/grupo_id"), 400
 
-    conn = get_connection(); cur = conn.cursor(dictionary=True)
+    # 1) Determinar tipos a guardar
+    if isinstance(tipos_in, list) and tipos_in:
+        tipos = []
+        for t in tipos_in:
+            tt = _norm_code(t)
+            if tt:
+                tipos.append(tt)
+    else:
+        tipos = _infer_tipos_from_filas(filas)
 
-    for r in filas:
-        num = int(r.get("numero_pregunta") or 0)
-        if num <= 0: 
-            continue
-        origen = (r.get("origen") or "A").upper()
-        valid = {"A","B","C","D","E"}
+    # fallback mínimo si aún no mandas tipos
+    if not tipos:
+        tipos = ["P", "Q"]
 
-        p = (r.get("p") or "").upper()
-        q = (r.get("q") or "").upper()
+    conn = get_connection()
+    curD = conn.cursor()
+    cur  = conn.cursor()
 
-        if p not in valid:
-            p = random.choice(valid)   # ✅ ahora sí puede salir A
-        if q not in valid or q == p:
-            q = random.choice([x for x in valid if x != p])
+    try:
+        # 2) Asegurar que existan esos tipos en claves_tipo y obtener ids
+        tipo_map = ensure_tipos(conn, examen_id, grupo_id, codigos=tipos)  # { "P":id, "Q":id, ... }
 
+        # 3) Mapear numero_pregunta -> claves_respuesta.id (cr_id)
+        curD.execute("""
+            SELECT id, numero_pregunta
+            FROM claves_respuesta
+            WHERE examen_id=? AND grupo_id=?
+        """, (examen_id, grupo_id))
+        cr_by_num = {int(r["numero_pregunta"]): int(r["id"]) for r in curD.fetchall()}
 
+        # 4) Guardar filas
+        for r in filas:
+            rr = dict(r) if not isinstance(r, dict) else r
 
-        cur.execute("""
-            UPDATE claves_respuesta
-            SET origen=%s, p=%s, q=%s, fecha_actualizacion=NOW()
-            WHERE examen_id=%s AND grupo_id=%s AND numero_pregunta=%s
-        """, (origen, p, q, examen_id, grupo_id, num))
+            num = int(rr.get("numero_pregunta") or 0)
+            if num <= 0:
+                continue
 
-    conn.commit()
-    cur.close(); conn.close()
-    return jsonify(ok=True)
+            origen = (rr.get("origen") or "A").strip().upper()
+            if origen not in VALID_SET:
+                origen = "A"
 
+            cr_id = cr_by_num.get(num)
 
+            if not cr_id:
+                cur.execute("""
+                    INSERT INTO claves_respuesta
+                    (examen_id, grupo_id, numero_pregunta, origen, fecha_actualizacion)
+                    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, (examen_id, grupo_id, num, origen))
+                cr_id = cur.lastrowid
+                cr_by_num[num] = cr_id
+            else:
+                cur.execute("""
+                    UPDATE claves_respuesta
+                    SET origen=?, fecha_actualizacion=CURRENT_TIMESTAMP
+                    WHERE id=?
+                """, (origen, cr_id))
+
+            for code in tipos:
+                val = rr.get(code)
+                if val is None and code == "P":
+                    val = rr.get("p")
+                if val is None and code == "Q":
+                    val = rr.get("q")
+
+                if val is None or str(val).strip() == "":
+                    cur.execute("""
+                        DELETE FROM claves_respuesta_detalle
+                        WHERE claves_respuesta_id=? AND tipo_id=?
+                    """, (cr_id, tipo_map[code]))
+                    continue
+
+                clave = str(val).strip().upper()
+                if clave not in VALID_SET:
+                    continue
+
+                upsert_detalle(cur, cr_id, tipo_map[code], clave)
+
+        conn.commit()
+        return jsonify(ok=True, tipos=tipos)
+
+    except Exception as e:
+        conn.rollback()
+        return jsonify(ok=False, error=str(e)), 500
+    finally:
+        try: curD.close()
+        except: pass
+        try: cur.close()
+        except: pass
+        try: conn.close()
+        except: pass
 
 
 
 # Obtener claves Origen/P/Q para examen y grupo
-@app.route("/api/claves/origen", methods=["GET"])
+'''@app.route("/api/claves/origen", methods=["GET"])
 def api_claves_origen():
     examen_id = request.args.get("examen_id", type=int)
     grupo_id  = request.args.get("grupo_id",  type=int)
     if not examen_id or not grupo_id:
         return jsonify({"ok": False, "error": "Faltan parámetros"}), 400
 
-    conn = get_connection(); cur = conn.cursor(dictionary=True)
+    conn = get_connection(); cur = conn.cursor()
     # Ajusta nombres/keys: numero_pregunta, origen, p, q
     cur.execute("""
         SELECT numero_pregunta, origen, p, q
         FROM claves_respuesta
-        WHERE examen_id=%s AND grupo_id=%s
+        WHERE examen_id=? AND grupo_id=?
         ORDER BY numero_pregunta
     """, (examen_id, grupo_id))
     filas = cur.fetchall()
@@ -7164,46 +8712,120 @@ def api_claves_origen():
     if not filas:
         filas = [{"numero_pregunta": i+1, "origen": "A", "p": "B", "q": "C"} for i in range(10)]
 
-    return jsonify(filas)
+    return jsonify(filas)'''
+@app.route("/api/claves/origen", methods=["GET"])
+def api_claves_origen():
+    examen_id = request.args.get("examen_id", type=int)
+    grupo_id  = request.args.get("grupo_id",  type=int)
+    if not examen_id or not grupo_id:
+        return jsonify({"ok": False, "error": "Faltan parámetros"}), 400
 
+    conn = get_connection()
+    filas, tipos = fetch_claves_pivot(conn, examen_id, grupo_id)
+    conn.close()
+
+    # compat: si aún no hay nada, manda dummy
+    if not filas:
+        filas = [{"numero_pregunta": i+1, "origen": "A", "P": "B", "Q": "C", "p":"B", "q":"C"} for i in range(10)]
+
+    return jsonify({"ok": True, "tipos": tipos, "filas": filas})
 # (Opcional) Aleatorizar P/Q en servidor y persistir
 @app.route("/api/claves/aleatorizar", methods=["POST"])
-def api_aleatorizar_pq():
+def api_aleatorizar_tipos():
     data = request.get_json(force=True)
     examen_id = int(data.get("examen_id") or 0)
     grupo_id  = int(data.get("grupo_id")  or 0)
+    tipos_in  = data.get("tipos")  # opcional ["P","Q","R","S"]
+    conn = None
     if not examen_id or not grupo_id:
         return jsonify(ok=False, error="Faltan parámetros"), 400
 
-    # asegura claves first
-    api_claves_ensure_internal(examen_id, grupo_id)
+    try:
+        # asegura cabeceras y al menos P/Q o los que mandes
+        # primero mira los tipos activos reales
+        conn = get_connection()
+        curTmp = conn.cursor()
+        curTmp.execute("""
+            SELECT codigo
+            FROM claves_tipo
+            WHERE examen_id=? AND grupo_id=? AND activo=1
+            ORDER BY orden
+        """, (examen_id, grupo_id))
+        tipos_bd = [str(r["codigo"]).strip().upper() for r in curTmp.fetchall() if str(r["codigo"]).strip()]
+        curTmp.close()
+        conn.close()
 
-    conn = get_connection(); cur = conn.cursor(dictionary=True)
-    cur.execute("""
-        SELECT id, numero_pregunta, origen
-        FROM claves_respuesta
-        WHERE examen_id=%s AND grupo_id=%s
-        ORDER BY numero_pregunta
-    """, (examen_id, grupo_id))
-    filas = cur.fetchall()
+        if isinstance(tipos_in, list) and tipos_in:
+            tipos_req = [str(t).strip().upper() for t in tipos_in if str(t).strip()]
+        else:
+            tipos_req = tipos_bd or ["P", "Q"]
 
-    for r in filas:
-        p, q = pick_two_distinct_letters()   # ✅ full random A–E
-        cur.execute("""
-            UPDATE claves_respuesta
-            SET p=%s, q=%s, fecha_actualizacion=NOW()
-            WHERE id=%s
-        """, (p, q, r["id"]))
-    conn.commit()
-    cur.close(); conn.close()
-    return jsonify(ok=True)
+        api_claves_ensure_internal(examen_id, grupo_id, tipos_req)
 
-def api_claves_ensure_internal(examen_id, grupo_id):
+        conn = get_connection()
+        curD = conn.cursor()
+        cur  = conn.cursor()
+
+        # tipos activos (si mandaste lista, filtramos)
+        curD.execute("""
+            SELECT id, codigo
+            FROM claves_tipo
+            WHERE examen_id=? AND grupo_id=? AND activo=1
+            ORDER BY orden
+        """, (examen_id, grupo_id))
+        tipos = curD.fetchall()
+
+        if tipos_req:
+            tipos = [t for t in tipos if t["codigo"] in set(tipos_req)]
+
+        if not tipos:
+            curD.close(); cur.close(); conn.close()
+            return jsonify(ok=False, error="No hay tipos activos para aleatorizar"), 409
+
+        # cabeceras (preguntas)
+        curD.execute("""
+            SELECT id, origen
+            FROM claves_respuesta
+            WHERE examen_id=? AND grupo_id=?
+            ORDER BY numero_pregunta
+        """, (examen_id, grupo_id))
+        cab = curD.fetchall()
+
+        valid = set(VALID_LETTERS)
+
+        for r in cab:
+            cr_id = int(r["id"])
+            origen = (r["origen"] or "A").strip().upper()
+            if origen not in valid:
+                origen = "A"
+
+            # regla: generar N letras distintas (sin repetir entre sí)
+            # si NO quieres excluir el origen, usa exclude=None
+            letras = pick_distinct_for_tipos(len(tipos), exclude_origen=origen)
+
+
+            for idx, t in enumerate(tipos):
+                tipo_id = int(t["id"])
+                clave = letras[idx].upper()
+                upsert_detalle(cur, cr_id, tipo_id, clave)
+
+        conn.commit()
+        curD.close(); cur.close(); conn.close()
+        return jsonify(ok=True, tipos=[t["codigo"] for t in tipos])
+
+    except Exception as e:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return jsonify(ok=False, error=str(e)), 500
+
+'''def api_claves_ensure_internal(examen_id, grupo_id):
     """igual que ensure pero interno para no repetir código."""
     conn = get_connection()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
-    cur.execute("SELECT total_preguntas FROM examenes_importados WHERE id=%s", (examen_id,))
+    cur.execute("SELECT total_preguntas FROM examenes_importados WHERE id=?", (examen_id,))
     ex = cur.fetchone()
     total = int(ex["total_preguntas"] or 0) if ex else 0
     if total <= 0:
@@ -7213,7 +8835,7 @@ def api_claves_ensure_internal(examen_id, grupo_id):
     cur.execute("""
         SELECT COUNT(*) AS n
         FROM claves_respuesta
-        WHERE examen_id=%s AND grupo_id=%s
+        WHERE examen_id=? AND grupo_id=?
     """, (examen_id, grupo_id))
     n = int(cur.fetchone()["n"])
 
@@ -7228,7 +8850,7 @@ def api_claves_ensure_internal(examen_id, grupo_id):
         cur.executemany("""
             INSERT INTO claves_respuesta
                 (numero_pregunta, origen, p, q, examen_id, grupo_id, fecha_actualizacion)
-            VALUES (%s,%s,%s,%s,%s,%s,NOW())
+            VALUES (?,?,?,?,?,?,NOW())
         """, rows)
         conn.commit()
 
@@ -7236,7 +8858,7 @@ def api_claves_ensure_internal(examen_id, grupo_id):
         cur.execute("""
             SELECT id, origen, p, q
             FROM claves_respuesta
-            WHERE examen_id=%s AND grupo_id=%s
+            WHERE examen_id=? AND grupo_id=?
             ORDER BY numero_pregunta
         """, (examen_id, grupo_id))
         filas = cur.fetchall()
@@ -7255,12 +8877,123 @@ def api_claves_ensure_internal(examen_id, grupo_id):
 
             cur.execute("""
                 UPDATE claves_respuesta
-                SET p=%s, q=%s, fecha_actualizacion=NOW()
-                WHERE id=%s
+                SET p=?, q=?, fecha_actualizacion=NOW()
+                WHERE id=?
             """, (p, q, r["id"]))
         conn.commit()
 
-    cur.close(); conn.close()
+    cur.close(); conn.close()'''
+def api_claves_ensure_internal(examen_id, grupo_id, tipos=("P", "Q"), exclude_origen=True):
+    tipos = [_norm_code(t) for t in (tipos or [])]
+    tipos = [t for t in tipos if t] or ["P", "Q"]
+
+    conn = get_connection()
+    curD = conn.cursor()
+    cur = conn.cursor()
+
+    try:
+        curD.execute(
+            "SELECT total_preguntas FROM examenes_importados WHERE id=?",
+            (examen_id,)
+        )
+        ex = curD.fetchone()
+        total = int(ex["total_preguntas"] or 0) if ex else 0
+        if total <= 0:
+            raise Exception("Examen sin preguntas detectadas")
+
+        tipo_map = ensure_tipos(conn, examen_id, grupo_id, codigos=tipos)
+
+        cur.executemany("""
+            INSERT OR IGNORE INTO claves_respuesta
+            (examen_id, grupo_id, numero_pregunta, origen, fecha_actualizacion)
+            VALUES (?, ?, ?, 'A', CURRENT_TIMESTAMP)
+        """, [(examen_id, grupo_id, i) for i in range(1, total + 1)])
+        conn.commit()
+
+        curD.execute("""
+            SELECT id, numero_pregunta, origen
+            FROM claves_respuesta
+            WHERE examen_id=? AND grupo_id=?
+            ORDER BY numero_pregunta
+        """, (examen_id, grupo_id))
+        cab = curD.fetchall()
+
+        if not cab:
+            return total
+
+        cr_ids = [int(r["id"]) for r in cab]
+        tipo_ids = [int(tipo_map[t]) for t in tipos]
+
+        fmt_cr = ",".join(["?"] * len(cr_ids))
+        fmt_tp = ",".join(["?"] * len(tipo_ids))
+
+        curD.execute(f"""
+            SELECT claves_respuesta_id, tipo_id, clave
+            FROM claves_respuesta_detalle
+            WHERE claves_respuesta_id IN ({fmt_cr})
+              AND tipo_id IN ({fmt_tp})
+        """, tuple(cr_ids + tipo_ids))
+        det = curD.fetchall()
+
+        existente_map = {}
+        for d in det:
+            existente_map.setdefault(int(d["claves_respuesta_id"]), {})[int(d["tipo_id"])] = (d["clave"] or "").upper()
+
+        for r in cab:
+            cr_id = int(r["id"])
+            origen = ((r["origen"] if r["origen"] else "A")).strip().upper()
+            if origen not in VALID_SET:
+                origen = "A"
+
+            existentes = existente_map.get(cr_id, {})
+
+            used = set()
+            for t in tipos:
+                tid = int(tipo_map[t])
+                v = (existentes.get(tid) or "").upper()
+                if v in VALID_SET:
+                    used.add(v)
+
+            pool = VALID_LETTERS[:]
+            if exclude_origen and origen in pool and len(pool) - 1 >= (len(tipos) - len(used)):
+                pool.remove(origen)
+
+            pool = [x for x in pool if x not in used]
+
+            faltantes = []
+            for t in tipos:
+                tid = int(tipo_map[t])
+                v = (existentes.get(tid) or "").upper()
+                if v not in VALID_SET:
+                    faltantes.append((t, tid))
+
+            if faltantes:
+                if len(faltantes) > len(pool):
+                    raise ValueError(
+                        f"No hay suficientes letras únicas para completar {len(faltantes)} tipos "
+                        f"en pregunta #{r['numero_pregunta']} (origen={origen}, usados={sorted(list(used))})"
+                    )
+
+                nuevas = random.sample(pool, len(faltantes))
+                for (_, tid), letra in zip(faltantes, nuevas):
+                    upsert_detalle(cur, cr_id, tid, letra)
+
+        conn.commit()
+        return total
+
+    finally:
+        try:
+            curD.close()
+        except:
+            pass
+        try:
+            cur.close()
+        except:
+            pass
+        try:
+            conn.close()
+        except:
+            pass
 
 # Descargar pruebas (dummy para probar flujo)
 @app.route("/api/pruebas/descargar", methods=["POST"])
@@ -7323,106 +9056,310 @@ def generar_docx_claves_all(nombre_base, claves_all):
     doc.save(bio)
     return bio.getvalue()
 
+
+
+def generar_docx_tipo_para_grupo(ruta_docx, filas_pivot, tipo_code):
+    """
+    Genera un docx reordenado usando el tipo solicitado (P/Q/R/S...).
+    filas_pivot: [{"numero_pregunta":1,"origen":"A","P":"D","Q":"B",...}, ...]
+    tipo_code: "P" | "Q" | "R" | ...
+    """
+    doc = Document(ruta_docx)
+    _apply_reorder(doc, filas_pivot, modo=tipo_code)  # tu _apply_reorder ya usa rkey.get(modo)
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+
+def _build_salidas_y_claves(conn, examen_ids, todos_los_grupos=False, grupo_id_fijo=0):
+    cur = conn.cursor()
+
+    fmt = ",".join(["?"] * len(examen_ids))
+    cur.execute(f"""
+        SELECT id, nombre, ruta
+        FROM examenes_importados
+        WHERE id IN ({fmt})
+        ORDER BY id
+    """, tuple(examen_ids))
+    examenes = cur.fetchall()
+
+    if not examenes:
+        return None, None, None, "No se encontraron exámenes importados"
+
+    if todos_los_grupos:
+        cur.execute("""
+            SELECT idgrupo, clave, nombre
+            FROM grupos
+            WHERE activo=1
+            ORDER BY clave
+        """)
+        grupos_a_procesar = cur.fetchall()
+        if not grupos_a_procesar:
+            return None, None, None, "No hay grupos activos"
+    else:
+        cur.execute("""
+            SELECT idgrupo, clave, nombre
+            FROM grupos
+            WHERE idgrupo=?
+        """, (grupo_id_fijo,))
+        g = cur.fetchone()
+        if not g:
+            return None, None, None, "Grupo no encontrado"
+        grupos_a_procesar = [g]
+
+    salidas = []
+    claves_all = []
+    tipos_global = []
+
+    for ex in examenes:
+        ex_id = int(ex["id"])
+        ruta_docx = ex["ruta"]
+
+        if not ruta_docx or not os.path.exists(ruta_docx):
+            continue
+
+        for g in grupos_a_procesar:
+            grupo_id = int(g["idgrupo"])
+            clave_grupo = (g["clave"] or f"G{grupo_id}").strip()
+
+            _, tipos_activos = fetch_claves_pivot(conn, ex_id, grupo_id)
+            tipos_req = tipos_activos or ["P", "Q"]
+
+            api_claves_ensure_internal(ex_id, grupo_id, tipos=tipos_req)
+            filas_pivot, tipos = fetch_claves_pivot(conn, ex_id, grupo_id)
+
+            if not filas_pivot:
+                continue
+
+            for t in (tipos or []):
+                if t not in tipos_global:
+                    tipos_global.append(t)
+
+            salidas.append({
+                "ex_id": ex_id,
+                "ruta_docx": ruta_docx,
+                "grupo_id": grupo_id,
+                "clave_grupo": clave_grupo,
+                "filas_pivot": filas_pivot,
+                "tipos": tipos or []
+            })
+
+            # ESTA es la parte clave:
+            for r in filas_pivot:
+                item = {
+                    "grupo": clave_grupo,
+                    "numero_pregunta": r.get("numero_pregunta"),
+                    "origen": r.get("origen"),
+                }
+                for t in (tipos or []):
+                    item[t] = r.get(t, "")
+                claves_all.append(item)
+
+    if not tipos_global:
+        tipos_global = ["P", "Q"]
+
+    return salidas, claves_all, tipos_global, None
+
+from collections import OrderedDict
+from docx import Document
+from docx.shared import Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+def generar_docx_claves_all_dinamico(tipos, claves_all):
+    """
+    Formato nuevo:
+    - Título: Claves de respuesta
+    - Bloques por grupo: GRUPO A, GRUPO B, GRUPO C...
+    - Tabla por grupo con columnas: Pregunta + tipos (P, Q, R...)
+    """
+    doc = Document()
+
+    # Título principal
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    run = p.add_run("Claves de respuesta")
+    run.bold = True
+    run.font.size = Pt(14)
+
+    doc.add_paragraph("")  # espacio
+
+    # Agrupar por grupo respetando orden de aparición
+    grupos = OrderedDict()
+    for r in claves_all or []:
+        g = str(r.get("grupo", "")).strip() or "SIN GRUPO"
+        grupos.setdefault(g, []).append(r)
+
+    for idx, (grupo, filas) in enumerate(grupos.items()):
+        # Encabezado de grupo
+        p_g = doc.add_paragraph()
+        p_g.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        run_g = p_g.add_run(f"GRUPO {grupo}")
+        run_g.bold = True
+        run_g.font.size = Pt(12)
+
+        # Tabla del grupo
+        cols = ["Pregunta"] + list(tipos or [])
+        table = doc.add_table(rows=1, cols=len(cols))
+        table.style = "Table Grid"
+
+        # Encabezados
+        hdr = table.rows[0].cells
+        for i, col in enumerate(cols):
+            hdr[i].text = str(col)
+            for p in hdr[i].paragraphs:
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                for rr in p.runs:
+                    rr.bold = True
+
+        # Anchos aproximados
+        try:
+            hdr[0].width = Inches(1.2)
+            for i in range(1, len(cols)):
+                hdr[i].width = Inches(0.9)
+        except Exception:
+            pass
+
+        # Filas
+        for fila in filas:
+            row = table.add_row().cells
+            row[0].text = str(fila.get("numero_pregunta", ""))
+            for j, t in enumerate(tipos or []):
+                row[1 + j].text = str(fila.get(t, ""))
+
+            for c in row:
+                for p in c.paragraphs:
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+        # Espacio entre grupos
+        if idx < len(grupos) - 1:
+            doc.add_paragraph("")
+
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+
+def inferir_clave_grupo_desde_nombre(nombre_archivo: str):
+    nombre = (nombre_archivo or "").upper()
+    m = re.search(r"GRUPO[_\-\s]*([A-Z])", nombre)
+    if m:
+        return m.group(1)
+    return None
+
+
 @app.route("/api/pruebas/descargar_all", methods=["POST"])
 def api_descargar_pruebas_all():
     data = request.get_json(force=True)
-    examen_id = int(data.get("examen_id") or 0)
-    if not examen_id:
-        return jsonify(ok=False, error="Falta examen_id"), 400
+    examen_ids = data.get("examen_ids") or []
+    grupo_id_fijo = int(data.get("grupo_id") or 0)
+    solo_temas = bool(data.get("solo_temas"))
+    todos_los_grupos = bool(data.get("todos_los_grupos"))
+    grupo_id_fijo = int(data.get("grupo_id") or 0)
+    conn = get_connection()
+    cur = conn.cursor()
+    salidas, claves_all, tipos_global, err = _build_salidas_y_claves(
+        conn,
+        examen_ids,
+        todos_los_grupos=todos_los_grupos,
+        grupo_id_fijo=grupo_id_fijo
+    )
+    if err:
+        cur.close()
+        conn.close()
+        return jsonify(ok=False, error=err), 404 if "No se encontraron" in err or "Grupo no encontrado" in err else 409
 
-    conn = get_connection(); cur = conn.cursor(dictionary=True)
-
-    # 1) examen importado (ruta docx)
-    cur.execute("SELECT id, nombre, ruta FROM examenes_importados WHERE id=%s", (examen_id,))
-    ex = cur.fetchone()
-    if not ex or not ex["ruta"] or not os.path.exists(ex["ruta"]):
-        cur.close(); conn.close()
-        return jsonify(ok=False, error="No se encontró ruta del examen importado"), 404
-    ruta_docx = ex["ruta"]
-    nombre_base = os.path.splitext(ex["nombre"])[0]
-
-    # 2) grupos activos
-    cur.execute("SELECT idgrupo, clave, nombre FROM grupos WHERE activo=1 ORDER BY clave")
-    grupos = cur.fetchall()
-    if not grupos:
-        cur.close(); conn.close()
-        return jsonify(ok=False, error="No hay grupos activos"), 409
-
-    # 3) ZIP en memoria
     mem_zip = io.BytesIO()
     zf = zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED)
 
-    # guardaremos también las claves para el docx final
-    claves_all = []  # [{grupo, numero_pregunta, origen, p, q}]
+    for item in salidas:
+        ruta_docx = item["ruta_docx"]
+        clave_grupo = item["clave_grupo"]
+        filas_pivot = item["filas_pivot"]
+        tipos = item["tipos"]
 
-    for g in grupos:
-        grupo_id = g["idgrupo"]
-        clave_grupo = (g["clave"] or f"G{grupo_id}").strip()
+        for t in tipos:
+            nombre_doc = f"{clave_grupo}_{t}"
+            docx_bytes = generar_docx_tipo_para_grupo(ruta_docx, filas_pivot, t)
+            docx_bytes = _asegurar_docx_bytes_valido_como_grupo(docx_bytes, nombre_doc)
+            zf.writestr(f"{nombre_doc}.docx", docx_bytes)
 
-        # asegurar claves, aleatorizar si falta p/q
-        api_claves_ensure_internal(examen_id, grupo_id)
-
-        cur.execute("""
-            SELECT numero_pregunta, origen, p, q
-            FROM claves_respuesta
-            WHERE examen_id=%s AND grupo_id=%s
-            ORDER BY numero_pregunta
-        """, (examen_id, grupo_id))
-        claves = cur.fetchall()
-
-        # si p/q vienen vacíos, aleatorizamos YA
-        # si p/q vienen vacíos, aleatorizamos YA
-        if any((not r["p"] or not r["q"]) for r in claves):
-            # ✅ FORZAR re-aleatorización siempre
-            for r in claves:
-                p, q = pick_two_distinct_letters()
-                r["p"], r["q"] = p, q
-
-            for r in claves:
-                cur.execute("""
-                    UPDATE claves_respuesta
-                    SET p=%s,q=%s,fecha_actualizacion=NOW()
-                    WHERE examen_id=%s AND grupo_id=%s AND numero_pregunta=%s
-                """, (r["p"], r["q"], examen_id, grupo_id, r["numero_pregunta"]))
-            conn.commit()
-
-
-
-        # acumula para docx global
-        for r in claves:
-            claves_all.append({
-                "grupo": clave_grupo,
-                "numero_pregunta": r["numero_pregunta"],
-                "origen": r["origen"],
-                "p": r["p"],
-                "q": r["q"],
-            })
-
-        # 4) generar DOCX P y Q para este grupo
-        docx_p_bytes, docx_q_bytes = generar_docx_pq_para_grupo(
-            ruta_docx, claves, clave_grupo, nombre_base
-        )
-
-        zf.writestr(f"{clave_grupo}_P.docx", docx_p_bytes)
-        zf.writestr(f"{clave_grupo}_Q.docx", docx_q_bytes)
-
-    # 5) crear docx global con claves
-    claves_docx_bytes = generar_docx_claves_all(nombre_base, claves_all)
-    zf.writestr("Claves de respuesta.docx", claves_docx_bytes)
+    if not solo_temas and claves_all:
+        nombre_claves = "CLAVES_RESPUESTA.docx"
+        docx_claves = generar_docx_claves_all_dinamico(tipos_global or ["P", "Q"], claves_all)
+        zf.writestr(nombre_claves, docx_claves)
 
     zf.close()
-    cur.close(); conn.close()
+    cur.close()
+    conn.close()
 
     mem_zip.seek(0)
     return send_file(
         mem_zip,
         as_attachment=True,
-        download_name=f"PRUEBAS_{nombre_base}_TODOS.zip",
+        download_name="PRUEBAS_TODOS.zip",
         mimetype="application/zip",
     )
 
+#pdf claves 
+@app.route("/api/claves/imprimir", methods=["POST"])
+def api_claves_imprimir():
+    data = request.get_json(force=True)
+    examen_ids = data.get("examen_ids") or []
+    todos_los_grupos = bool(data.get("todos_los_grupos"))
+    grupo_id_fijo = int(data.get("grupo_id") or 0)
 
+    if not examen_ids:
+        return jsonify(ok=False, error="Faltan examen_ids"), 400
 
+    examen_ids = [int(x) for x in examen_ids if int(x) > 0]
+    if not examen_ids:
+        return jsonify(ok=False, error="examen_ids inválidos"), 400
+
+    if not todos_los_grupos and not grupo_id_fijo:
+        return jsonify(ok=False, error="Falta grupo_id"), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    salidas, claves_all, tipos_global, err = _build_salidas_y_claves(
+        conn,
+        examen_ids,
+        todos_los_grupos=todos_los_grupos,
+        grupo_id_fijo=grupo_id_fijo
+    )
+
+    cur.close()
+    conn.close()
+
+    if err:
+        return jsonify(ok=False, error=err), 404 if "No se encontraron" in err or "Grupo no encontrado" in err else 409
+
+    if not claves_all:
+        return jsonify(ok=False, error="No hay claves para imprimir"), 409
+
+    nombre_docx = "CLAVES_RESPUESTA.docx"
+    ruta_docx = os.path.join(app.config["DESCARGAS_FOLDER"], nombre_docx)
+
+    docx_bytes = generar_docx_claves_all_dinamico(tipos_global or ["P", "Q"], claves_all)
+    with open(ruta_docx, "wb") as f:
+        f.write(docx_bytes)
+
+    nombre_pdf = "CLAVES_RESPUESTA.pdf"
+    ruta_pdf = os.path.join(app.config["DESCARGAS_FOLDER"], nombre_pdf)
+
+    try:
+        pdf_tmp = generar_pdf(ruta_docx)
+        shutil.copy2(pdf_tmp, ruta_pdf)
+        try:
+            os.remove(pdf_tmp)
+        except Exception:
+            pass
+    except Exception as e:
+        return jsonify(ok=False, error=f"No se pudo generar PDF de claves: {e}"), 500
+
+    return jsonify(
+        ok=True,
+        archivo_pdf=nombre_pdf,
+        ruta_rel_pdf=f"/api/descargas/{nombre_pdf}"
+    )
 
 # ---------- CONFIG ----------
 # --- utilidades ---
@@ -7473,7 +9410,7 @@ def api_examenes_importar():
     items = []
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
     except Exception:
         conn = cur = None
 
@@ -7490,11 +9427,9 @@ def api_examenes_importar():
         h = sha256sum(dst)
         ext = os.path.splitext(safe)[1].lower().lstrip(".")
 
-        # ✅ contar preguntas del DOCX recién guardado
         total_p = 0
         try:
             if ext in ("docx", "doc"):
-                
                 total_p = contar_preguntas_docx(dst)
         except Exception as e:
             print("Error contando preguntas:", e)
@@ -7504,18 +9439,18 @@ def api_examenes_importar():
             cur.execute("""
                 INSERT INTO examenes_importados
                     (nombre, ruta, extension, total_preguntas, fuente, hash_archivo)
-                VALUES (%s,%s,%s,%s,%s,%s)
-                ON DUPLICATE KEY UPDATE
-                    ruta=VALUES(ruta),
-                    extension=VALUES(extension),
-                    total_preguntas=VALUES(total_preguntas)
+                VALUES (?,?,?,?,?,?)
+                ON CONFLICT(hash_archivo) DO UPDATE SET
+                    ruta=excluded.ruta,
+                    extension=excluded.extension,
+                    total_preguntas=excluded.total_preguntas
             """, (safe, dst, ext, total_p, "upload", h))
             conn.commit()
 
             cur.execute("""
                 SELECT id, nombre, total_preguntas, fecha_creacion
                 FROM examenes_importados
-                WHERE hash_archivo=%s
+                WHERE hash_archivo=?
             """, (h,))
             row = cur.fetchone()
 
@@ -7523,12 +9458,17 @@ def api_examenes_importar():
                 cur.execute("""
                     SELECT id, nombre, total_preguntas, fecha_creacion
                     FROM examenes_importados
-                    WHERE nombre=%s ORDER BY id DESC LIMIT 1
+                    WHERE nombre=? ORDER BY id DESC LIMIT 1
                 """, (safe,))
                 row = cur.fetchone()
 
             if row:
-                items.append(row)
+                items.append({
+                    "id": row["id"],
+                    "nombre": row["nombre"],
+                    "total_preguntas": row["total_preguntas"],
+                    "fecha_creacion": row["fecha_creacion"],
+                })
         else:
             items.append({
                 "id": None,
@@ -7541,23 +9481,24 @@ def api_examenes_importar():
     if conn: conn.close()
     return jsonify(ok=True, items=items), 200
 
-
 @app.route("/api/examenes/importados", methods=["GET"])
 def api_examenes_importados():
     try:
         conn = get_connection()
-        cur = conn.cursor(dictionary=True)
+        cur = conn.cursor()
         cur.execute("""
             SELECT id, nombre, total_preguntas, fecha_creacion
             FROM examenes_importados
             ORDER BY id DESC
         """)
-        data = cur.fetchall()
+        data = _row_to_dict_list(cur)
         cur.close()
         conn.close()
+        return jsonify(data)
     except Exception as e:
-        print("Error listando importados:", e)
-        data = []
+        import traceback
+        traceback.print_exc()
+        return jsonify(ok=False, error=str(e)), 500
 
     return jsonify(data), 200
 def contar_preguntas_docx(ruta_docx: str) -> int:
@@ -7835,6 +9776,268 @@ def debug_contar_preguntas_docx(ruta_docx: str):
 
     shutil.rmtree(tmp, ignore_errors=True)
     return total
+#----claves dinamicas crud dentro de aleatorizacion --------#
+@app.route("/api/temas/tipos", methods=["GET"])
+def api_temas_listar_tipos():
+    conn = None
+    cur = None
+    try:
+        examen_id = request.args.get("examen_id", type=int)
+        grupo_id  = request.args.get("grupo_id", type=int)
+
+        if not examen_id or not grupo_id:
+            return jsonify(ok=False, error="Faltan examen_id/grupo_id"), 400
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, codigo, orden, activo
+            FROM claves_tipo
+            WHERE examen_id=? AND grupo_id=?
+            ORDER BY orden
+        """, (examen_id, grupo_id))
+
+        tipos = _row_to_dict_list(cur)
+
+        cur.close()
+        conn.close()
+        return jsonify(ok=True, tipos=tipos)
+
+    except Exception as e:
+        try:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+        return jsonify(ok=False, error=str(e)), 500
+
+@app.route("/api/temas/tipos", methods=["POST"])
+def api_temas_crear_tipo():
+    data = request.get_json(force=True)
+    examen_id = int(data.get("examen_id") or 0)
+    grupo_id  = int(data.get("grupo_id") or 0)
+    codigo    = _norm_code(data.get("codigo"))
+
+    if not examen_id or not grupo_id or not codigo:
+        return jsonify(ok=False, error="Faltan examen_id/grupo_id/codigo"), 400
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # ya existe?
+    cur.execute("""
+        SELECT id, activo
+        FROM claves_tipo
+        WHERE examen_id=? AND grupo_id=? AND codigo=?
+        LIMIT 1
+    """, (examen_id, grupo_id, codigo))
+    ex = cur.fetchone()
+
+    if ex:
+        # si existe, reactivar
+        if int(ex["activo"] or 0) == 0:
+            cur.execute("UPDATE claves_tipo SET activo=1 WHERE id=?", (ex["id"],))
+            conn.commit()
+        cur.close(); conn.close()
+        return jsonify(ok=True, id=int(ex["id"]), codigo=codigo)
+
+    # nuevo => orden al final
+    cur.execute("""
+        SELECT COALESCE(MAX(orden),0) AS m
+        FROM claves_tipo
+        WHERE examen_id=? AND grupo_id=?
+    """, (examen_id, grupo_id))
+    orden = int(cur.fetchone()["m"] or 0) + 1
+
+    cur.execute("""
+        INSERT INTO claves_tipo (examen_id, grupo_id, codigo, orden, activo)
+        VALUES (?,?,?,?,1)
+    """, (examen_id, grupo_id, codigo, orden))
+    conn.commit()
+    new_id = cur.lastrowid
+
+    cur.close(); conn.close()
+    return jsonify(ok=True, id=int(new_id), codigo=codigo)
+
+@app.route("/api/temas/tipos/<int:tipo_id>/toggle", methods=["POST"])
+def api_temas_toggle_tipo(tipo_id):
+    try:
+        data = request.get_json(force=True)
+        activo = int(data.get("activo") or 0)
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE claves_tipo SET activo=? WHERE id=?", (activo, tipo_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify(ok=True)
+    except Exception as e:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+        return jsonify(ok=False, error=str(e)), 500
+@app.route("/api/temas/tipos/<int:tipo_id>/rename", methods=["POST"])
+def api_temas_rename_tipo(tipo_id):
+    try:
+        data = request.get_json(force=True)
+        nuevo = _norm_code(data.get("codigo"))
+        if not nuevo:
+            return jsonify(ok=False, error="Código inválido"), 400
+
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("UPDATE claves_tipo SET codigo=? WHERE id=?", (nuevo, tipo_id))
+        conn.commit()
+        cur.close()
+        conn.close()
+        return jsonify(ok=True, codigo=nuevo)
+    except Exception as e:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+        return jsonify(ok=False, error=str(e)), 500
+
+# =========================================================
+# LIMPIEZA DE EXÁMENES IMPORTADOS AL CERRAR / AL INICIAR
+# =========================================================
+_CLEANUP_IMPORTADOS_RUNNING = False
+
+def _safe_remove_file(path: str):
+    try:
+        if path and os.path.isfile(path):
+            os.remove(path)
+    except Exception as e:
+        print(f"[cleanup_importados] aviso borrando archivo {path}: {e}")
+
+def limpiar_examenes_importados(force=False):
+    """
+    Borra:
+    - registros de examenes_importados
+    - archivos físicos importados
+    - claves relacionadas (si existen)
+    """
+    global _CLEANUP_IMPORTADOS_RUNNING
+
+    if _CLEANUP_IMPORTADOS_RUNNING and not force:
+        return True
+
+    _CLEANUP_IMPORTADOS_RUNNING = True
+    conn = None
+    cur = None
+    rows = []
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT id, ruta FROM examenes_importados")
+        fetched = cur.fetchall() or []
+        rows = [dict(r) for r in fetched]
+
+        ids = [int(r["id"]) for r in rows if r.get("id") is not None]
+
+        if ids:
+            ph = ",".join(["?"] * len(ids))
+
+            # 1) detalle de claves
+            cur.execute(f"""
+                DELETE FROM claves_respuesta_detalle
+                WHERE claves_respuesta_id IN (
+                    SELECT id
+                    FROM claves_respuesta
+                    WHERE examen_id IN ({ph})
+                )
+            """, ids)
+
+            # 2) cabecera de claves
+            cur.execute(f"""
+                DELETE FROM claves_respuesta
+                WHERE examen_id IN ({ph})
+            """, ids)
+
+            # 3) tipos P/Q/R/...
+            cur.execute(f"""
+                DELETE FROM claves_tipo
+                WHERE examen_id IN ({ph})
+            """, ids)
+
+            # 4) examenes importados
+            cur.execute(f"""
+                DELETE FROM examenes_importados
+                WHERE id IN ({ph})
+            """, ids)
+        else:
+            cur.execute("DELETE FROM examenes_importados")
+
+        conn.commit()
+
+    except Exception as e:
+        try:
+            if conn:
+                conn.rollback()
+        except Exception:
+            pass
+        print(f"[cleanup_importados] error BD: {e}")
+
+    finally:
+        try:
+            if cur:
+                cur.close()
+        except Exception:
+            pass
+        try:
+            if conn:
+                conn.close()
+        except Exception:
+            pass
+
+    # borrar archivos físicos registrados
+    for r in rows:
+        _safe_remove_file(r.get("ruta"))
+
+    # limpieza extra de la carpeta de importados
+    try:
+        base = app.config.get("UPLOADS_EXAM_DIR")
+        if base and os.path.isdir(base):
+            for name in os.listdir(base):
+                p = os.path.join(base, name)
+                if os.path.isfile(p):
+                    _safe_remove_file(p)
+    except Exception as e:
+        print(f"[cleanup_importados] aviso limpiando carpeta importados: {e}")
+
+    _CLEANUP_IMPORTADOS_RUNNING = False
+    return True
+
+
+@app.route("/api/examenes/importados/limpiar", methods=["POST"])
+def api_examenes_importados_limpiar():
+    try:
+        limpiar_examenes_importados(force=True)
+        return jsonify(ok=True)
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 500
+
+
+def _cleanup_importados_on_exit():
+    try:
+        limpiar_examenes_importados(force=True)
+    except Exception as e:
+        print(f"[cleanup_importados][atexit] {e}")
+
+def _cleanup_importados_on_signal(signum, frame):
+    try:
+        limpiar_examenes_importados(force=True)
+    finally:
+        raise SystemExit(0)
+
 
 
 # ================== FIN BLOQUE ==================
@@ -7845,7 +10048,21 @@ def ping():
     return "ok"
 
 if __name__ == "__main__":
-    print("== URL MAP ==")
-    for r in app.url_map.iter_rules():
-        print(r, r.methods)
-    app.run(host="127.0.0.1", port=5050, debug=True)
+    # por si la ejecución anterior terminó brusco
+    limpiar_examenes_importados(force=True)
+
+    atexit.register(_cleanup_importados_on_exit)
+
+    try:
+        signal.signal(signal.SIGINT, _cleanup_importados_on_signal)
+    except Exception:
+        pass
+
+    try:
+        signal.signal(signal.SIGTERM, _cleanup_importados_on_signal)
+    except Exception:
+        pass
+
+    bootlog("Entrando a app.run()")
+    bootlog("puerto 5050 ocupado justo antes de run =", is_port_busy())
+    app.run(host="127.0.0.1", port=5050, debug=False, use_reloader=False)

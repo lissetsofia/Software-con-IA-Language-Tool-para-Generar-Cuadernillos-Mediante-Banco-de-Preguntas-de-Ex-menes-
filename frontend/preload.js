@@ -20,6 +20,10 @@ contextBridge.exposeInMainWorld("api", {
 
   guardarDesdeUrl: (url, suggestedName) => ipcRenderer.invoke("save-from-url", { url, suggestedName }),
   saveLastFromFolder: (opts) => ipcRenderer.invoke("save-last-from-folder", opts),
+  
+   openPdfFromUrl: (url) =>
+    ipcRenderer.invoke("open-pdf-from-url", url),
+
 
 });
 

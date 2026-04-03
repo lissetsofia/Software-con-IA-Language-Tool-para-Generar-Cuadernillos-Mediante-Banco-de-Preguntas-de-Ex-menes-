@@ -1,4 +1,4 @@
-(function () {
+window.initCorrectorOrtografico = function ()  {
   const API = "http://127.0.0.1:5050";
   const $ = (id) => document.getElementById(id);
 
@@ -10,7 +10,7 @@
   const loaderCorregido = $("loaderCorregido");
   const btnLimpiar = $("btnLimpiar");
   const btnCorregir = $("btnCorregir");         // LanguageTool
-  const btnCorregirLM = $("btnCorregirLM");     // llama.cpp
+ 
   const btnDescDocx = $("btnDescDocx");
   const btnDescPdf = $("btnDescPdf");
   const tipoMostrado = $("tipoMostrado");
@@ -21,6 +21,7 @@
 
   let lastLinks = null;
   let lastEngine = "LT"; // o "LM"
+  let archivoActual = null;
 
   function abs(url){ return url.startsWith("http") ? url : API + url; }
   function setEstado(msg){ estado.textContent = msg || ""; }
@@ -36,7 +37,7 @@
 
   function setBadge(val){
     if(typeof val === "number" && val > 0){
-      badge.textContent = `${val} correcciones`;
+      badge.textContent = `${val} sugerencias`;
       badge.hidden = false;
       return;
     }
@@ -48,19 +49,25 @@
     badge.hidden = true;
   }
 
-  function withPdfZoom(url){ return url.includes("#") ? url : `${url}#zoom=page-width`; }
+  function withPdfZoom(url){
+  // Fit horizontal (ancho). Mejor soporte en Chrome/Electron que "zoom=page-width"
+  const sep = url.includes("#") ? "&" : "#";
+  return `${url}${sep}view=FitH`;
+}
 
-  function limpiar(){
-    viewOriginal.src = "about:blank";
-    viewCorregido.src = "about:blank";
-    fileInput.value = "";
-    setEstado("");
-    showLoader("orig", false);
-    showLoader("corr", false);
-    disableDownloads();
-    setBadge("");
-    lastEngine = "LT";
-  }
+function limpiar(){
+  archivoActual = null;
+  viewOriginal.src = "about:blank";
+  viewCorregido.src = "about:blank";
+  fileInput.value = "";
+  setEstado("");
+  showLoader("orig", false);
+  showLoader("corr", false);
+  disableDownloads();
+  setBadge("");
+  lastEngine = "LT";
+}
+
 
   async function subirYRenderizar(file){
     const fd = new FormData();
@@ -73,7 +80,8 @@
   }
 
   async function handleFile(f){
-    if(!f) return;
+     if(!f) return;
+    archivoActual = f;
     tipoMostrado.textContent = "Mostrando como PDF (visor del navegador).";
     setEstado("Preparando vista PDF…");
     showLoader("orig", true);
@@ -92,8 +100,11 @@
       alert("Error al generar la vista PDF.\n\n" + e.message);
     }
   }
+fileInput.addEventListener("click", () => {
+  fileInput.value = "";
+});
 
-  fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
+fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
   drop.addEventListener("dragover", (e)=>{ e.preventDefault(); drop.style.opacity=".85"; });
   drop.addEventListener("dragleave", ()=> drop.style.opacity="1");
   drop.addEventListener("drop", (e)=>{
@@ -143,12 +154,15 @@
   });
 
   async function corregirConBackend({ engineName, endpoint, buildFormData, badgeValue }) {
-    const f = fileInput.files && fileInput.files[0];
-    if(!f){ alert("Selecciona primero un .docx"); return; }
+    const f = archivoActual;
+if(!f){
+  alert("Selecciona primero un .docx");
+  return;
+}
 
     setEstado(`Corrigiendo con ${engineName}…`);
     btnCorregir.disabled = true;
-    btnCorregirLM.disabled = true;
+   
     showLoader("corr", true);
     disableDownloads();
     setBadge("");
@@ -168,13 +182,13 @@
 
       // Badge: LT trae total_alertas; LM no. (mostramos texto)
       if (typeof data.total_alertas === "number") setBadge(data.total_alertas);
-      else setBadge(badgeValue || "Corrección aplicada");
+      else setBadge(badgeValue || "Sugerencia aplicada");
 
       lastLinks = data.descargas || {};
       btnDescDocx.disabled = !lastLinks.docx;
       btnDescPdf.disabled  = !lastLinks.docx;
 
-      lastEngine = (endpoint.includes("/api/lm/") ? "LM" : "LT");
+      
 
       // Render del DOCX (para mostrar PDF en el iframe)
       if(lastLinks.docx){
@@ -182,7 +196,7 @@
 
         // Para ver resaltado, cambiamos el limpio -> preview
         if(lastEngine === "LM"){
-          nombreDocx = nombreDocx.replace(/_lm_corregido_limpio\.docx$/i, "_lm_corregido.docx");
+          
         } else {
           // LT (aunque tu backend ya lo hace, lo dejamos robusto)
           nombreDocx = nombreDocx.replace(/_corregido_limpio\.docx$/i, "_corregido.docx");
@@ -199,7 +213,7 @@
         showLoader("corr", false);
       }
 
-      setEstado(`Correcciones aplicadas (${engineName}).`);
+      setEstado(`Sugerencia aplicadas (${engineName}).`);
     }catch(e){
       console.error(e);
       showLoader("corr", false);
@@ -208,7 +222,7 @@
       setBadge("");
     }finally{
       btnCorregir.disabled = false;
-      btnCorregirLM.disabled = false;
+      
     }
   }
 
@@ -228,18 +242,6 @@
     });
   });
 
-  // ====== BOTÓN: llama.cpp (LM local) ======
-  btnCorregirLM.addEventListener("click", async ()=>{
-    await corregirConBackend({
-      engineName: "IA local (llama.cpp)",
-      endpoint: "/api/lm/corregir_archivo",
-      buildFormData: (f) => {
-        const fd = new FormData();
-        fd.append("archivo", f);
-        return fd;
-      },
-      badgeValue: "IA aplicada"
-    });
-  });
+  
 
-})();
+};

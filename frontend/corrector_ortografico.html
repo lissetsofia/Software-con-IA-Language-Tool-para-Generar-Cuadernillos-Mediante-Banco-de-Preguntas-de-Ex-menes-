@@ -111,6 +111,14 @@
     .notes-grid{ grid-template-columns:1fr; }
     .legend-label{ min-width: 180px; }
   }
+  #viewOriginal, #viewCorregido{
+  width: 100%;
+  height: 72vh;      /* ajusta a tu layout */
+  min-height: 560px; /* para pantallas chicas */
+  border: 0;
+  display: block;
+}
+
 </style>
 
 <div class="page">
@@ -119,12 +127,12 @@
   <div class="controls">
     <input id="file" type="file" accept=".docx" />
     <button id="btnLimpiar" class="btn warn" type="button">Limpiar</button>
-    <button id="btnCorregir" class="btn success" type="button">Corregir (LanguageTool)</button>
+    <button id="btnCorregir" class="btn success" type="button">Sugerencia (LanguageTool)</button>
 
-    <button id="btnDescDocx" class="btn blue" type="button" disabled>Descargar DOCX corregido</button>
-    <button id="btnDescPdf" class="btn red" type="button" disabled>Descargar PDF corregido</button>
+    <button id="btnDescDocx" class="btn blue" type="button" disabled>Descargar DOCX sugererido</button>
+    <button id="btnDescPdf" class="btn red" type="button" disabled>Descargar PDF sugerido</button>
 
-     <button id="btnCorregirLM" class="btn success" type="button">Corregir (LM Estudio)</button>
+
 
     <span class="hint" id="tipoMostrado">Mostrando como PDF (visor del navegador).</span>
     <small id="estado"></small>
@@ -137,7 +145,7 @@
 
   <!-- Contador -->
   <div class="contador-top">
-    <span id="badgeCorrecciones" class="badge-correcciones" hidden>0 correcciones</span>
+    <span id="badgeCorrecciones" class="badge-correcciones" hidden>0 sugerencias</span>
   </div>
 
   <!-- Visores -->
@@ -151,7 +159,7 @@
     </section>
 
     <section class="pane pane--corregido">
-      <header>Recomendación</header>
+      <header>Sugerencia</header>
       <div class="content">
         <div id="loaderCorregido" class="loader"><div class="ring"></div></div>
         <iframe id="viewCorregido" title="Vista PDF corregido"></iframe>
@@ -164,13 +172,13 @@
     <div class="notes-card">
       <div class="notes-title">
         <span class="dot" aria-hidden="true"></span>
-        <span>Notas de corrección</span>
+        <span>Notas de sugerencias</span>
       </div>
 
       <div class="notes-grid">
         <!-- Columna 1: demo + marcadores -->
         <div>
-          <div class="tag">Palabra corregida</div>
+          <div class="tag">Palabra sugerida</div>
           <div class="demo" style="margin-bottom:10px;">
             Ej.: La <span class="hx-word">ortografía</span> es importante.
           </div>
