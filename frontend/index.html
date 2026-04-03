@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <title>EVALUNIA</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+      rel="stylesheet"
+    />
     <link
       rel="stylesheet"
       href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
@@ -44,15 +50,40 @@
       if (footer) footer.style.display = esLogin ? "none" : "block";
 
       if (esLogin) {
-        // enganchar login
-        setTimeout(() => {
-          const boton = document.getElementById("btnLogin");
-          if (boton) boton.addEventListener("click", login);
-        }, 100);
+        setTimeout(() => engancharLogin(), 0);
       }
     }
 
     return Promise.resolve();
+  }
+
+  function engancharLogin() {
+    const form = document.getElementById("formLogin");
+    if (form) {
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!form.reportValidity()) return;
+        login();
+      });
+    }
+
+    const toggleBtn = document.getElementById("btnTogglePassword");
+    const clave = document.getElementById("clave");
+    if (toggleBtn && clave) {
+      const icon = toggleBtn.querySelector("i");
+      toggleBtn.addEventListener("click", () => {
+        clave.type = clave.type === "password" ? "text" : "password";
+        const visible = clave.type === "text";
+        toggleBtn.setAttribute("aria-pressed", visible ? "true" : "false");
+        const label = visible ? "Ocultar contraseña" : "Mostrar contraseña";
+        toggleBtn.setAttribute("aria-label", label);
+        toggleBtn.setAttribute("title", label);
+        if (icon) {
+          icon.classList.toggle("bi-eye", !visible);
+          icon.classList.toggle("bi-eye-slash", visible);
+        }
+      });
+    }
   }
 
   async function login() {
@@ -62,7 +93,7 @@
 
     try {
       const res = await window.api.login(usuario, clave);
-      if (res && res.exito) {
+      if (res && res.status === "ok") {
         alerta.classList.add("d-none");
       } else {
         alerta.textContent =
@@ -216,10 +247,10 @@
     include("footer", "./components/footer.html");
     // HOME por defecto
     include("contenido", "./home.html").then(() => {
-      const homeLink = [...document.querySelectorAll(".nav-link")].find(
-        (el) => el.textContent.trim() === "HOME"
+      const homeLink = document.querySelector(
+        '.nav-link[onclick*="home.html"]'
       );
-      activarMenu(homeLink);
+      activarMenu(homeLink || document.querySelector(".nav-link"));
     });
   });
 </script>

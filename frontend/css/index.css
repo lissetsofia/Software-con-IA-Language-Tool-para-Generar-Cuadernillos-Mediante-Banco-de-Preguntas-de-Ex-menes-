@@ -1,3 +1,32 @@
+/* =======================
+   LUNIA / EVALUNIA — paleta desde logo (luna + tilde)
+========================== */
+:root {
+  --lunia-navy: #1a2d45;
+  --lunia-navy-deep: #0f1729;
+  --lunia-steel: #3d5a80;
+  --lunia-steel-light: #5a7cae;
+  --lunia-silver: #cfd9e6;
+  --lunia-silver-muted: #e4eaf2;
+  --lunia-cream: #f7f5f0;
+  --lunia-white: #ffffff;
+  --lunia-peach: #e8a87c;
+  --lunia-peach-deep: #d49166;
+  --lunia-text: #1a2d45;
+  --lunia-text-muted: #5c6b7e;
+  --lunia-focus: rgba(61, 90, 128, 0.35);
+  /* UNAMBA escudo (borde) — CTAs login */
+  --unamba-navy: #003b71;
+  --unamba-navy-deep: #002a54;
+
+  --bs-primary: #3d5a80;
+  --bs-primary-rgb: 61, 90, 128;
+  --bs-link-color: #3d5a80;
+  --bs-link-hover-color: #2d4260;
+  --bs-success: #2f5c52;
+  --bs-info: #4a7eb5;
+}
+
 /* ======================= 
    FONDO GENERAL
 ========================== */
@@ -6,7 +35,15 @@ body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background: linear-gradient(135deg, #93cdf3, #c8e6f8);
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", sans-serif;
+  color: var(--lunia-text);
+  background: linear-gradient(
+    145deg,
+    var(--lunia-silver-muted) 0%,
+    var(--lunia-cream) 45%,
+    #dde8f5 100%
+  );
   background-repeat: no-repeat;
   background-attachment: fixed;
   display: flex;
@@ -21,101 +58,109 @@ body {
   transform: translateY(20px);
   animation: fadeIn 0.8s ease-out forwards;
   transition: box-shadow 0.3s ease;
-  border-radius: 14px;
-  background-color: #ffffff;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  background-color: var(--lunia-white);
+  border: 1px solid rgba(26, 45, 69, 0.08);
+  box-shadow: 0 8px 32px rgba(15, 23, 41, 0.1);
 }
 
 .login-card:hover {
-  box-shadow: 0 0 18px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 40px rgba(15, 23, 41, 0.14);
 }
 
 /* =======================
    INPUTS
 ========================== */
 .form-control {
-  background-color: #f8f9fa;
-  border-color: #ced4da;
+  background-color: var(--lunia-silver-muted);
+  border-color: rgba(26, 45, 69, 0.15);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-control:focus {
-  border-color: #5dbf92;
-  box-shadow: 0 0 0 0.2rem rgba(93, 191, 146, 0.25);
+  border-color: var(--lunia-steel);
+  box-shadow: 0 0 0 0.2rem var(--lunia-focus);
 }
 
 /* =======================
    BOTONES PERSONALIZADOS
 ========================== */
 .btn-custom {
-  background-color: #5dbf92;
-  color: white;
+  background: linear-gradient(180deg, var(--lunia-steel-light) 0%, var(--lunia-steel) 100%);
+  color: #fff;
   border: none;
-  transition: background-color 0.3s ease, transform 0.2s ease;
+  font-weight: 600;
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
   cursor: pointer;
+  box-shadow: 0 2px 8px rgba(26, 45, 69, 0.2);
 }
 
 .btn-custom:hover {
-  background-color: #4da87f;
-  color: white;
+  background: linear-gradient(180deg, var(--lunia-steel) 0%, #2d4260 100%);
+  color: #fff;
   transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(26, 45, 69, 0.25);
 }
 
 .btn-acerca {
-  background-color: #5dbf92;
-  color: white;
+  background: linear-gradient(180deg, var(--lunia-peach) 0%, var(--lunia-peach-deep) 100%);
+  color: var(--lunia-navy-deep);
   font-weight: 600;
   padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 1rem;
   transition: all 0.3s ease;
   text-decoration: none;
   display: inline-block;
+  border: none;
+  box-shadow: 0 2px 10px rgba(232, 168, 124, 0.35);
 }
 
 .btn-acerca:hover {
-  background-color: #4da87f;
-  color: white;
+  filter: brightness(1.05);
+  color: var(--lunia-navy-deep);
   transform: translateY(-1px);
 }
 
-/* ✅ BOTÓN VERDE ESTILO HEADER */
+/* Botón secundario / header */
 .btn-header {
-  background-color: #5dbf92;
-  color: white;
+  background: linear-gradient(180deg, var(--lunia-steel-light) 0%, var(--lunia-steel) 100%);
+  color: #fff;
   font-weight: 600;
   padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 1rem;
   border: none;
   transition: all 0.3s ease;
   text-decoration: none;
   display: inline-block;
+  box-shadow: 0 2px 8px rgba(26, 45, 69, 0.18);
 }
 
 .btn-header:hover {
-  background-color: #4da87f;
-  color: white;
+  background: linear-gradient(180deg, var(--lunia-steel) 0%, #2d4260 100%);
+  color: #fff;
   transform: translateY(-1px);
 }
 
-/* ✅ BOTÓN AZUL (solo para "Importar") */
+/* Importar / acción secundaria fría */
 .btn-azul {
-  background-color: #3f8efc;
-  color: white;
+  background: linear-gradient(180deg, #5f8fc4 0%, var(--lunia-steel-light) 100%);
+  color: #fff;
   font-weight: 600;
   padding: 0.6rem 1.2rem;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 1rem;
   border: none;
   transition: all 0.3s ease;
   text-decoration: none;
   display: inline-block;
+  box-shadow: 0 2px 8px rgba(61, 90, 128, 0.25);
 }
 
 .btn-azul:hover {
-  background-color: #327de3;
-  color: white;
+  filter: brightness(1.06);
+  color: #fff;
   transform: translateY(-1px);
 }
 
@@ -152,38 +197,500 @@ button,
 /* =======================
    ICONOS PERSONALIZADOS
 ========================== */
+.icon-brand {
+  color: var(--lunia-steel);
+}
 .icon-verde {
-  color: #5dbf92;
+  color: var(--lunia-steel);
 }
 
 /* =======================
    NAVBAR Y FOOTER
 ========================== */
 .navbar {
-  background-color: #343a40;
+  background-color: var(--lunia-navy-deep);
 }
 
 footer {
-  background-color: #343a40;
-  color: white;
+  background-color: var(--lunia-navy-deep);
+  color: #e8eef5;
   padding: 0.5rem;
   text-align: center;
   margin-top: auto;
+  border-top: 1px solid rgba(207, 217, 230, 0.12);
 }
 
 /* =======================
    NAVBAR (HEADER)
 ========================== */
 .navbar-gris-claro {
-  background-color: #343a40 !important;
-  min-height: 80px;
-  padding-top: 1rem;
-  padding-bottom: 1rem;
+  background: linear-gradient(180deg, var(--lunia-navy-deep) 0%, #141c2c 100%) !important;
+  min-height: auto;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
   display: flex;
   align-items: center;
   position: sticky;
   top: 0;
   z-index: 1030;
+  border-bottom: 1px solid rgba(207, 217, 230, 0.1);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Marca + logo Lunia */
+.evalunia-brand-bar {
+  width: 100%;
+  border-bottom: 1px solid rgba(207, 217, 230, 0.12);
+  padding-bottom: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+.evalunia-brand-logo {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+.evalunia-brand-text {
+  line-height: 1.2;
+}
+.evalunia-brand-name {
+  display: block;
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
+  color: #f1f5f9;
+}
+.evalunia-brand-sub {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--lunia-silver);
+  opacity: 0.92;
+}
+.nav-link .nav-link-icon {
+  font-size: 1.15rem;
+  margin-right: 0.45rem;
+  opacity: 0.95;
+}
+
+.evalunia-login-logo {
+  height: 80px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  display: inline-block;
+  filter: drop-shadow(0 4px 12px rgba(15, 23, 41, 0.12));
+}
+
+.evalunia-login-logo--compact {
+  height: 64px;
+}
+
+.evalunia-login-logo--header {
+  height: 56px;
+  width: 56px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+/* ========== Pantalla de login (rediseño) ========== */
+.login-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: min(100vh, 900px);
+  flex: 1 1 auto;
+  width: 100%;
+}
+
+@media (min-width: 992px) {
+  .login-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
+    min-height: 100vh;
+    align-items: stretch;
+    position: relative;
+  }
+}
+
+.login-shell__visual {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 220px;
+  background-color: var(--lunia-navy-deep);
+  background-image: url("../img/unamba.jpg");
+  background-size: cover;
+  background-position: center 35%;
+}
+
+@media (min-width: 992px) {
+  .login-shell__visual {
+    grid-column: 1 / 2;
+    grid-row: 1;
+    min-height: 100%;
+  }
+}
+
+.login-shell__visual-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+      90deg,
+      rgba(15, 23, 41, 0.92) 0%,
+      rgba(26, 45, 69, 0.62) 52%,
+      rgba(26, 45, 69, 0.32) 82%,
+      rgba(228, 234, 242, 0.08) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(15, 23, 41, 0.35) 0%,
+      transparent 40%,
+      rgba(15, 23, 41, 0.55) 100%
+    ),
+    radial-gradient(
+      ellipse 70% 55% at 15% 75%,
+      rgba(232, 168, 124, 0.16) 0%,
+      transparent 50%
+    );
+}
+
+.login-shell__visual-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  padding: 2rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  max-width: 560px;
+}
+
+@media (min-width: 992px) {
+  .login-shell__visual-content {
+    padding: 2.75rem 3rem 2.75rem 3.25rem;
+    justify-content: center;
+    max-width: min(640px, 92%);
+  }
+}
+
+.login-shell__institution-brand {
+  margin-bottom: 1.35rem;
+  padding: 0.65rem 1rem;
+  width: fit-content;
+  max-width: 100%;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px);
+}
+
+.login-shell__institution-logo {
+  display: block;
+  width: 100%;
+  max-width: min(420px, 100%);
+  height: auto;
+  max-height: clamp(56px, 8.5vw, 96px);
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 6px 20px rgba(0, 0, 0, 0.35));
+}
+
+.login-shell__product-mark {
+  display: block;
+  font-size: 0.72em;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(232, 168, 124, 0.95);
+  margin-bottom: 0.35rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.login-shell__visual-title-line {
+  display: block;
+  font-size: 1em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+}
+
+.login-shell__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(232, 234, 245, 0.92);
+  margin-bottom: 0.85rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  width: fit-content;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+
+.login-shell__visual-title {
+  font-size: clamp(1.65rem, 3.6vw, 2.2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #f8fafc;
+  line-height: 1.18;
+  margin-bottom: 0.75rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 2px 24px rgba(0, 0, 0, 0.2);
+}
+
+.login-shell__visual-title-line span {
+  color: rgba(232, 168, 124, 0.95);
+  font-weight: 800;
+}
+
+.login-shell__visual-text {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(241, 245, 249, 0.93);
+  margin-bottom: 0;
+  max-width: 26rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 2px 20px rgba(0, 0, 0, 0.2);
+}
+
+.login-shell__panel {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1.25rem 2rem;
+  background: linear-gradient(
+    180deg,
+    var(--lunia-silver-muted) 0%,
+    var(--lunia-cream) 40%,
+    #e2eaf5 100%
+  );
+}
+
+@media (min-width: 992px) {
+  .login-shell__panel {
+    grid-column: 2 / 3;
+    grid-row: 1;
+    z-index: 2;
+    /* Encima del borde derecho de la foto: la carta se superpone ~1/2 de su ancho */
+    margin-left: clamp(-10.5rem, -12vw, -5.5rem);
+    padding: 2.5rem 2.5rem 2.5rem 0;
+    justify-content: flex-start;
+    align-items: center;
+    background: linear-gradient(
+      90deg,
+      rgba(228, 234, 242, 0) 0%,
+      rgba(247, 245, 240, 0.65) 18%,
+      var(--lunia-cream) 38%,
+      var(--lunia-silver-muted) 100%
+    );
+  }
+}
+
+.login-shell__panel-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.login-shell__product-name {
+  font-weight: 800;
+  font-size: 1.1rem;
+  letter-spacing: 0.08em;
+  color: var(--lunia-navy);
+}
+
+.login-shell__product-tag {
+  font-size: 0.8rem;
+}
+
+.login-shell__card {
+  padding: 2rem 1.75rem !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(26, 45, 69, 0.08) !important;
+  box-shadow: 0 16px 48px rgba(15, 23, 41, 0.1),
+    0 1px 0 rgba(255, 255, 255, 0.85) inset !important;
+}
+
+@media (min-width: 992px) {
+  .login-shell__card {
+    padding: 2.25rem 2rem !important;
+  }
+}
+
+.login-shell__card-header {
+  margin-bottom: 1.5rem;
+}
+
+.login-shell__eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lunia-steel);
+  opacity: 0.85;
+}
+
+.login-shell__title {
+  color: var(--lunia-navy);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.login-shell__subtitle {
+  line-height: 1.45;
+}
+
+.login-shell__alert {
+  border: none;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  border-left: 4px solid #b02a37;
+}
+
+.login-shell__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--lunia-text);
+  margin-bottom: 0.4rem;
+}
+
+.login-shell__input-wrap {
+  position: relative;
+}
+
+.login-shell__input-icon {
+  position: absolute;
+  left: 0.95rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1rem;
+  color: var(--lunia-steel);
+  opacity: 0.65;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.login-shell__input {
+  padding-left: 2.65rem !important;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  border-radius: 12px !important;
+  font-size: 0.95rem;
+}
+
+.login-shell__input--password {
+  padding-right: 2.85rem !important;
+}
+
+.login-shell__form .login-shell__input:focus {
+  border-color: var(--unamba-navy);
+  box-shadow: 0 0 0 0.2rem rgba(0, 59, 113, 0.22);
+  outline: 0;
+}
+
+.login-shell__toggle-pw {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--lunia-steel);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.login-shell__toggle-pw:hover {
+  opacity: 1;
+  background-color: rgba(61, 90, 128, 0.1);
+  color: var(--lunia-navy);
+}
+
+.login-shell__toggle-pw:focus-visible {
+  outline: 2px solid var(--lunia-steel);
+  outline-offset: 2px;
+  opacity: 1;
+}
+
+.login-shell__toggle-pw .bi {
+  font-size: 1.1rem;
+  pointer-events: none;
+}
+
+.login-shell__submit {
+  border-radius: 12px !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+  font-weight: 700 !important;
+}
+
+/* Botón alineado al azul del escudo UNAMBA */
+.login-shell .login-shell__submit.btn-custom {
+  background: linear-gradient(180deg, #0d4d8c 0%, var(--unamba-navy) 100%);
+  box-shadow: 0 4px 14px rgba(0, 59, 113, 0.32);
+}
+
+.login-shell .login-shell__submit.btn-custom:hover {
+  background: linear-gradient(
+    180deg,
+    var(--unamba-navy) 0%,
+    var(--unamba-navy-deep) 100%
+  );
+  box-shadow: 0 6px 18px rgba(0, 59, 113, 0.38);
+}
+
+.login-shell__card-footer {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(26, 45, 69, 0.08);
+}
+
+.login-shell__footer-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.login-shell__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--lunia-peach), var(--lunia-steel));
+  flex-shrink: 0;
+}
+
+.login-shell__legal {
+  opacity: 0.75;
+  max-width: 360px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.login-shell__legal--in-card {
+  margin-top: 0.85rem;
+  padding-top: 0;
+  border-top: none;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+footer.evalunia-footer {
+  background: linear-gradient(180deg, var(--lunia-navy-deep) 0%, #0c1220 100%);
 }
 
 /* =======================
@@ -201,44 +708,48 @@ footer {
 ========================== */
 .navbar .nav-link {
   border-radius: 12px;
-  padding: 0.9rem 2rem;
+  padding: 0.9rem 1.25rem;
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 600;
   box-shadow: 0 0 0 transparent;
-  transition: all 0.3s ease;
-  color: white !important;
-  text-shadow: 1px 1px 2px black;
+  transition: all 0.25s ease;
+  color: #e8eef5 !important;
+  text-shadow: none;
+  border: 1px solid transparent;
 }
 
 .navbar .nav-link.active {
-  background-color: #5dbf92;
+  background: linear-gradient(
+    180deg,
+    rgba(232, 168, 124, 0.35) 0%,
+    rgba(90, 124, 174, 0.45) 100%
+  );
   color: #fff !important;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  text-shadow: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  border-color: rgba(232, 168, 124, 0.35);
 }
 
 .navbar .nav-link:hover {
-  background-color: #4da87f;
+  background-color: rgba(90, 124, 174, 0.35);
   color: #fff !important;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  text-shadow: none;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* =======================
    NAV PILLS
 ========================== */
 .nav-pills .nav-link {
-  background-color: #5dbf92;
+  background-color: var(--lunia-steel);
   color: white;
 }
 
 .nav-pills .nav-link.active {
-  background-color: #4da87f;
+  background-color: #2d4260;
 }
 
 /* =======================
@@ -281,6 +792,10 @@ main {
 
 #contenido > * {
   background-color: transparent !important;
+}
+
+#contenido:has(.login-shell) {
+  overflow-x: visible;
 }
 
 /* =======================
@@ -330,11 +845,12 @@ main {
   left: 0;
   transform: translateY(10px);
   width: 300px;
-  background-color: #a6e3a1;
-  color: #000;
+  background-color: var(--lunia-silver-muted);
+  color: var(--lunia-navy);
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(26, 45, 69, 0.1);
+  box-shadow: 0 8px 24px rgba(15, 23, 41, 0.15);
   z-index: 20;
   font-size: 0.9rem;
 }
@@ -347,7 +863,7 @@ main {
   height: 0;
   border-left: 10px solid transparent;
   border-right: 10px solid transparent;
-  border-bottom: 10px solid #a6e3a1;
+  border-bottom: 10px solid var(--lunia-silver-muted);
 }
 
 .grupo-tooltip .tooltip-content {
@@ -640,7 +1156,7 @@ main {
   --tile-bg-hover: rgba(255, 255, 255, 0.18);
   --tile-border: rgba(255, 255, 255, 0.25);
   --tile-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-  --accent: #192f49; /* azul */
+  --accent: var(--lunia-navy-deep);
   --text-strong: #eaf3ff;
 }
 .home-shortcuts {
@@ -671,8 +1187,7 @@ main {
 }
 .shortcut:hover,
 .shortcut:focus-visible {
-  background: linear-gradient(145deg, #d6ecff 0%, #bfe1ff 100%);
-
+  background: linear-gradient(145deg, rgba(90, 124, 174, 0.35) 0%, rgba(232, 168, 124, 0.2) 100%);
   transform: translateY(-2px);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
 }
@@ -682,11 +1197,7 @@ main {
   width: 74px;
   height: 74px;
   border-radius: 16px;
-  background: linear-gradient(
-    135deg,
-    rgba(26, 115, 232, 0.85),
-    rgba(0, 188, 212, 0.75)
-  );
+  background: linear-gradient(135deg, var(--lunia-steel) 0%, var(--lunia-steel-light) 100%);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   color: #e7f1ff;
 }
@@ -724,28 +1235,28 @@ main {
   }
 }
 
-/* MATRIZ – celeste */
+/* MATRIZ */
 .shortcut--matriz {
-  background: linear-gradient(135deg, #409b69 0%, #4a948e 100%);
+  background: linear-gradient(135deg, #2d4260 0%, var(--lunia-steel) 100%);
 }
 .shortcut--matriz:hover {
-  background: linear-gradient(135deg, #1b3547 0%, #7dbfff 100%);
+  background: linear-gradient(135deg, var(--lunia-steel-light) 0%, #6b8cba 100%);
 }
 
-/* GRUPOS – turquesa */
+/* GRUPOS */
 .shortcut--grupos {
-  background: linear-gradient(135deg, #ad6b97 0%, #b67deb 100%);
+  background: linear-gradient(135deg, #1e3a52 0%, #4a6b8f 100%);
 }
 .shortcut--grupos:hover {
-  background: linear-gradient(135deg, #498d81 0%, #6fe0cc 100%);
+  background: linear-gradient(135deg, var(--lunia-peach-deep) 0%, var(--lunia-peach) 100%);
 }
 
-/* ALEATORIZACIÓN – lila */
+/* ALEATORIZACIÓN */
 .shortcut--alea {
-  background: linear-gradient(135deg, #543c9c 0%, #b7a5ff 100%);
+  background: linear-gradient(135deg, #243954 0%, var(--lunia-steel-light) 100%);
 }
 .shortcut--alea:hover {
-  background: linear-gradient(135deg, #261068 0%, #ab96ff 100%);
+  background: linear-gradient(135deg, #c99b7a 0%, var(--lunia-peach) 100%);
 }
 /* =======================
    MODAL MATRIZ*/
@@ -822,7 +1333,7 @@ main {
   bottom: 26px;
   z-index: 2100;
   display: none;
-  background: linear-gradient(145deg, #14b8a6, #0ea5e9);
+  background: linear-gradient(145deg, var(--lunia-peach-deep), var(--lunia-steel-light));
   color: #fff;
   border: none;
   border-radius: 50px;
@@ -1046,8 +1557,8 @@ main {
 
 /* Caja del modal */
 #modal-exportar .modal-content {
-  background: #66cc9c;
-  color: #000000;
+  background: linear-gradient(145deg, var(--lunia-silver-muted) 0%, #c5d4e8 50%, rgba(232, 168, 124, 0.35) 100%);
+  color: var(--lunia-navy);
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
   padding: 18px 20px;
@@ -1077,9 +1588,9 @@ main {
   inset: 0;
   display: grid;
   place-items: center;
-  color: #385;
+  color: var(--lunia-steel);
   font-weight: 600;
-  opacity: 0.7;
+  opacity: 0.75;
 }
 
 /* una vez cargado, escondemos placeholder y mostramos iframe */
