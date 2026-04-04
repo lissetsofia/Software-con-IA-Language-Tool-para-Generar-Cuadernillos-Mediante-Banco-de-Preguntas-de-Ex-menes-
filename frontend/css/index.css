@@ -2545,16 +2545,178 @@ main {
 
 /* Modal “Banco de preguntas por temario” */
 #modalBancoPreguntasCuad .cuad-modal-banco-dialog {
+  /* Mismo ancho en lista y detalle (evita “salto” al cambiar de vista) */
+  width: min(96vw, 880px);
   max-width: min(96vw, 880px);
+}
+
+/*
+  Mismo patrón que #modalMatriz: .modal-dialog-scrollable + scroll en .modal-body (Bootstrap).
+  .cuad-banco-views-stage solo organiza vistas (sin max-height/overflow): evita doble scroll,
+  recortes y barra “flotando” aparte del cuerpo blanco.
+*/
+#modalBancoPreguntasCuad .cuad-modal-banco-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+}
+
+#modalBancoPreguntasCuad .modal-content.modal-evalunia {
+  height: auto;
+  min-height: 0;
+}
+
+#modalBancoPreguntasCuad .modal-body {
+  min-height: 0;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  /* Misma idea que #modalMatriz .modal-body: aire al llegar al final del scroll */
+  padding-bottom: 1.5rem;
+}
+
+/* Un solo carril de reserva (el global both-edges ensancha ambos lados y aquí se notaba raro) */
+@supports (scrollbar-gutter: stable both-edges) {
+  #modalBancoPreguntasCuad .modal-body {
+    scrollbar-gutter: stable;
+  }
 }
 
 #modalBancoPreguntasCuad .modal-header {
   padding: 0.95rem 1.2rem;
 }
 
-#modalBancoPreguntasCuad .modal-title .bi {
+#modalBancoPreguntasCuad .modal-title .bi,
+#modalBancoPreguntasCuad .cuad-banco-header-icon {
   font-size: 1.15rem;
   opacity: 0.92;
+}
+
+/*
+ * Lista ↔ detalle: mismo ancho (grid 1 col). Solo la vista activa aporta altura al flujo;
+ * la inactiva va absolute para que la fila no sea max(lista, detalle) → evita hueco blanco.
+ */
+#modalBancoPreguntasCuad .cuad-banco-views-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  position: relative;
+  min-width: 0;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-views-stage > .cuad-banco-view {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  transition:
+    opacity 0.32s ease,
+    transform 0.32s cubic-bezier(0.33, 1, 0.32, 1);
+}
+
+#modalBancoPreguntasCuad .cuad-banco-view:not(.cuad-banco-view--active) {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 0;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(12px) scale(0.992);
+}
+
+#modalBancoPreguntasCuad .cuad-banco-vista-resumen:not(.cuad-banco-view--active) {
+  transform: translateX(-12px) scale(0.992);
+}
+
+#modalBancoPreguntasCuad .cuad-banco-view--active {
+  position: relative;
+  z-index: 1;
+  max-height: none;
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #modalBancoPreguntasCuad .cuad-banco-views-stage > .cuad-banco-view {
+    transition: none;
+  }
+
+  #modalBancoPreguntasCuad .cuad-banco-view:not(.cuad-banco-view--active),
+  #modalBancoPreguntasCuad .cuad-banco-view--active {
+    transform: none;
+  }
+}
+
+#modalBancoPreguntasCuad .cuad-banco-hint--detalle {
+  margin-bottom: 0.85rem;
+  border-left-color: var(--lunia-steel);
+}
+
+#modalBancoPreguntasCuad .cuad-banco-hint--detalle .bi {
+  color: var(--lunia-steel);
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table-panel {
+  margin-top: 0;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 3px 14px rgba(15, 23, 41, 0.08);
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table-panel .table-responsive {
+  border-radius: 14px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table thead th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lunia-navy);
+  border-bottom-width: 1px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table tbody td {
+  font-size: 0.875rem;
+  vertical-align: middle;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-detalle-table tbody td:nth-child(3) {
+  word-break: break-word;
+}
+
+#modalBancoPreguntasCuad .btn-banco-ver-doc {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
+  border-radius: 8px;
+}
+
+#modalBancoPreguntasCuad .btn-banco-ver-doc .bi {
+  font-size: 1rem;
+  opacity: 0.9;
 }
 
 #modalBancoPreguntasCuad .cuad-banco-hint {
@@ -2581,9 +2743,30 @@ main {
 
 #modalBancoPreguntasCuad .cuad-banco-table-panel {
   margin-top: 0.25rem;
+  padding: 0;
   border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(15, 23, 41, 0.07);
+  box-shadow: 0 3px 14px rgba(15, 23, 41, 0.08);
+}
+
+#modalBancoPreguntasCuad .cuad-banco-table-panel .table-responsive {
+  border-radius: 14px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+#modalBancoPreguntasCuad .cuad-banco-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
 }
 
 #modalBancoPreguntasCuad .cuad-banco-table-panel .table thead th {

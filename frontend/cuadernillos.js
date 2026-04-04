@@ -102,7 +102,6 @@ window.addEventListener("focus", () => {
   const CUAD_MODAL_IDS = [
     "modalMatriz",
     "modalBancoPreguntasCuad",
-    "modalBancoDetalleCuad",
     "modalGrupos",
     "modalGrupoForm",
     "modalImportarMatriz",
@@ -177,7 +176,7 @@ if (typeof window.TEMAS_API_BASE_CUAD === "undefined") {
 $(document).off("shown.bs.modal.dtFixCuad");
 $(document).on(
   "shown.bs.modal.dtFixCuad",
-  "#modalGrupos, #modalBancoPreguntasCuad, #modalBancoDetalleCuad, #modalGrupoForm, #modalTemas",
+  "#modalGrupos, #modalBancoPreguntasCuad, #modalGrupoForm, #modalTemas",
   function () {
     const modal = this;
 
@@ -221,18 +220,14 @@ if (tbodyBanco) {
   console.log("[INIT CUAD] banco detectado, no se limpia tbody");
 }
 
-const tbodyDetalle = document.querySelector("#modalBancoDetalleCuad #tbody-banco-detalle-cuad");
+const tbodyDetalle = document.querySelector(
+  "#modalBancoPreguntasCuad #tbody-banco-detalle-cuad"
+);
 if (tbodyDetalle) {
-  console.log("[INIT CUAD] detalle detectado, no se limpia tbody");
+  console.log("[INIT CUAD] banco detalle tbody detectado, no se limpia");
 }
 
 document.querySelectorAll("body > #modalBancoPreguntasCuad").forEach((el, i, arr) => {
-  if (arr.length > 1 || !document.getElementById("contenido")?.contains(el)) {
-    el.remove();
-  }
-});
-
-document.querySelectorAll("body > #modalBancoDetalleCuad").forEach((el, i, arr) => {
   if (arr.length > 1 || !document.getElementById("contenido")?.contains(el)) {
     el.remove();
   }
@@ -1002,16 +997,13 @@ function cerrarModalById(id) {
     return SELECCION[key];
   };
 
+  const CUAD_BANCO_TITULO_LISTA = "Banco de preguntas por temario";
+
 function getModalBancoEl() {
   const els = [...document.querySelectorAll("#modalBancoPreguntasCuad")];
   const enContenido = els.find((el) =>
     document.getElementById("contenido")?.contains(el)
   );
-  return enContenido || els[els.length - 1] || null;
-}
-function getModalDetalleEl() {
-  const els = [...document.querySelectorAll("#modalBancoDetalleCuad")];
-  const enContenido = els.find((el) => document.getElementById("contenido")?.contains(el));
   return enContenido || els[els.length - 1] || null;
 }
 
@@ -1023,10 +1015,55 @@ function getBancoTbody() {
 }
 
 function getDetalleTbody() {
-  const modalDetalleEl = getModalDetalleEl();
-  const tb = modalDetalleEl?.querySelector("#tbody-banco-detalle-cuad") || null;
-  console.log("[BANCO] getDetalleTbody ->", tb, " dentro de modal:", modalDetalleEl);
+  const modalBancoEl = getModalBancoEl();
+  const tb = modalBancoEl?.querySelector("#tbody-banco-detalle-cuad") || null;
+  console.log("[BANCO] getDetalleTbody ->", tb, " dentro de modal:", modalBancoEl);
   return tb;
+}
+
+function mostrarVistaBancoCuad(vista) {
+  const modal = getModalBancoEl();
+  if (!modal) return;
+
+  modal.dataset.cuadBancoVista = vista;
+
+  const vRes = modal.querySelector("#cuad-banco-vista-resumen");
+  const vDet = modal.querySelector("#cuad-banco-vista-detalle");
+  const footRes = modal.querySelector("#cuad-banco-footer-resumen");
+  const footDet = modal.querySelector("#cuad-banco-footer-detalle");
+  const icon = modal.querySelector("#cuadBancoHeaderIcon");
+  const titulo = modal.querySelector("#cuadBancoTituloTexto");
+  const closeBtn = modal.querySelector(".cuad-banco-header-close");
+
+  if (closeBtn) {
+    closeBtn.setAttribute(
+      "aria-label",
+      vista === "detalle" ? "Volver al listado de temas" : "Cerrar"
+    );
+  }
+
+  if (vista === "resumen") {
+    vRes?.classList.add("cuad-banco-view--active");
+    vDet?.classList.remove("cuad-banco-view--active");
+    footRes?.classList.remove("d-none");
+    footDet?.classList.add("d-none");
+    footDet?.classList.remove("d-flex");
+    if (icon) {
+      icon.className = "bi bi-collection cuad-banco-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+    if (titulo) titulo.textContent = CUAD_BANCO_TITULO_LISTA;
+  } else {
+    vRes?.classList.remove("cuad-banco-view--active");
+    vDet?.classList.add("cuad-banco-view--active");
+    footRes?.classList.add("d-none");
+    footDet?.classList.remove("d-none");
+    footDet?.classList.add("d-flex");
+    if (icon) {
+      icon.className = "bi bi-list-ul cuad-banco-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+  }
 }
 
 const esc = (s) =>
@@ -1054,6 +1091,7 @@ async function abrirModalBanco() {
     const tbodyDetalle = getDetalleTbody();
     if (tbodyDetalle) tbodyDetalle.innerHTML = "";
     TEMA_ACTUAL_DETALLE = null;
+    mostrarVistaBancoCuad("resumen");
 
     if (modalBancoEl.parentElement !== document.body) {
       document.body.appendChild(modalBancoEl);
@@ -1227,12 +1265,10 @@ document.addEventListener("click", async (ev) => {
 
 function debugDuplicadosBanco() {
   const modalesBanco = document.querySelectorAll("#modalBancoPreguntasCuad");
-  const modalesDetalle = document.querySelectorAll("#modalBancoDetalleCuad");
   const tbTemas = document.querySelectorAll("#tbody-banco-temas-cuad");
   const tbDetalle = document.querySelectorAll("#tbody-banco-detalle-cuad");
 
   console.log("[BANCO][DUP] #modalBancoPreguntasCuad =", modalesBanco.length, modalesBanco);
-  console.log("[BANCO][DUP] #modalBancoDetalleCuad =", modalesDetalle.length, modalesDetalle);
   console.log("[BANCO][DUP] #tbody-banco-temas-cuad =", tbTemas.length, tbTemas);
   console.log("[BANCO][DUP] #tbody-banco-detalle-cuad =", tbDetalle.length, tbDetalle);
 }
@@ -1268,7 +1304,8 @@ function renderDetalleBancoTbody(tema_id, docs) {
             <td>${d.id}</td>
             <td>${nombreDoc}</td>
             <td class="text-end">
-              <button class="btn btn-sm btn-secondary" onclick="descargarDocBanco(${d.id})">
+              <button type="button" class="btn btn-sm btn-outline-secondary btn-banco-ver-doc" onclick="descargarDocBanco(${d.id})">
+                <i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i>
                 Ver
               </button>
             </td>
@@ -1293,14 +1330,14 @@ async function fetchDocsBancoTema(tema_id) {
 }
 
 function abrirDetalleBancoTema(tema_id, tema_nombre) {
-  const modalDetalleEl = getModalDetalleEl();
   const modalBancoEl = getModalBancoEl();
-  if (!modalDetalleEl || !modalBancoEl) return;
+  if (!modalBancoEl) return;
 
   TEMA_ACTUAL_DETALLE = Number(tema_id);
 
-  const titulo = modalDetalleEl.querySelector("#bancoDetalleTema");
-  if (titulo) titulo.innerText = tema_nombre || `Tema ${tema_id}`;
+  const titulo = modalBancoEl.querySelector("#cuadBancoTituloTexto");
+  const nombre = tema_nombre || `Tema ${tema_id}`;
+  if (titulo) titulo.textContent = `Preguntas del banco — ${nombre}`;
 
   const tbody = getDetalleTbody();
   if (!tbody) return;
@@ -1308,41 +1345,16 @@ function abrirDetalleBancoTema(tema_id, tema_nombre) {
   tbody.innerHTML =
     '<tr><td colspan="4" class="text-center text-muted">Cargando…</td></tr>';
 
-  const docsPromise = fetchDocsBancoTema(tema_id);
+  mostrarVistaBancoCuad("detalle");
 
-  if (modalDetalleEl.parentElement !== document.body) {
-    document.body.appendChild(modalDetalleEl);
-  }
-  const mBanco =
-    bootstrap.Modal.getInstance(modalBancoEl) ||
-    bootstrap.Modal.getOrCreateInstance(modalBancoEl);
-
-  const mDet =
-    bootstrap.Modal.getInstance(modalDetalleEl) ||
-    bootstrap.Modal.getOrCreateInstance(modalDetalleEl, {
-      backdrop: "static",
-      focus: true,
-      keyboard: true,
-    });
-
-  modalBancoEl.addEventListener(
-    "hidden.bs.modal",
-    () => {
-      mDet.show();
-      void docsPromise.then((docs) => {
-        renderDetalleBancoTbody(tema_id, docs);
-      });
-    },
-    { once: true }
-  );
-
-  mBanco.hide();
+  void fetchDocsBancoTema(tema_id).then((docs) => {
+    renderDetalleBancoTbody(tema_id, docs);
+  });
 }
 
 async function guardarSeleccionBancoTemaActual() {
   const modalBancoEl = getModalBancoEl();
-  const modalDetalleEl = getModalDetalleEl();
-  if (!modalBancoEl || !modalDetalleEl) return;
+  if (!modalBancoEl) return;
   if (!TEMA_ACTUAL_DETALLE) return;
 
   const tbody = getDetalleTbody();
@@ -1361,35 +1373,15 @@ async function guardarSeleccionBancoTemaActual() {
   const span = modalBancoEl.querySelector(`#banco-count-${TEMA_ACTUAL_DETALLE}`);
   if (span) span.textContent = String(setSel.size);
 
-  const mDet =
-    bootstrap.Modal.getInstance(modalDetalleEl) ||
-    bootstrap.Modal.getOrCreateInstance(modalDetalleEl);
+  mostrarVistaBancoCuad("resumen");
 
-  const mBanco =
-    bootstrap.Modal.getInstance(modalBancoEl) ||
-    bootstrap.Modal.getOrCreateInstance(modalBancoEl, {
-      backdrop: "static",
-      focus: true,
-      keyboard: true,
-    });
-
-  modalDetalleEl.addEventListener(
-    "hidden.bs.modal",
-    () => {
-      const tb = getBancoTbody();
-      if (tb) {
-        tb.innerHTML =
-          '<tr><td colspan="3" class="cuad-table-empty">Cargando…</td></tr>';
-      }
-      mBanco.show();
-      requestAnimationFrame(() => {
-        void cargarResumenTemas();
-      });
-    },
-    { once: true }
-  );
-
-  mDet.hide();
+  const tb = getBancoTbody();
+  if (tb) {
+    tb.innerHTML = '<tr><td colspan="3" class="cuad-table-empty">Cargando…</td></tr>';
+  }
+  requestAnimationFrame(() => {
+    void cargarResumenTemas();
+  });
 }
 
 document.addEventListener("click", async (ev) => {
@@ -1406,6 +1398,12 @@ document.addEventListener("click", async (ev) => {
 });
 
 document.addEventListener("click", (ev) => {
+  if (ev.target.closest("#btnCuadBancoVolver")) {
+    ev.preventDefault();
+    mostrarVistaBancoCuad("resumen");
+    return;
+  }
+
   const btnDetalle = ev.target.closest(".btn-banco-detalle");
   if (!btnDetalle) return;
 
@@ -1516,6 +1514,29 @@ document.addEventListener("click", (ev) => {
     generarMatrizDesdeBanco(true);
   }
 });
+
+  const modalBancoRoot = document.getElementById("modalBancoPreguntasCuad");
+  if (modalBancoRoot && !modalBancoRoot.dataset.cuadBancoCloseBound) {
+    modalBancoRoot.dataset.cuadBancoCloseBound = "1";
+    modalBancoRoot.addEventListener(
+      "click",
+      (e) => {
+        const btn = e.target.closest(".cuad-banco-header-close");
+        if (!btn || !modalBancoRoot.contains(btn)) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (modalBancoRoot.dataset.cuadBancoVista === "detalle") {
+          mostrarVistaBancoCuad("resumen");
+        } else {
+          const inst =
+            bootstrap.Modal.getInstance(modalBancoRoot) ||
+            bootstrap.Modal.getOrCreateInstance(modalBancoRoot);
+          inst.hide();
+        }
+      },
+      true
+    );
+  }
 })();
 
 

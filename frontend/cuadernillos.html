@@ -228,102 +228,114 @@
 </div>
 
 
-<!-- Modal: Banco de Preguntas por Tema -->
+<!-- Modal: Banco de Preguntas por Tema (lista + detalle en dos vistas del mismo modal) -->
 <div class="modal fade modal-cuad-root" id="modalBancoPreguntasCuad" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable cuad-modal-banco-dialog">
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
-        <h5 class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1">
-          <i class="bi bi-collection" aria-hidden="true"></i>
-          Banco de preguntas por temario
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+          <h5
+            class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1 min-w-0"
+            id="cuadBancoTitleWrap"
+          >
+            <i class="bi bi-collection cuad-banco-header-icon" id="cuadBancoHeaderIcon" aria-hidden="true"></i>
+            <span class="text-truncate" id="cuadBancoTituloTexto">Banco de preguntas por temario</span>
+          </h5>
+        </div>
+        <button
+          type="button"
+          class="btn-close cuad-banco-header-close"
+          aria-label="Cerrar"
+        ></button>
       </div>
       <div class="modal-body">
-        <div class="cuad-banco-hint" role="note">
-          <i class="bi bi-info-circle" aria-hidden="true"></i>
-          <span
-            >Selecciona preguntas del banco por tema. El contador inicia en 0 y se
-            actualiza según lo que marques en <strong>Detalle</strong>.</span
-          >
+        <div class="cuad-banco-views-stage">
+        <div id="cuad-banco-vista-resumen" class="cuad-banco-view cuad-banco-view--active">
+          <div class="cuad-banco-hint" role="note">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <span
+              >Selecciona preguntas del banco por tema. El contador inicia en 0 y se
+              actualiza según lo que marques en <strong>Detalle</strong>.</span
+            >
+          </div>
+
+          <div class="cuad-table-panel cuad-banco-table-panel">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle mb-0 cuad-banco-table">
+                <thead class="table-dark">
+                  <tr>
+                    <th style="width:55%">Tema</th>
+                    <th style="width:20%" class="text-center">Preguntas seleccionadas</th>
+                    <th style="width:25%" class="text-end">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-banco-temas-cuad">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <div class="cuad-table-panel cuad-banco-table-panel">
-          <div class="table-responsive">
-            <table class="table table-sm table-striped align-middle mb-0 cuad-banco-table">
-              <thead class="table-dark">
-                <tr>
-                  <th style="width:55%">Tema</th>
-                  <th style="width:20%" class="text-center">Preguntas seleccionadas</th>
-                  <th style="width:25%" class="text-end">Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-banco-temas-cuad">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
+        <div id="cuad-banco-vista-detalle" class="cuad-banco-view">
+          <div class="cuad-banco-hint cuad-banco-hint--detalle" role="note">
+            <i class="bi bi-check2-square" aria-hidden="true"></i>
+            <span>Marca las preguntas que quieres incluir para este tema.</span>
           </div>
+          <div class="cuad-table-panel cuad-banco-detalle-table-panel">
+            <div class="table-responsive">
+              <table class="table table-sm table-hover align-middle mb-0 cuad-banco-detalle-table">
+                <thead class="table-light">
+                  <tr>
+                    <th style="width:60px" class="text-center">Sel.</th>
+                    <th style="width:90px">ID</th>
+                    <th>Archivo / pregunta</th>
+                    <th style="width:120px" class="text-end">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-banco-detalle-cuad">
+                  <!-- filas dinámicas -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         </div>
       </div>
       <div class="modal-footer cuad-banco-footer d-flex flex-wrap justify-content-end">
-        <button
-          id="btn-generar-matriz-banco-sol"
-          type="button"
-          class="btn btn-warning"
-        >
-          <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
-          Generar matriz solucionario (banco)
-        </button>
-        <button type="button" class="btn btn-success" id="btnBancoGenerarMatriz">
-          <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
-          Generar matriz desde banco
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Detalle de preguntas del tema (Banco) -->
-<div class="modal fade modal-cuad-root" id="modalBancoDetalleCuad" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
-  data-bs-keyboard="false"> 
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content modal-evalunia">
-      <div class="modal-header">
-        <h5 class="modal-title">
-          Preguntas del banco &mdash; <span id="bancoDetalleTema">Tema</span>
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <p class="small text-muted mb-2">
-          Marca las preguntas que quieres incluir para este tema.
-        </p>
-
-        <div class="cuad-table-panel">
-          <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th style="width:60px" class="text-center">Sel.</th>
-                  <th style="width:90px">ID</th>
-                  <th>Archivo / pregunta</th>
-                  <th style="width:120px" class="text-end">Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-banco-detalle-cuad">
-                <!-- filas dinámicas -->
-              </tbody>
-            </table>
-          </div>
+        <div id="cuad-banco-footer-resumen" class="d-flex flex-wrap justify-content-end gap-2 w-100">
+          <button
+            id="btn-generar-matriz-banco-sol"
+            type="button"
+            class="btn btn-warning"
+          >
+            <i class="bi bi-file-earmark-check" aria-hidden="true"></i>
+            Generar matriz solucionario (banco)
+          </button>
+          <button type="button" class="btn btn-success" id="btnBancoGenerarMatriz">
+            <i class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></i>
+            Generar matriz desde banco
+          </button>
         </div>
-      </div>
-      <div class="modal-footer">
-    
-
-<button class="btn btn-primary" type="button" id="btnBancoGuardarSeleccion">
-  Guardar selección
-</button>
+        <div id="cuad-banco-footer-detalle" class="d-none w-100 align-items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            id="btnCuadBancoVolver"
+          >
+            <i class="bi bi-arrow-left" aria-hidden="true"></i>
+            Volver
+          </button>
+          <button
+            class="btn btn-primary ms-auto"
+            type="button"
+            id="btnBancoGuardarSeleccion"
+          >
+            <i class="bi bi-check2-circle" aria-hidden="true"></i>
+            Guardar selección
+          </button>
+        </div>
       </div>
     </div>
   </div>
