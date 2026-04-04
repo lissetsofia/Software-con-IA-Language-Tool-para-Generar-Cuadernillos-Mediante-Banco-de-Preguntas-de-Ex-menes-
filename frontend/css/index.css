@@ -2730,6 +2730,74 @@ main {
   }
 }
 
+/* ——— Diálogos globales EvaluniaDialog (alert / confirm) ——— */
+.evalunia-dialog-modal .modal-dialog {
+  max-width: min(92vw, 440px);
+}
+
+/* Cabecera: padding generoso + anular márgenes negativos del .btn-close (evitan recorte con overflow del content) */
+.evalunia-dialog-modal .evalunia-dialog-header.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 1rem 1rem 0.9rem 1.1rem;
+  min-height: 3.25rem;
+  flex-wrap: nowrap;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-title-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.35;
+  /* Mismo cuerpo que .modal-evalunia .modal-title (1.05rem / 700) — el h5 ya trae .modal-title */
+}
+
+.evalunia-dialog-modal .evalunia-dialog-header .evalunia-dialog-btn-close.btn-close {
+  margin: 0 0 0 auto;
+  padding: 0.55rem;
+  flex-shrink: 0;
+  align-self: center;
+  opacity: 0.92;
+  box-sizing: content-box;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-header .evalunia-dialog-btn-close.btn-close:hover {
+  opacity: 1;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-body {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--lunia-text);
+  padding-top: 0.35rem;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-title-icon {
+  font-size: 1.05rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-icon--info {
+  color: #8ec5f6;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-icon--success {
+  color: #7dcea0;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-icon--danger {
+  color: #fca5a5;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-icon--warning {
+  color: #fcd34d;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-footer .btn {
+  min-width: 6.25rem;
+}
+
 .modal-evalunia .modal-header {
   background: var(--lunia-navy-deep);
   color: #f1f5f9;

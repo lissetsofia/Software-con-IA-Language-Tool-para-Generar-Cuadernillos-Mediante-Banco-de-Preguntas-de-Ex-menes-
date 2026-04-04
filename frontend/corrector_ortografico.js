@@ -23,6 +23,15 @@ window.initCorrectorOrtografico = function ()  {
   let lastEngine = "LT"; // o "LM"
   let archivoActual = null;
 
+  async function dlgAlert(msg, opts) {
+    const p =
+      window.EvaluniaDialog &&
+      typeof window.EvaluniaDialog.alert === "function"
+        ? window.EvaluniaDialog.alert(msg, opts || {})
+        : Promise.resolve(window.alert(msg));
+    await p;
+  }
+
   function abs(url){ return url.startsWith("http") ? url : API + url; }
   function setEstado(msg){ estado.textContent = msg || ""; }
   function showLoader(which, on=true){ (which==="orig" ? loaderOriginal : loaderCorregido).classList.toggle("show", on); }
@@ -97,7 +106,9 @@ function limpiar(){
       console.error(e);
       showLoader("orig", false);
       setEstado("No se pudo generar la vista PDF.");
-      alert("Error al generar la vista PDF.\n\n" + e.message);
+      await dlgAlert("Error al generar la vista PDF.\n\n" + e.message, {
+        variant: "danger",
+      });
     }
   }
 fileInput.addEventListener("click", () => {
@@ -140,7 +151,7 @@ fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
       if(!lastLinks?.docx) return;
       const fileName = lastLinks.docx.split("/").pop();
       await downloadViaFetch(abs(lastLinks.docx), fileName);
-    }catch(e){ alert("No se pudo descargar el DOCX.\n\n" + e.message); }
+    }catch(e){ await dlgAlert("No se pudo descargar el DOCX.\n\n" + e.message, { variant: "danger" }); }
   });
 
   btnDescPdf.addEventListener("click", async ()=>{
@@ -150,13 +161,13 @@ fileInput.addEventListener("change", () => handleFile(fileInput.files[0]));
       const url = `${API}/api/descargar_pdf_corregido/${encodeURIComponent(nombreDocx)}`;
       const base = nombreDocx.replace(/\.docx$/i, ".pdf");
       await downloadViaFetch(url, base);
-    }catch(e){ alert("No se pudo descargar el PDF.\n\n" + e.message); }
+    }catch(e){ await dlgAlert("No se pudo descargar el PDF.\n\n" + e.message, { variant: "danger" }); }
   });
 
   async function corregirConBackend({ engineName, endpoint, buildFormData, badgeValue }) {
     const f = archivoActual;
 if(!f){
-  alert("Selecciona primero un .docx");
+  await dlgAlert("Selecciona primero un .docx", { variant: "warning" });
   return;
 }
 
@@ -218,7 +229,9 @@ if(!f){
       console.error(e);
       showLoader("corr", false);
       setEstado("Error al corregir / renderizar.");
-      alert("Error al corregir / renderizar.\n\n" + e.message);
+      await dlgAlert("Error al corregir / renderizar.\n\n" + e.message, {
+        variant: "danger",
+      });
       setBadge("");
     }finally{
       btnCorregir.disabled = false;

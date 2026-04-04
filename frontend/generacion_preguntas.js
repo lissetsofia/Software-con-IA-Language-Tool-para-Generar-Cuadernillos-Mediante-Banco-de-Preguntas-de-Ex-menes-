@@ -69,15 +69,29 @@ function repararEstadoModales() {
   }, 0);
 }
 
-function uiAlert(msg) {
-  alert(msg);
-  setTimeout(repararEstadoModales, 0);
+function uiAlert(msg, opts) {
+  const p =
+    window.EvaluniaDialog && typeof window.EvaluniaDialog.alert === "function"
+      ? window.EvaluniaDialog.alert(msg, opts || {})
+      : Promise.resolve(window.alert(msg));
+  return p.then(() => {
+    setTimeout(repararEstadoModales, 0);
+  });
 }
 
-function uiConfirm(msg) {
-  const ok = confirm(msg);
+function uiConfirm(msg, opts) {
+  if (
+    window.EvaluniaDialog &&
+    typeof window.EvaluniaDialog.confirm === "function"
+  ) {
+    return window.EvaluniaDialog.confirm(msg, opts || {}).then((ok) => {
+      setTimeout(repararEstadoModales, 0);
+      return ok;
+    });
+  }
+  const ok = window.confirm(msg);
   setTimeout(repararEstadoModales, 0);
-  return ok;
+  return Promise.resolve(ok);
 }
 
 window.addEventListener("focus", () => {
@@ -168,7 +182,16 @@ window.initGeneracionPreguntas = function () {
 $(document).on("click", ".eliminar-examen", async function () {
   const id = $(this).data("id");
 
-  if (!confirm("¿Estás seguro de eliminar este examen?")) return;
+  if (
+    !(await uiConfirm("¿Estás seguro de eliminar este examen?", {
+      variant: "danger",
+      title: "Eliminar examen",
+      confirmLabel: "Eliminar",
+      dangerous: true,
+    }))
+  ) {
+    return;
+  }
 
   try {
     const res = await fetch(`http://localhost:5050/api/examenes/${id}`, {
@@ -177,14 +200,14 @@ $(document).on("click", ".eliminar-examen", async function () {
 
     const data = await res.json();
     if (res.ok) {
-      alert("✅ " + data.mensaje);
+      await uiAlert("✅ " + data.mensaje);
       cargarExamenes();
     } else {
-      alert("❌ " + (data.error || "Error al eliminar examen"));
+      await uiAlert("❌ " + (data.error || "Error al eliminar examen"));
     }
   } catch (err) {
     console.error("Error eliminando examen:", err);
-    alert("❌ Error al conectar con el servidor");
+    await uiAlert("❌ Error al conectar con el servidor");
   }
 });
 
@@ -194,7 +217,7 @@ async function importarExamen() {
   const btnImportar = document.getElementById("btnImportar");
 
   if (!archivo) {
-    alert("Selecciona un archivo primero");
+    await uiAlert("Selecciona un archivo primero");
     return;
   }
 
@@ -209,18 +232,18 @@ async function importarExamen() {
 
     const resultado = await res.json();
     if (resultado.exito) {
-      alert("✅ Examen importado correctamente");
+      await uiAlert("✅ Examen importado correctamente");
 
       // 🔒 Desactiva el botón después de importar exitosamente
       document.getElementById("btnImportar").disabled = true;
       // Recarga tabla
       cargarExamenes();
     } else {
-      alert("❌ " + (resultado.error || "Error al importar"));
+      await uiAlert("❌ " + (resultado.error || "Error al importar"));
     }
   } catch (err) {
     console.error(err);
-    alert("❌ Error al conectar con el servidor");
+    await uiAlert("❌ Error al conectar con el servidor");
   }
 }
 //  Para exportar examenes
@@ -256,7 +279,7 @@ async function exportarExamenSeleccionado(formato) {
       if (res?.ok) {
         console.log("✅ Guardado en:", res.path);
       } else if (!res?.canceled) {
-        alert(
+        await uiAlert(
           "❌ No se pudo exportar: " + (res?.message || "Error desconocido")
         );
       }
@@ -268,7 +291,7 @@ async function exportarExamenSeleccionado(formato) {
     }
   } catch (e) {
     console.error("Error exportando:", e);
-    alert("❌ Error exportando.");
+    await uiAlert("❌ Error exportando.");
   } finally {
     cerrarModalExportar();
   }
@@ -388,7 +411,15 @@ async function renderTemas() {
 
   $tabla.on("click.temasBanco", ".btn-toggle-tema", async function () {
     const id = this.dataset.id;
-    if (!confirm("¿Cambiar el estado de este tema?")) return;
+    if (
+      !(await uiConfirm("¿Cambiar el estado de este tema?", {
+        variant: "warning",
+        title: "Cambiar estado del tema",
+        confirmLabel: "Sí, cambiar",
+      }))
+    ) {
+      return;
+    }
 
     try {
       const r = await fetch(`${window.TEMAS_API_BASE}/${id}/toggle`, {
@@ -397,14 +428,14 @@ async function renderTemas() {
       const d = await r.json();
 
       if (!r.ok) {
-        alert(d.error || "No se pudo cambiar el estado.");
+        await uiAlert(d.error || "No se pudo cambiar el estado.");
         return;
       }
 
       await renderTemas();
     } catch (e) {
       console.error(e);
-      alert("Error de red.");
+      await uiAlert("Error de red.");
     }
   });
 
@@ -546,7 +577,7 @@ function destroyDtWrappersBanco() {
         });
         const d = await r.json();
         if (!r.ok) {
-          alert(d.error || "Error al crear.");
+          await uiAlert(d.error || "Error al crear.");
           return;
         }
       } else if (modo === "editar") {
@@ -559,7 +590,7 @@ function destroyDtWrappersBanco() {
         });
         const d = await r.json();
         if (!r.ok) {
-          alert(d.error || "Error al actualizar.");
+          await uiAlert(d.error || "Error al actualizar.");
           return;
         }
       }
@@ -567,7 +598,7 @@ function destroyDtWrappersBanco() {
       await renderTemas();
     } catch (e2) {
       console.error(e2);
-      alert("Error de red.");
+      await uiAlert("Error de red.");
     } finally {
       const els = panelTemaBancoEls();
       if (els.btnG) els.btnG.disabled = false;
@@ -598,7 +629,7 @@ $(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function 
     await renderTemas();
   } catch (e) {
     console.error(e);
-    alert("No se pudo cargar Temas.");
+    await uiAlert("No se pudo cargar Temas.");
   }
 });
 
@@ -718,7 +749,7 @@ $(document).on("click", ".btn-buscar", async function () {
   console.log("[Buscar] id =", raw, "->", id);
 
   if (!Number.isInteger(id) || id <= 0) {
-    alert("ID de examen inválido");
+    await uiAlert("ID de examen inválido");
     return;
   }
 
@@ -755,7 +786,7 @@ $(document).on("click", ".btn-buscar", async function () {
     }).show();
   } catch (e) {
     console.error(e);
-    alert("No se pudo preparar el examen.");
+    await uiAlert("No se pudo preparar el examen.");
   } finally {
     btn.dataset.loading = "0";
     btn.disabled = false;
@@ -849,7 +880,7 @@ $(document).on("click", ".btn-ver-tema", async function () {
     abrirModalSobre("modalBuscar", "modalPreguntas");
   } catch (e) {
     console.error(e);
-    alert("No se pudieron cargar las preguntas.");
+    await uiAlert("No se pudieron cargar las preguntas.");
   }
 });
 
@@ -997,7 +1028,11 @@ async function renderGruposLeftPanel() {
       btnDel.onclick = async (ev) => {
       ev.stopPropagation();
       try {
-        if (!confirm("¿Eliminar este grupo?")) return;
+        if (
+          !(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" }))
+        ) {
+          return;
+        }
 
         let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
           method: "DELETE",
@@ -1007,9 +1042,15 @@ async function renderGruposLeftPanel() {
         console.log("[GRUPO DELETE] status inicial =", r.status, d);
 
         if (!r.ok && r.status === 409) {
-          const continuar = confirm(
+          const continuar = await uiConfirm(
             (d.error || "El grupo tiene cuotas asociadas.") +
-              "\n\n¿Deseas eliminarlo de todas formas?"
+              "\n\n¿Deseas eliminarlo de todas formas?",
+            {
+              variant: "warning",
+              title: "Forzar eliminación",
+              confirmLabel: "Sí, eliminar",
+              dangerous: true,
+            }
           );
           if (!continuar) return;
 
@@ -1022,7 +1063,7 @@ async function renderGruposLeftPanel() {
         }
 
         if (!r.ok) {
-          alert(d.error || "No se pudo eliminar");
+          await uiAlert(d.error || "No se pudo eliminar");
           return;
         }
 
@@ -1030,7 +1071,7 @@ async function renderGruposLeftPanel() {
           window.grupoSeleccionado = null;
         }
 
-        alert("✅ Grupo eliminado correctamente");
+        await uiAlert("✅ Grupo eliminado correctamente");
         
         
        setTimeout(() => {
@@ -1045,7 +1086,7 @@ async function renderGruposLeftPanel() {
 
       } catch (e) {
         console.error(e);
-        alert("Error de red.");
+        await uiAlert("Error de red.");
       }
     };
       right.appendChild(btnCfg);
@@ -1204,18 +1245,20 @@ async function renderGruposModal() {
           method: "PATCH",
         });
         const d = await r.json();
-        if (!r.ok) return alert(d.error || "No se pudo cambiar el estado.");
+        if (!r.ok) return await uiAlert(d.error || "No se pudo cambiar el estado.");
         await renderGruposModal();
         await renderGruposLeftPanel();
       } catch (e) {
         console.error(e);
-        alert("Error de red.");
+        await uiAlert("Error de red.");
       }
     });
 
     $("#tabla-grupos").on("click", ".btn-eliminar-grupo", async function () {
   const id = this.dataset.id;
-  if (!confirm("¿Eliminar este grupo?")) return;
+  if (!(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" }))) {
+    return;
+  }
 
   try {
     let r = await fetch(`${window.GRUPOS_API_BASE}/${id}`, {
@@ -1226,9 +1269,15 @@ async function renderGruposModal() {
     console.log("[GRUPO DELETE TABLA] status inicial =", r.status, d);
 
     if (!r.ok && r.status === 409) {
-      const continuar = confirm(
+      const continuar = await uiConfirm(
         (d.error || "El grupo tiene cuotas asociadas.") +
-          "\n\n¿Deseas eliminarlo de todas formas?"
+          "\n\n¿Deseas eliminarlo de todas formas?",
+        {
+          variant: "warning",
+          title: "Forzar eliminación",
+          confirmLabel: "Sí, eliminar",
+          dangerous: true,
+        }
       );
       if (!continuar) return;
 
@@ -1241,7 +1290,7 @@ async function renderGruposModal() {
     }
 
     if (!r.ok) {
-      alert(d.error || "No se pudo eliminar");
+      await uiAlert(d.error || "No se pudo eliminar");
       return;
     }
 
@@ -1249,12 +1298,12 @@ async function renderGruposModal() {
       window.grupoSeleccionado = null;
     }
 
-    alert("✅ Grupo eliminado correctamente");
+    await uiAlert("✅ Grupo eliminado correctamente");
     await renderGruposModal();
     await renderGruposLeftPanel();
   } catch (e) {
     console.error(e);
-    alert("Error de red.");
+    await uiAlert("Error de red.");
   }
 });
   } else {
@@ -1275,7 +1324,7 @@ $(document).on("shown.bs.modal", "#modalGrupos", async function () {
     await renderGruposModal();
   } catch (e) {
     console.error(e);
-    alert("No se pudo cargar grupos.");
+    await uiAlert("No se pudo cargar grupos.");
   }
 });
 
@@ -1362,14 +1411,14 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
     const cant = row.querySelector(".inp-cant").value;
     if (!temaId || !cant) continue;
     if (seen.has(temaId)) {
-      alert("No repitas el mismo tema.");
+      await uiAlert("No repitas el mismo tema.");
       return;
     }
     seen.add(temaId);
     cuotas.push({ tema_id: Number(temaId), cantidad: Number(cant) });
   }
   if (!clave || cuotas.length === 0) {
-    alert("Completa la clave y al menos una cuota.");
+    await uiAlert("Completa la clave y al menos una cuota.");
     return;
   }
 
@@ -1384,17 +1433,17 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
     const j = await r.json().catch(() => ({}));
     if (r.ok) idgrupo = j.idgrupo ?? j.id; // según lo que devuelva tu API
     else if (r.status !== 409)
-      return alert(j.error || "No se pudo crear el grupo.");
+      return await uiAlert(j.error || "No se pudo crear el grupo.");
   } catch (e) {
     console.error(e);
-    return alert("Error de red al crear el grupo.");
+    return await uiAlert("Error de red al crear el grupo.");
   }
 
   // si no vino el id, búscalo por clave
   if (!idgrupo) {
     const todos = await fetchGrupos(true);
     idgrupo = (todos.find((g) => g.clave === clave) || {}).idgrupo;
-    if (!idgrupo) return alert("No se pudo obtener el id del grupo.");
+    if (!idgrupo) return await uiAlert("No se pudo obtener el id del grupo.");
   }
 
   // 2) guardar cuotas
@@ -1407,7 +1456,7 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
     await renderGruposLeftPanel();
   } catch (e2) {
     console.error(e2);
-    alert(e2.message || "No se pudieron guardar las cuotas.");
+    await uiAlert(e2.message || "No se pudieron guardar las cuotas.");
   }
 });
 
@@ -1516,12 +1565,12 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
   try {
     cuotas = leerCuotasDe("#cuotasContainerEdit");
   } catch (err) {
-    alert(err.message);
+    await uiAlert(err.message);
     return;
   }
 
   if (!nuevaClave || cuotas.length === 0) {
-    alert("Completa clave y al menos una cuota.");
+    await uiAlert("Completa clave y al menos una cuota.");
     return;
   }
 
@@ -1546,7 +1595,7 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
     //new bootstrap.Modal(document.getElementById("modalGrupos")).show();
   } catch (e2) {
     console.error(e2);
-    alert(e2.message || "Error al actualizar cuotas.");
+    await uiAlert(e2.message || "Error al actualizar cuotas.");
   }
 });
 // --- Gestión de apilamiento entre tu modal custom y los modales Bootstrap ---
@@ -1796,7 +1845,7 @@ async function guardarUltimoDeDescargasDocx() {
     pattern: "\\.(docx)$",
     suggestedName: window.__ultimoGenerado?.docxName || "examen.docx",
   });
-  if (!res?.ok && !res?.canceled) alert(res?.message || "No se pudo guardar.");
+  if (!res?.ok && !res?.canceled) await uiAlert(res?.message || "No se pudo guardar.");
 }
 async function guardarUltimoDeDescargasPdf() {
   const res = await window.api?.saveLastFromFolder?.({
@@ -1805,7 +1854,7 @@ async function guardarUltimoDeDescargasPdf() {
     pattern: "\\.(pdf)$",
     suggestedName: window.__ultimoGenerado?.pdfName || "examen.pdf",
   });
-  if (!res?.ok && !res?.canceled) alert(res?.message || "No se pudo guardar.");
+  if (!res?.ok && !res?.canceled) await uiAlert(res?.message || "No se pudo guardar.");
 }
 
 // Delegación: capturamos clicks aunque el botón se inserte luego
@@ -1826,7 +1875,7 @@ document.addEventListener("click", async (ev) => {
         console.log("[GUARDAR DOCX] Plan B: guardarDesdeUrl", u, n);
         const r = await window.api?.guardarDesdeUrl?.(u, n);
         if (!r?.ok && !r?.canceled)
-          alert(r?.message || "No se pudo guardar DOCX.");
+          await uiAlert(r?.message || "No se pudo guardar DOCX.");
         return;
       }
 
@@ -1839,10 +1888,10 @@ document.addEventListener("click", async (ev) => {
         suggestedName: n,
       });
       if (!res?.ok && !res?.canceled)
-        alert(res?.message || "No se pudo guardar DOCX.");
+        await uiAlert(res?.message || "No se pudo guardar DOCX.");
     } catch (e) {
       console.error(e);
-      alert("Error guardando DOCX.");
+      await uiAlert("Error guardando DOCX.");
     }
   }
 
@@ -1860,7 +1909,7 @@ document.addEventListener("click", async (ev) => {
         console.log("[GUARDAR PDF] Plan B: guardarDesdeUrl", u, n);
         const r = await window.api?.guardarDesdeUrl?.(u, n);
         if (!r?.ok && !r?.canceled)
-          alert(r?.message || "No se pudo guardar PDF.");
+          await uiAlert(r?.message || "No se pudo guardar PDF.");
         return;
       }
 
@@ -1872,10 +1921,10 @@ document.addEventListener("click", async (ev) => {
         suggestedName: n,
       });
       if (!res?.ok && !res?.canceled)
-        alert(res?.message || "No se pudo guardar PDF.");
+        await uiAlert(res?.message || "No se pudo guardar PDF.");
     } catch (e) {
       console.error(e);
-      alert("Error guardando PDF.");
+      await uiAlert("Error guardando PDF.");
     }
   }
 });
@@ -2453,7 +2502,7 @@ async function volverABancoResumen() {
       }).show();
     } catch (e) {
       console.error(e);
-      alert("No se pudo cargar el banco de preguntas.");
+      await uiAlert("No se pudo cargar el banco de preguntas.");
     }
     console.log("[BANCO][abrirModalBancoPreguntas] modal mostrado");
   }
@@ -2523,7 +2572,7 @@ async function volverABancoResumen() {
     const temaId = document.getElementById("bancoTemaImportar").value;
     const file = document.getElementById("bancoFilePreguntas").files[0];
     if (!temaId || !file) {
-      alert("Selecciona un tema y un archivo DOCX.");
+      await uiAlert("Selecciona un tema y un archivo DOCX.");
       return;
     }
 
@@ -2537,7 +2586,7 @@ async function volverABancoResumen() {
     });
     const j = await r.json();
     if (!r.ok) {
-      alert(j.error || "Error al importar tema.");
+      await uiAlert(j.error || "Error al importar tema.");
       return;
     }
 
@@ -2555,13 +2604,22 @@ async function volverABancoResumen() {
   };
 
   window.bancoEliminar = async function (id) {
-    if (!confirm("¿Eliminar este registro del banco?")) return;
+    if (
+      !(await uiConfirm("¿Eliminar este registro del banco?", {
+        variant: "danger",
+        title: "Eliminar del banco",
+        confirmLabel: "Eliminar",
+        dangerous: true,
+      }))
+    ) {
+      return;
+    }
     const r = await fetch(`${window.BANCO_API_BASE}/${id}`, {
       method: "DELETE",
     });
     const j = await r.json();
     if (!r.ok) {
-      alert(j.error || "No se pudo eliminar.");
+      await uiAlert(j.error || "No se pudo eliminar.");
       return;
     }
     await recargarBancoDespuesDeCambio();
@@ -2612,15 +2670,15 @@ async function volverABancoResumen() {
         );
         const j = await r.json();
         if (!r.ok) {
-          alert(j.error || "No se pudo guardar el solucionario.");
+          await uiAlert(j.error || "No se pudo guardar el solucionario.");
           return;
         }
 
-        alert("✅ Solucionario guardado correctamente.");
+        await uiAlert("✅ Solucionario guardado correctamente.");
         await recargarBancoDespuesDeCambio();
       } catch (err) {
         console.error(err);
-        alert("❌ Error de red al guardar el solucionario.");
+        await uiAlert("❌ Error de red al guardar el solucionario.");
       }
     };
 
@@ -2643,7 +2701,7 @@ async function volverABancoResumen() {
       });
       const j = await r.json();
       if (!r.ok) {
-        alert(j.error || "No se pudo actualizar el tema.");
+        await uiAlert(j.error || "No se pudo actualizar el tema.");
         return;
       }
     }
@@ -2658,7 +2716,7 @@ async function volverABancoResumen() {
       );
       const j = await r.json();
       if (!r.ok) {
-        alert(j.error || "No se pudo reemplazar DOCX de preguntas.");
+        await uiAlert(j.error || "No se pudo reemplazar DOCX de preguntas.");
         return;
       }
     }
@@ -2673,7 +2731,7 @@ async function volverABancoResumen() {
       );
       const j = await r.json();
       if (!r.ok) {
-        alert(j.error || "No se pudo reemplazar solucionario.");
+        await uiAlert(j.error || "No se pudo reemplazar solucionario.");
         return;
       }
     }

@@ -11,7 +11,7 @@ const API = (
 window.descargarDocBanco = async function (id) {
   try {
     if (!id) {
-      alert("ID inválido.");
+      await uiAlert("ID inválido.");
       return;
     }
 
@@ -19,7 +19,7 @@ window.descargarDocBanco = async function (id) {
     window.open(url, "_blank", "noopener");
   } catch (e) {
     console.error(e);
-    alert("No se pudo abrir el documento.");
+    await uiAlert("No se pudo abrir el documento.");
   }
 };
 
@@ -66,15 +66,29 @@ function repararEstadoModales() {
   }, 0);
 }
 
-function uiAlert(msg) {
-  alert(msg);
-  setTimeout(repararEstadoModales, 0);
+function uiAlert(msg, opts) {
+  const p =
+    window.EvaluniaDialog && typeof window.EvaluniaDialog.alert === "function"
+      ? window.EvaluniaDialog.alert(msg, opts || {})
+      : Promise.resolve(window.alert(msg));
+  return p.then(() => {
+    setTimeout(repararEstadoModales, 0);
+  });
 }
 
-function uiConfirm(msg) {
-  const ok = confirm(msg);
+function uiConfirm(msg, opts) {
+  if (
+    window.EvaluniaDialog &&
+    typeof window.EvaluniaDialog.confirm === "function"
+  ) {
+    return window.EvaluniaDialog.confirm(msg, opts || {}).then((ok) => {
+      setTimeout(repararEstadoModales, 0);
+      return ok;
+    });
+  }
+  const ok = window.confirm(msg);
   setTimeout(repararEstadoModales, 0);
-  return ok;
+  return Promise.resolve(ok);
 }
 
 window.addEventListener("focus", () => {
@@ -436,7 +450,7 @@ function validarTemasUnicosMatriz() {
     : `<option value="">— No hay temas —</option>`;
 
   function addFila($tbody, preset) {
-    if (!TEMAS.length) return alert("No hay temas creados todavía.");
+    if (!TEMAS.length) return;
    const temaElegidoId =
   preset?.tema_id !== undefined && preset?.tema_id !== null
     ? Number(preset.tema_id)
@@ -552,7 +566,11 @@ function validarTemasUnicosMatriz() {
     actualizarEstadoBtnGenerarMatriz();
 
     // Botón: agregar fila
-    $btnAdd.onclick = () => {
+    $btnAdd.onclick = async () => {
+      if (!TEMAS.length) {
+        await uiAlert("No hay temas creados todavía.");
+        return;
+      }
       addFila($tbody);
       saveDraft();
     };
@@ -636,22 +654,22 @@ function validarTemasUnicosMatriz() {
     // Botón: generar matriz
     $btnGen.onclick = async () => {
   if (!FILAS.length) {
-    alert("Agrega al menos un tema.");
+    await uiAlert("Agrega al menos un tema.");
     return;
   }
     try {
       validarTemasUnicosMatriz();
     } catch (e) {
-      alert(e.message || "Hay temas repetidos.");
+      await uiAlert(e.message || "Hay temas repetidos.");
       return;
     }
   for (const r of FILAS) {
     if (!r.tema_id) {
-      alert("Selecciona el tema en todas las filas.");
+      await uiAlert("Selecciona el tema en todas las filas.");
       return;
     }
     if (!r.file) {
-      alert(`Falta importar el .docx para "${r.tema_nombre || "tema"}".`);
+      await uiAlert(`Falta importar el .docx para "${r.tema_nombre || "tema"}".`);
       return;
     }
   }
@@ -719,7 +737,7 @@ function validarTemasUnicosMatriz() {
 
     (bootstrap.Modal.getInstance(this) || new bootstrap.Modal(this)).hide();
   } catch (e) {
-    alert(e.message || "No se pudo generar.");
+    await uiAlert(e.message || "No se pudo generar.");
   } finally {
     $btnGen.textContent = oldText;
     actualizarEstadoBtnGenerarMatriz();
@@ -893,7 +911,7 @@ window.__matrizSeleccionada = null;
     return;
   }
 
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       e.preventDefault();
       console.log("[MATRIZ] Click en btnImportarOK");
 
@@ -906,7 +924,7 @@ window.__matrizSeleccionada = null;
           const selMat = document.querySelector(sel.selMatriz);
           const id = selMat?.value;
           if (!id) {
-            alert("Selecciona una matriz de la base de datos.");
+            await uiAlert("Selecciona una matriz de la base de datos.");
             return;
           }
           window.__matrizSeleccionada = {
@@ -919,13 +937,13 @@ window.__matrizSeleccionada = null;
             "[MATRIZ] Seleccionada matriz BD:",
             window.__matrizSeleccionada
           );
-          alert("✅ Matriz importada desde BD.");
+          await uiAlert("✅ Matriz importada desde BD.");
         } else {
           // ---- MODO ARCHIVO DOCX ----
           const inp = document.querySelector(sel.file);
           const f = inp?.files?.[0];
           if (!f) {
-            alert("Elige un archivo .docx.");
+            await uiAlert("Elige un archivo .docx.");
             return;
           }
           window.__matrizSeleccionada = {
@@ -937,7 +955,7 @@ window.__matrizSeleccionada = null;
             "[MATRIZ] Seleccionada matriz DOCX:",
             window.__matrizSeleccionada
           );
-          alert("✅ Matriz DOCX seleccionada.");
+          await uiAlert("✅ Matriz DOCX seleccionada.");
         }
 
         // Cerrar modal
@@ -950,7 +968,7 @@ window.__matrizSeleccionada = null;
         }
       } catch (e2) {
         console.error(e2);
-        alert(e2.message || "No se pudo importar la matriz.");
+        await uiAlert(e2.message || "No se pudo importar la matriz.");
       }
     };
   });
@@ -1024,7 +1042,7 @@ const esc = (s) =>
       }[c])
   );
 
-function abrirModalBanco() {
+async function abrirModalBanco() {
   const modalBancoEl = getModalBancoEl();
   if (!modalBancoEl) {
     console.error("[BANCO] No existe #modalBancoPreguntasCuad");
@@ -1064,7 +1082,7 @@ function abrirModalBanco() {
     });
   } catch (e) {
     console.error("[BANCO] Error abriendo modal banco:", e);
-    alert("No se pudo abrir el banco de preguntas.");
+    await uiAlert("No se pudo abrir el banco de preguntas.");
   }
 }
 
@@ -1412,7 +1430,7 @@ document.addEventListener("click", (ev) => {
       .filter((it) => it.tema_id && it.doc_ids.length);
 
     if (!items.length) {
-      alert("Selecciona al menos una pregunta en el banco.");
+      await uiAlert("Selecciona al menos una pregunta en el banco.");
       return;
     }
 
@@ -1441,7 +1459,7 @@ document.addEventListener("click", (ev) => {
           const temas = data.faltantes
             .map((f) => f.tema_nombre || f.tema || "")
             .filter(Boolean);
-          alert(
+          await uiAlert(
             "No se puede generar el solucionario.\nFaltan solucionarios de:\n- " +
               [...new Set(temas)].join("\n- ")
           );
@@ -1479,7 +1497,7 @@ document.addEventListener("click", (ev) => {
       }
     } catch (e) {
       console.error(e);
-      alert(e.message || "No se pudo generar la matriz desde el banco.");
+      await uiAlert(e.message || "No se pudo generar la matriz desde el banco.");
     }
   }
 
@@ -1540,7 +1558,7 @@ document.addEventListener("hidden.bs.modal", (ev) => {
     try {
       const sel = window.__matrizSeleccionada;
       if (!sel) {
-        alert("Primero importa/selecciona una matriz.");
+        await uiAlert("Primero importa/selecciona una matriz.");
         resetBtn();
         return;
       }
@@ -1592,11 +1610,11 @@ document.addEventListener("hidden.bs.modal", (ev) => {
   URL.revokeObjectURL(a.href);
 }
 
-      alert("Exámenes por grupo generados correctamente.");
+      await uiAlert("Exámenes por grupo generados correctamente.");
       resetBtn();
     } catch (e) {
       console.error(e);
-      alert(e.message || "No se pudieron generar los exámenes.");
+      await uiAlert(e.message || "No se pudieron generar los exámenes.");
       resetBtn();
     }
   });
@@ -1863,7 +1881,7 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
     .toUpperCase();
   const nombre = document.getElementById("grupo-nombre").value.trim();
 
-  if (!clave) return alert("La clave es requerida");
+  if (!clave) return await uiAlert("La clave es requerida");
 
   let cuotas = [];
   try {
@@ -1872,7 +1890,7 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
       orden: idx + 1,
     }));
   } catch (e) {
-    alert(e.message || "No se pudieron leer las cuotas.");
+    await uiAlert(e.message || "No se pudieron leer las cuotas.");
     return;
   }
 
@@ -1886,7 +1904,7 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
       }
     );
 
-    if (!ok) return alert(data?.error || "No se pudo guardar el grupo.");
+    if (!ok) return await uiAlert(data?.error || "No se pudo guardar el grupo.");
 
     const idgrupo = id || data.idgrupo || data.id;
     if (!idgrupo) throw new Error("No se obtuvo el id del grupo.");
@@ -1900,7 +1918,7 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
     await renderGruposCuadSimple();
   } catch (e) {
     console.error(e);
-    alert(e.message || "No se pudo guardar.");
+    await uiAlert(e.message || "No se pudo guardar.");
   }
 });
 
@@ -1935,7 +1953,8 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
 
     // ELIMINAR
     if (btn.classList.contains("btn-del")) {
-      if (!uiConfirm("¿Eliminar este grupo?")) return;
+      if (!(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" })))
+        return;
 
       // intento normal
       let res = await __getJSON(`${GRUPOS_API}/${id}`, { method: "DELETE" });
@@ -1943,8 +1962,14 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
       // si el backend devuelve mensaje tipo “usa force=1”
       const msg = (res.data?.error || "").toLowerCase();
       if (!res.ok && (msg.includes("force=1") || msg.includes("forzar"))) {
-        const okForce = confirm(
-          "El grupo tiene cuotas/relaciones. ¿Eliminar de todos modos (force)?"
+        const okForce = await uiConfirm(
+          "El grupo tiene cuotas/relaciones. ¿Eliminar de todos modos (force)?",
+          {
+            variant: "warning",
+            title: "Eliminar grupo",
+            confirmLabel: "Sí, eliminar",
+            dangerous: true,
+          }
         );
         if (okForce) {
           // prueba con querystring
@@ -1963,7 +1988,7 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
       }
 
       if (!res.ok) {
-        alert(res.data?.error || "No se pudo eliminar.");
+        await uiAlert(res.data?.error || "No se pudo eliminar.");
         return;
 
       }
@@ -2283,10 +2308,10 @@ function getGruposFiltradosPorImportados(grupos = []) {
     if (!btn) return;
 
     const grupoId = Number($selGrupo()?.value || 0);
-    if (!EXAMEN_ID_ACTUAL || !grupoId) return alert("Selecciona examen y grupo.");
+    if (!EXAMEN_ID_ACTUAL || !grupoId) return await uiAlert("Selecciona examen y grupo.");
 
     const el = $modal();
-    if (!el) return alert("Falta #modalTiposTema en tu HTML.");
+    if (!el) return await uiAlert("Falta #modalTiposTema en tu HTML.");
     if (el.parentElement !== document.body) document.body.appendChild(el);
 
     try {
@@ -2294,7 +2319,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
       bootstrap.Modal.getOrCreateInstance(el, { backdrop: "static" }).show();
     } catch (e) {
       console.error(e);
-      alert(e.message || "No se pudo listar tipos.");
+      await uiAlert(e.message || "No se pudo listar tipos.");
     }
   });
 
@@ -2304,11 +2329,11 @@ function getGruposFiltradosPorImportados(grupos = []) {
     if (!btn) return;
 
     const grupoId = Number($selGrupo()?.value || 0);
-    if (!EXAMEN_ID_ACTUAL || !grupoId) return alert("Selecciona examen y grupo.");
+    if (!EXAMEN_ID_ACTUAL || !grupoId) return await uiAlert("Selecciona examen y grupo.");
 
     const codigo = norm($txt()?.value);
     if (!/^[A-Z]{1,2}$/.test(codigo)) {
-      alert("Código inválido (usa 1–2 letras, ej: R).");
+      await uiAlert("Código inválido (usa 1–2 letras, ej: R).");
       return;
     }
 
@@ -2316,7 +2341,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
     try {
       const existentes = await listarTipos(EXAMEN_ID_ACTUAL, grupoId);
       if (existentes.some((t) => norm(t.codigo) === codigo)) {
-        alert(`El tipo "${codigo}" ya existe.`);
+        await uiAlert(`El tipo "${codigo}" ya existe.`);
         return;
       }
 
@@ -2335,7 +2360,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
       await cargarClaves(EXAMEN_ID_ACTUAL, grupoId); // refresca tabla claves
     } catch (e) {
       console.error(e);
-      alert(e.message || "No se pudo agregar el tipo.");
+      await uiAlert(e.message || "No se pudo agregar el tipo.");
     } finally {
       btn.disabled = false;
     }
@@ -2347,7 +2372,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
     if (!btn) return;
 
     const grupoId = Number($selGrupo()?.value || 0);
-    if (!EXAMEN_ID_ACTUAL || !grupoId) return alert("Selecciona examen y grupo.");
+    if (!EXAMEN_ID_ACTUAL || !grupoId) return await uiAlert("Selecciona examen y grupo.");
 
     const id = Number(btn.dataset.id);
     const nuevoActivo = Number(btn.dataset.act) === 1;
@@ -2359,7 +2384,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
       await cargarClaves(EXAMEN_ID_ACTUAL, grupoId); // para ocultar/mostrar columnas
     } catch (e) {
       console.error(e);
-      alert(e.message || "No se pudo cambiar el estado.");
+      await uiAlert(e.message || "No se pudo cambiar el estado.");
     } finally {
       btn.disabled = false;
     }
@@ -2450,14 +2475,14 @@ function getGruposFiltradosPorImportados(grupos = []) {
       const selGrupo = document.getElementById("selGrupo");
       const grupoId = Number(selGrupo?.value || 0);
       if (!EXAMEN_ID_ACTUAL || !grupoId) {
-        alert("Selecciona examen y grupo.");
+        await uiAlert("Selecciona examen y grupo.");
         return;
       }
       await guardarClavesServer(EXAMEN_ID_ACTUAL, grupoId, CLAVES);
-      alert("✅ Claves guardadas en BD.");
+      await uiAlert("✅ Claves guardadas en BD.");
     } catch (e) {
       console.error(e);
-      alert(e.message || "No se pudo guardar.");
+      await uiAlert(e.message || "No se pudo guardar.");
     }
   });
 
@@ -2676,7 +2701,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
         console.log("[EXAM] Importación correcta y lista recargada desde BD.");
       } catch (e) {
         console.error(e);
-        alert("No se pudo importar exámenes: " + (e.message || ""));
+        await uiAlert("No se pudo importar exámenes: " + (e.message || ""));
       }
     });
   })();
@@ -2716,7 +2741,14 @@ function getGruposFiltradosPorImportados(grupos = []) {
       return;
     }
 
-    if (!confirm("¿Eliminar este examen importado?")) {
+    if (
+      !(await uiConfirm("¿Eliminar este examen importado?", {
+        variant: "danger",
+        title: "Eliminar examen",
+        confirmLabel: "Eliminar",
+        dangerous: true,
+      }))
+    ) {
       btn.dataset.running = "0";
       return;
     }
@@ -2739,7 +2771,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
       if (EXAMEN_ID_ACTUAL === id) EXAMEN_ID_ACTUAL = null;
     } catch (err) {
       console.error(err);
-      alert("No se pudo eliminar: " + (err.message || ""));
+      await uiAlert("No se pudo eliminar: " + (err.message || ""));
     } finally {
       btn.dataset.running = "0";
     }
@@ -2773,7 +2805,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
             firstRow.classList.add("table-primary");
           }
         } else {
-          alert("Primero importa o selecciona un examen.");
+          await uiAlert("Primero importa o selecciona un examen.");
           return;
         }
       }
@@ -2781,7 +2813,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
       // 2) cargar grupos desde BD
       await cargarGrupos();
       if (!Array.isArray(GRUPOS) || !GRUPOS.length) {
-  alert("No existe examen importado para ninguno de los grupos registrados o esta mal exscrito debe ser este formato Grupo_X");
+  await uiAlert("No existe examen importado para ninguno de los grupos registrados o esta mal exscrito debe ser este formato Grupo_X");
   return;
 }
 
@@ -2877,7 +2909,7 @@ btnAleatorizarPQ?.addEventListener("click", async () => {
     const selGrupo = document.getElementById("selGrupo");
     const grupoId = Number(selGrupo?.value || 0);
     if (!EXAMEN_ID_ACTUAL || !grupoId) {
-      alert("Selecciona examen y grupo.");
+      await uiAlert("Selecciona examen y grupo.");
       return;
     }
 
@@ -2896,10 +2928,10 @@ btnAleatorizarPQ?.addEventListener("click", async () => {
     const total = incrementAleaCounter(EXAMEN_ID_ACTUAL, grupoId);
     renderAleaCounter(EXAMEN_ID_ACTUAL, grupoId);
 
-    alert(`✅ Aleatorización aplicada. Total: ${total}`);
+    await uiAlert(`✅ Aleatorización aplicada. Total: ${total}`);
   } catch (e) {
     console.error(e);
-    alert(e.message || "No se pudo aleatorizar.");
+    await uiAlert(e.message || "No se pudo aleatorizar.");
   }
 });
 
@@ -2917,7 +2949,7 @@ btnDescargar?.addEventListener("click", async () => {
     const grupoIdSel = Number(selGrupo?.value || 0);
 
     if (!EXAMEN_ID_ACTUAL || !grupoIdSel) {
-      alert("Selecciona examen y grupo.");
+      await uiAlert("Selecciona examen y grupo.");
       return;
     }
 
@@ -2928,7 +2960,7 @@ btnDescargar?.addEventListener("click", async () => {
     const examenIds = getExamenIdsImportados();
 
     if (!examenIds.length) {
-      alert("Primero importa exámenes.");
+      await uiAlert("Primero importa exámenes.");
       return;
     }
 
@@ -2962,7 +2994,7 @@ btnDescargar?.addEventListener("click", async () => {
     URL.revokeObjectURL(url);
   } catch (e) {
     console.error(e);
-    alert(e.message || "Fallo la descarga de temas.");
+    await uiAlert(e.message || "Fallo la descarga de temas.");
   } finally {
     btn.disabled = false;
     btn.innerHTML = oldHtml;
@@ -2983,7 +3015,7 @@ btnImprimirClaves?.addEventListener("click", async () => {
     const grupoIdSel = Number(selGrupo?.value || 0);
 
     if (!EXAMEN_ID_ACTUAL || !grupoIdSel) {
-      alert("Selecciona examen y grupo.");
+      await uiAlert("Selecciona examen y grupo.");
       return;
     }
 
@@ -2994,7 +3026,7 @@ btnImprimirClaves?.addEventListener("click", async () => {
 
     const examenIds = getExamenIdsImportados();
     if (!examenIds.length) {
-      alert("Primero importa exámenes.");
+      await uiAlert("Primero importa exámenes.");
       return;
     }
 
@@ -3024,7 +3056,7 @@ btnImprimirClaves?.addEventListener("click", async () => {
     }
   } catch (e) {
     console.error(e);
-    alert(e.message || "No se pudo imprimir claves.");
+    await uiAlert(e.message || "No se pudo imprimir claves.");
   } finally {
     btn.disabled = false;
     btn.innerHTML = oldHtml;
@@ -3305,7 +3337,7 @@ btnImprimirClaves?.addEventListener("click", async () => {
         });
         const d = await r.json();
         if (!r.ok) {
-          alert(d.error || "Error al crear.");
+          await uiAlert(d.error || "Error al crear.");
           return;
         }
       } else if (modo === "editar") {
@@ -3318,7 +3350,7 @@ btnImprimirClaves?.addEventListener("click", async () => {
         });
         const d = await r.json();
         if (!r.ok) {
-          alert(d.error || "Error al actualizar.");
+          await uiAlert(d.error || "Error al actualizar.");
           return;
         }
       }
@@ -3326,7 +3358,7 @@ btnImprimirClaves?.addEventListener("click", async () => {
       await renderTemasCuad();
     } catch (e2) {
       console.error(e2);
-      alert("Error de red.");
+      await uiAlert("Error de red.");
     } finally {
       const els = panelTemaCuadEls();
       if (els.btnG) els.btnG.disabled = false;
@@ -3512,7 +3544,15 @@ btnImprimirClaves?.addEventListener("click", async () => {
 
       $tabla.on("click.temasCuadTabla", ".btn-toggle-tema", async function () {
         const id = this.dataset.id;
-        if (!confirm("¿Cambiar el estado de este tema?")) return;
+        if (
+          !(await uiConfirm("¿Cambiar el estado de este tema?", {
+            variant: "warning",
+            title: "Cambiar estado del tema",
+            confirmLabel: "Sí, cambiar",
+          }))
+        ) {
+          return;
+        }
 
         try {
           const r = await fetch(`${window.TEMAS_API_BASE_CUAD}/${id}/toggle`, {
@@ -3520,13 +3560,13 @@ btnImprimirClaves?.addEventListener("click", async () => {
           });
           const d = await r.json();
           if (!r.ok) {
-            alert(d.error || "No se pudo cambiar el estado.");
+            await uiAlert(d.error || "No se pudo cambiar el estado.");
             return;
           }
           await renderTemasCuad();
         } catch (e) {
           console.error(e);
-          alert("Error de red.");
+          await uiAlert("Error de red.");
         }
       });
 
