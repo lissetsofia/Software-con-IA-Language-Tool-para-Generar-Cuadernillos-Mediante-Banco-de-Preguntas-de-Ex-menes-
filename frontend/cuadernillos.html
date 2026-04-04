@@ -560,10 +560,13 @@
    data-bs-backdrop="static"
   data-bs-keyboard="false"
 >
-  <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+  <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable cuad-modal-aleatorizacion-dialog">
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
-        <h5 class="modal-title">Gestionar tipo de tema</h5>
+        <h5 class="modal-title d-flex align-items-center gap-2 mb-0">
+          <i class="bi bi-shuffle cuad-alea-header-icon" aria-hidden="true"></i>
+          <span>Gestionar tipo de tema</span>
+        </h5>
         <button
           type="button"
           class="btn-close"
@@ -572,7 +575,7 @@
       </div>
 
       <div class="modal-body">
-        <div class="cuad-modal-toolbar">
+        <div class="cuad-modal-toolbar cuad-modal-toolbar--alea align-items-center flex-wrap gap-2">
           <input
             id="inpImportExams"
             type="file"
@@ -580,15 +583,17 @@
             multiple
             hidden
           />
-          <button id="btnImportarExamenes" type="button" class="btn btn-success">
+          <button id="btnImportarExamenes" type="button" class="btn btn-success d-inline-flex align-items-center gap-2">
+            <i class="bi bi-upload" aria-hidden="true"></i>
             Importar grupos
           </button>
-          <button id="btnGenerarTipoPrueba" type="button" class="btn btn-primary">
+          <button id="btnGenerarTipoPrueba" type="button" class="btn btn-primary d-inline-flex align-items-center gap-2">
+            <i class="bi bi-diagram-3" aria-hidden="true"></i>
             Generar tipo de tema
           </button>
         </div>
 
-        <div class="cuad-data-panel">
+        <div class="cuad-data-panel cuad-alea-table-panel">
           <div class="cuad-data-panel__head">Exámenes importados</div>
           <div class="cuad-data-panel__body">
             <div class="table-responsive">
@@ -596,7 +601,7 @@
                 <thead class="table-light">
                   <tr>
                     <th style="width: 70px">ID</th>
-                    <th>Nombre</th>
+                    <th class="cuad-alea-col-nombre">Nombre</th>
                     <th style="width: 120px" class="text-end">Preguntas</th>
                     <th></th>
                   </tr>
@@ -609,20 +614,19 @@
           </div>
         </div>
       </div>
-
-      <div class="modal-footer">
-      
-      </div>
     </div>
   </div>
 </div>
 
 <!-- Modal: TIPO DE PRUEBA -->
 <div class="modal fade modal-cuad-root" id="modalTipoPrueba" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+  <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable cuad-modal-tipo-prueba-dialog">
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
-        <h5 class="modal-title">Configurar tipo de tema por grupo</h5>
+        <h5 class="modal-title d-flex align-items-center gap-2 mb-0">
+          <i class="bi bi-sliders cuad-tipo-prueba-header-icon" aria-hidden="true"></i>
+          <span>Configurar tipo de tema por grupo</span>
+        </h5>
         <button
           type="button"
           class="btn-close"
@@ -631,53 +635,43 @@
       </div>
 
       <div class="modal-body">
-        <div class="row g-3 align-items-end mb-2">
-          <div class="col-12 col-md-4">
-            <label class="form-label">Grupo</label>
-            <select id="selGrupo" class="form-select"></select>
-          </div>
-          <div class="col-12 col-md-8">
-        <div class="tipo-acciones">
-          <div class="tipo-action-col tipo-action-col--plain ms-auto">
-            <div class="tipo-action-spacer" aria-hidden="true"></div>
-            <button id="btnNuevoTema" class="btn btn-success">
+        <div class="cuad-modal-toolbar cuad-modal-toolbar--tipo-prueba">
+          <div class="cuad-tipo-prueba-toolbar__actions">
+            <button id="btnNuevoTema" type="button" class="btn btn-success d-inline-flex align-items-center gap-2">
+              <i class="bi bi-plus-circle" aria-hidden="true"></i>
               Nuevo tema
             </button>
-          </div>
-
-          <div class="tipo-action-col tipo-action-col--counter">
-            <div
-              id="aleaCounterBox"
-              class="alea-counter-box"
+            <button
+              id="btnAleatorizarPQ"
+              type="button"
+              class="btn btn-warning d-inline-flex align-items-center gap-2"
               title="Aleatorizado 0 veces"
-              aria-label="Contador de aleatorizaciones"
             >
-              <i id="aleaCounterIcon" class="bi bi-0-circle" aria-hidden="true"></i>
-            </div>
-
-            <button id="btnAleatorizarPQ" class="btn btn-warning">
-              Aleatorizar (tipos)
+              <span
+                id="aleaCounterBox"
+                class="alea-counter-in-btn"
+                aria-hidden="true"
+              >
+                <i id="aleaCounterIcon" class="bi bi-0-circle" aria-hidden="true"></i>
+              </span>
+              <span>Aleatorizar (tipos)</span>
             </button>
-          </div>
-
-          <div class="tipo-action-col tipo-action-col--plain">
-            <div class="tipo-action-spacer" aria-hidden="true"></div>
-            <button id="btnImprimirClaves" class="btn btn-dark">
-              <i class="bi bi-printer"></i> Imprimir claves
+            <button id="btnImprimirClaves" type="button" class="btn btn-dark d-inline-flex align-items-center gap-2">
+              <i class="bi bi-printer" aria-hidden="true"></i>
+              Imprimir claves
             </button>
-          </div>
-
-          <div class="tipo-action-col tipo-action-col--plain">
-            <div class="tipo-action-spacer" aria-hidden="true"></div>
-            <button id="btnDescargarPruebas" class="btn btn-secondary">
+            <button id="btnDescargarPruebas" type="button" class="btn btn-secondary d-inline-flex align-items-center gap-2">
+              <i class="bi bi-download" aria-hidden="true"></i>
               Descargar temas
             </button>
           </div>
-        </div>
-      </div>
+          <div class="cuad-tipo-prueba-toolbar__grupo">
+            <label class="form-label cuad-tipo-prueba-grupo-label" for="selGrupo">Grupo</label>
+            <select id="selGrupo" class="form-select cuad-tipo-prueba-grupo-select"></select>
+          </div>
         </div>
 
-        <div class="cuad-data-panel">
+        <div class="cuad-data-panel cuad-tipo-prueba-table-panel">
           <div class="cuad-data-panel__head">
             Claves de respuesta (Origen / P / Q)
           </div>
@@ -689,9 +683,8 @@
               >
                 <thead class="table-light" id="theadClaves">
                   <tr>
-                    <th style="width: 90px">Pregunta</th>
-                    <th style="width: 120px">Origen</th>
-                    <!-- aquí van tipos dinámicos -->
+                    <th class="cuad-tipo-prueba-th-num">Pregunta</th>
+                    <th class="cuad-tipo-prueba-th-letra">Origen</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -702,13 +695,10 @@
           </div>
         </div>
 
-        <small class="text-muted d-block mt-2">
+        <small class="text-muted d-block mt-2 cuad-tipo-prueba-regla">
+          <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
           Regla: P y Q siempre diferentes del Origen y entre sí.
         </small>
-      </div>
-
-      <div class="modal-footer">
-       
       </div>
     </div>
   </div>
@@ -853,32 +843,53 @@
 <!-- Modal editar tema P y Q  dinamico -->
 <div class="modal fade modal-cuad-root" id="modalTiposTema" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
   data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable cuad-modal-tipos-tema-dialog">
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
-        <h5 class="modal-title">Tipos de tema por grupo (P/Q/R/S...)</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <h5 class="modal-title d-flex align-items-center gap-2 mb-0">
+          <i class="bi bi-layout-three-columns cuad-tipos-tema-header-icon" aria-hidden="true"></i>
+          <span>Tipos de tema por grupo (P/Q/R/S...)</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
       </div>
 
-      <div class="modal-body">
-        <div class="cuad-modal-toolbar flex-wrap">
-          <input id="txtNuevoTipo" class="form-control" placeholder="Ej: R" maxlength="2" style="max-width:140px">
-          <button id="btnAgregarTipo" type="button" class="btn btn-primary">Agregar clave</button>
-          <small class="text-muted ms-auto align-self-center">Activar/desactivar controla qué columnas aparecen.</small>
+      <div class="modal-body cuad-modal-tipos-tema-body">
+        <div class="cuad-modal-toolbar cuad-modal-toolbar--tipos-tema">
+          <div class="cuad-tipos-tema-toolbar__row">
+            <input
+              id="txtNuevoTipo"
+              class="form-control cuad-tipos-tema-input"
+              type="text"
+              placeholder="Ej: R"
+              maxlength="2"
+              autocomplete="off"
+            />
+            <button id="btnAgregarTipo" type="button" class="btn btn-primary d-inline-flex align-items-center gap-2">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              Agregar clave
+            </button>
+          </div>
+          <p class="cuad-tipos-tema-hint mb-0 small text-muted">
+            <i class="bi bi-info-circle me-1 flex-shrink-0" aria-hidden="true"></i>
+            Activar o desactivar controla qué columnas aparecen en la tabla de claves.
+          </p>
         </div>
 
-        <div class="cuad-table-panel">
-          <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th style="width:120px">Tipo</th>
-                  <th style="width:120px">Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody id="tbodyTiposTema"></tbody>
-            </table>
+        <div class="cuad-data-panel cuad-tipos-tema-table-panel">
+          <div class="cuad-data-panel__head">Tipos definidos para el grupo</div>
+          <div class="cuad-data-panel__body">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped table-hover align-middle mb-0 cuad-tipos-tema-table">
+                <thead>
+                  <tr>
+                    <th class="cuad-tipos-tema-th cuad-tipos-tema-th-tipo">Tipo</th>
+                    <th class="cuad-tipos-tema-th cuad-tipos-tema-th-estado">Estado</th>
+                    <th class="cuad-tipos-tema-th cuad-tipos-tema-th-acciones">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbodyTiposTema"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

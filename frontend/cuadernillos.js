@@ -2179,10 +2179,13 @@ function incrementAleaCounter(examenId, grupoId) {
 function renderAleaCounter(examenId, grupoId) {
   const box = document.getElementById("aleaCounterBox");
   const icon = document.getElementById("aleaCounterIcon");
+  const btn = document.getElementById("btnAleatorizarPQ");
   if (!box || !icon) return;
 
   const value = getAleaCounter(examenId, grupoId);
-  box.title = `Aleatorizado ${value} ${value === 1 ? "vez" : "veces"}`;
+  const tip = `Aleatorizado ${value} ${value === 1 ? "vez" : "veces"}`;
+  box.title = tip;
+  if (btn) btn.title = tip;
 
   if (value >= 0 && value <= 9) {
     icon.className = `bi bi-${value}-circle`;
@@ -2345,18 +2348,24 @@ function getGruposFiltradosPorImportados(grupos = []) {
       .map(
         (t) => `
         <tr>
-          <td><b>${t.codigo}</b></td>
-          <td>${
-            t.activo
-              ? '<span class="badge bg-success">Activo</span>'
-              : '<span class="badge bg-secondary">Inactivo</span>'
-          }</td>
-          <td>
+          <td class="cuad-tipos-tema-td-tipo"><b>${t.codigo}</b></td>
+          <td class="cuad-tipos-tema-td-estado text-center">
+            ${
+              t.activo
+                ? '<span class="badge bg-success cuad-tipos-tema-estado-badge">Activo</span>'
+                : '<span class="badge bg-secondary cuad-tipos-tema-estado-badge">Inactivo</span>'
+            }
+          </td>
+          <td class="cuad-tipos-tema-td-acciones text-center">
             <button type="button"
-              class="btn btn-sm ${t.activo ? "btn-danger" : "btn-success"} btn-toggle-tipo"
+              class="btn btn-sm cuad-tipos-tema-toggle-btn d-inline-flex align-items-center justify-content-center gap-1 ${t.activo ? "btn-danger" : "btn-success"} btn-toggle-tipo"
               data-id="${t.id}"
               data-act="${t.activo ? 0 : 1}">
-              ${t.activo ? "Desactivar" : "Activar"}
+              ${
+                t.activo
+                  ? '<i class="bi bi-toggle-off" aria-hidden="true"></i><span>Desactivar</span>'
+                  : '<i class="bi bi-toggle-on" aria-hidden="true"></i><span>Activar</span>'
+              }
             </button>
           </td>
         </tr>
@@ -2466,8 +2475,12 @@ function getGruposFiltradosPorImportados(grupos = []) {
     if (!EXAMENES.length) {
       html = `
         <tr>
-          <td colspan="4" class="cuad-table-empty">
-            No hay exámenes importados.
+          <td colspan="4" class="cuad-table-empty cuad-alea-table-empty">
+            <div class="cuad-alea-empty-state">
+              <i class="bi bi-inbox cuad-alea-empty-icon" aria-hidden="true"></i>
+              <span class="cuad-alea-empty-title">No hay exámenes importados</span>
+              <span class="cuad-alea-empty-sub">.doc, .docx o .pdf — un archivo por grupo.</span>
+            </div>
           </td>
         </tr>`;
     } else {
@@ -2478,8 +2491,8 @@ function getGruposFiltradosPorImportados(grupos = []) {
             <td>${e.nombre ?? ""}</td>
             <td class="text-end">${e.total_preguntas ?? ""}</td>
             <td class="text-center">
-              <button class="btn btn-sm btn-danger btn-del-exam" title="Eliminar">
-                ✕
+              <button type="button" class="btn btn-sm btn-danger btn-del-exam d-inline-flex align-items-center justify-content-center" title="Eliminar">
+                <i class="bi bi-trash" aria-hidden="true"></i>
               </button>
             </td>
           </tr>
@@ -2500,9 +2513,9 @@ function getGruposFiltradosPorImportados(grupos = []) {
 
   // 1) THEAD dinámico
   let th = `<tr>
-    <th style="width:90px">Pregunta</th>
-    <th style="width:120px">Origen</th>
-    ${TIPOS.map(t => `<th style="width:120px">${t}</th>`).join("")}
+    <th class="cuad-tipo-prueba-th-num">Pregunta</th>
+    <th class="cuad-tipo-prueba-th-letra">Origen</th>
+    ${TIPOS.map((t) => `<th class="cuad-tipo-prueba-th-letra">${t}</th>`).join("")}
   </tr>`;
   thead.innerHTML = th;
 
@@ -2902,30 +2915,15 @@ function getGruposFiltradosPorImportados(grupos = []) {
         renderAleaCounter(EXAMEN_ID_ACTUAL, gid);
       }
 
-      // 4) abrir modal TipoPrueba cerrando Aleatorización si está abierto
       const elTipo = document.getElementById("modalTipoPrueba");
       if (!elTipo) return console.error("Falta #modalTipoPrueba");
       if (elTipo.parentElement !== document.body)
         document.body.appendChild(elTipo);
 
-      const elAlea = document.getElementById("modalAleatorizacion");
-      const mAlea = elAlea
-        ? bootstrap.Modal.getInstance(elAlea) ||
-          bootstrap.Modal.getOrCreateInstance(elAlea)
-        : null;
-
       const mTipo = bootstrap.Modal.getOrCreateInstance(elTipo, {
         backdrop: "static",
       });
-
-      if (mAlea && elAlea.classList.contains("show")) {
-        elAlea.addEventListener("hidden.bs.modal", () => mTipo.show(), {
-          once: true,
-        });
-        mAlea.hide();
-      } else {
-        mTipo.show();
-      }
+      mTipo.show();
     });
   })();
 
