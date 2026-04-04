@@ -95,13 +95,15 @@ window.addEventListener("focus", () => {
     "modalAleatorizacion",
     "modalTipoPrueba",
     "modalTemas",
-    "modalTiposTema",
-    "modalTemaCrear",
-    "modalTemaEditar"
+    "modalTiposTema"
   ];
 
   function aplicarStatic(el) {
     if (!el) return;
+
+    /* Los estilos de modales Cuadernillos usan .modal-cuad-root; al mover el nodo a
+       body deja de existir el ancestro .cuadernillos-page, así que el marcador va en el propio .modal */
+    el.classList.add("modal-cuad-root");
 
     el.setAttribute("data-bs-backdrop", "static");
     el.setAttribute("data-bs-keyboard", "false");
@@ -470,13 +472,17 @@ function validarTemasUnicosMatriz() {
         </td>
         <td>
           <input type="file" class="inp-file" accept=".docx" hidden>
-          <div class="d-flex align-items-center gap-2">
-            <button type="button" class="btn btn-sm btn-primary btn-importar">Importar</button>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <button type="button" class="btn btn-primary btn-importar">
+              <i class="bi bi-upload" aria-hidden="true"></i> Importar
+            </button>
             <span class="small text-muted file-name">Sin archivo</span>
           </div>
         </td>
         <td class="text-end">
-          <button type="button" class="btn btn-sm btn-danger btn-quitar">Eliminar</button>
+          <button type="button" class="btn btn-outline-danger btn-quitar">
+            <i class="bi bi-trash3" aria-hidden="true"></i> Eliminar
+          </button>
         </td>
       </tr>
     `
@@ -1018,7 +1024,7 @@ const esc = (s) =>
       }[c])
   );
 
-async function abrirModalBanco() {
+function abrirModalBanco() {
   const modalBancoEl = getModalBancoEl();
   if (!modalBancoEl) {
     console.error("[BANCO] No existe #modalBancoPreguntasCuad");
@@ -1031,10 +1037,14 @@ async function abrirModalBanco() {
     if (tbodyDetalle) tbodyDetalle.innerHTML = "";
     TEMA_ACTUAL_DETALLE = null;
 
-    await cargarResumenTemas();
-
     if (modalBancoEl.parentElement !== document.body) {
       document.body.appendChild(modalBancoEl);
+    }
+
+    const tbody = getBancoTbody();
+    if (tbody) {
+      tbody.innerHTML =
+        '<tr><td colspan="3" class="cuad-table-empty">Cargando…</td></tr>';
     }
 
     const mBanco =
@@ -1047,6 +1057,11 @@ async function abrirModalBanco() {
 
     mBanco.show();
     console.log("[BANCO] modalBancoPreguntasCuad mostrado");
+
+    // Mostrar el modal al instante; los datos llegan después (antes await bloqueaba show)
+    requestAnimationFrame(() => {
+      void cargarResumenTemas();
+    });
   } catch (e) {
     console.error("[BANCO] Error abriendo modal banco:", e);
     alert("No se pudo abrir el banco de preguntas.");
@@ -1072,7 +1087,7 @@ async function cargarResumenTemas() {
   }
 
   tbody.innerHTML =
-    '<tr><td colspan="3" class="text-center text-muted">Cargando...</td></tr>';
+    '<tr><td colspan="3" class="cuad-table-empty">Cargando…</td></tr>';
   console.log("[BANCO] tbody puesto en Cargando...");
 
   try {
@@ -1089,14 +1104,14 @@ async function cargarResumenTemas() {
     if (!Array.isArray(data)) {
       console.warn("[BANCO] data NO es array");
       tbody.innerHTML =
-        '<tr><td colspan="3" class="text-center text-muted">Error de formato.</td></tr>';
+        '<tr><td colspan="3" class="cuad-table-empty">Error de formato.</td></tr>';
       return;
     }
 
     if (!data.length) {
       console.warn("[BANCO] data viene vacía");
       tbody.innerHTML =
-        '<tr><td colspan="3" class="text-center text-muted">No hay temas con banco de preguntas.</td></tr>';
+        '<tr><td colspan="3" class="cuad-table-empty">No hay temas con banco de preguntas.</td></tr>';
       return;
     }
 
@@ -1109,13 +1124,13 @@ async function cargarResumenTemas() {
           <tr data-tema-id="${t.tema_id}">
             <td>${esc(t.tema_nombre)}</td>
             <td class="text-center">
-              <span class="badge bg-secondary" id="banco-count-${t.tema_id}">
+              <span class="badge bg-secondary rounded-pill cuad-banco-count" id="banco-count-${t.tema_id}">
                 ${nSel}
               </span>
             </td>
             <td class="text-end">
-              <button type="button" class="btn btn-sm btn-primary btn-banco-detalle">
-                Detalle
+              <button type="button" class="btn btn-primary btn-banco-detalle">
+                <i class="bi bi-list-ul" aria-hidden="true"></i> Detalle
               </button>
             </td>
           </tr>
@@ -1133,7 +1148,7 @@ async function cargarResumenTemas() {
   } catch (e) {
     console.error("[BANCO] ERROR en cargarResumenTemas()", e);
     tbody.innerHTML =
-      '<tr><td colspan="3" class="text-center text-muted">Error cargando banco de preguntas.</td></tr>';
+      '<tr><td colspan="3" class="cuad-table-empty">Error cargando banco de preguntas.</td></tr>';
   }
 }
 
@@ -1189,7 +1204,7 @@ document.addEventListener("click", async (ev) => {
   ev.stopPropagation();
 
   console.log("[BANCO] click delegado en btnBancoPreguntas");
-  await abrirModalBanco();
+  abrirModalBanco();
 });
 
 function debugDuplicadosBanco() {
@@ -1209,45 +1224,25 @@ function debugDuplicadosBanco() {
 // ---------- MODAL DETALLE ----------
 let TEMA_ACTUAL_DETALLE = null;
 
-async function abrirDetalleBancoTema(tema_id, tema_nombre) {
-  const modalDetalleEl = getModalDetalleEl();
-  const modalBancoEl = getModalBancoEl();
-  if (!modalDetalleEl || !modalBancoEl) return;
-
-  TEMA_ACTUAL_DETALLE = Number(tema_id);
-
-  const titulo = modalDetalleEl.querySelector("#bancoDetalleTema");
-  if (titulo) titulo.innerText = tema_nombre || `Tema ${tema_id}`;
-
+function renderDetalleBancoTbody(tema_id, docs) {
   const tbody = getDetalleTbody();
   if (!tbody) return;
-
-  let docs = [];
-  try {
-    const res = await fetch(
-      `${API}/api/banco_preguntas?tema_id=${encodeURIComponent(tema_id)}`
-    );
-    docs = await res.json();
-    if (!Array.isArray(docs)) docs = [];
-    docs = docs.filter((d) => String(d.tema_id) === String(tema_id));
-  } catch (e) {
-    console.error(e);
-    docs = [];
-  }
 
   const selPrev = getSet(tema_id);
 
   if (!docs.length) {
     tbody.innerHTML =
       '<tr><td colspan="4" class="text-center text-muted">No hay preguntas para este tema.</td></tr>';
-  } else {
-    tbody.innerHTML = docs
-      .map((d) => {
-        const checked = selPrev.has(d.id) ? "checked" : "";
-        const nombreDoc =
-          d.nombre || d.doc_name || d.doc_preguntas_nombre || "(Sin nombre)";
+    return;
+  }
 
-        return `
+  tbody.innerHTML = docs
+    .map((d) => {
+      const checked = selPrev.has(d.id) ? "checked" : "";
+      const nombreDoc =
+        d.nombre || d.doc_name || d.doc_preguntas_nombre || "(Sin nombre)";
+
+      return `
           <tr data-doc-id="${d.id}">
             <td class="text-center">
               <input type="checkbox" value="${d.id}" class="banco-chk" ${checked}>
@@ -1261,34 +1256,69 @@ async function abrirDetalleBancoTema(tema_id, tema_nombre) {
             </td>
           </tr>
         `;
-      })
-      .join("");
+    })
+    .join("");
+}
+
+async function fetchDocsBancoTema(tema_id) {
+  try {
+    const res = await fetch(
+      `${API}/api/banco_preguntas?tema_id=${encodeURIComponent(tema_id)}`
+    );
+    let docs = await res.json();
+    if (!Array.isArray(docs)) docs = [];
+    return docs.filter((d) => String(d.tema_id) === String(tema_id));
+  } catch (e) {
+    console.error(e);
+    return [];
   }
+}
+
+function abrirDetalleBancoTema(tema_id, tema_nombre) {
+  const modalDetalleEl = getModalDetalleEl();
+  const modalBancoEl = getModalBancoEl();
+  if (!modalDetalleEl || !modalBancoEl) return;
+
+  TEMA_ACTUAL_DETALLE = Number(tema_id);
+
+  const titulo = modalDetalleEl.querySelector("#bancoDetalleTema");
+  if (titulo) titulo.innerText = tema_nombre || `Tema ${tema_id}`;
+
+  const tbody = getDetalleTbody();
+  if (!tbody) return;
+
+  tbody.innerHTML =
+    '<tr><td colspan="4" class="text-center text-muted">Cargando…</td></tr>';
+
+  const docsPromise = fetchDocsBancoTema(tema_id);
 
   if (modalDetalleEl.parentElement !== document.body) {
-  document.body.appendChild(modalDetalleEl);
-}
-const mBanco =
-  bootstrap.Modal.getInstance(modalBancoEl) ||
-  bootstrap.Modal.getOrCreateInstance(modalBancoEl);
+    document.body.appendChild(modalDetalleEl);
+  }
+  const mBanco =
+    bootstrap.Modal.getInstance(modalBancoEl) ||
+    bootstrap.Modal.getOrCreateInstance(modalBancoEl);
 
-const mDet =
-  bootstrap.Modal.getInstance(modalDetalleEl) ||
-  bootstrap.Modal.getOrCreateInstance(modalDetalleEl, {
-    backdrop: "static",
-    focus: true,
-    keyboard: true,
-  });
+  const mDet =
+    bootstrap.Modal.getInstance(modalDetalleEl) ||
+    bootstrap.Modal.getOrCreateInstance(modalDetalleEl, {
+      backdrop: "static",
+      focus: true,
+      keyboard: true,
+    });
 
-modalBancoEl.addEventListener(
-  "hidden.bs.modal",
-  () => {
-    mDet.show();
-  },
-  { once: true }
-);
+  modalBancoEl.addEventListener(
+    "hidden.bs.modal",
+    () => {
+      mDet.show();
+      void docsPromise.then((docs) => {
+        renderDetalleBancoTbody(tema_id, docs);
+      });
+    },
+    { once: true }
+  );
 
-mBanco.hide();
+  mBanco.hide();
 }
 
 async function guardarSeleccionBancoTemaActual() {
@@ -1327,9 +1357,16 @@ async function guardarSeleccionBancoTemaActual() {
 
   modalDetalleEl.addEventListener(
     "hidden.bs.modal",
-    async () => {
-      await cargarResumenTemas();
+    () => {
+      const tb = getBancoTbody();
+      if (tb) {
+        tb.innerHTML =
+          '<tr><td colspan="3" class="cuad-table-empty">Cargando…</td></tr>';
+      }
       mBanco.show();
+      requestAnimationFrame(() => {
+        void cargarResumenTemas();
+      });
     },
     { once: true }
   );
@@ -2341,7 +2378,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
     if (!EXAMENES.length) {
       html = `
         <tr>
-          <td colspan="4" class="text-center text-muted">
+          <td colspan="4" class="cuad-table-empty">
             No hay exámenes importados.
           </td>
         </tr>`;
@@ -3094,16 +3131,33 @@ btnImprimirClaves?.addEventListener("click", async () => {
   if (window.__TEMAS_CUAD_MODULE__) return;
   window.__TEMAS_CUAD_MODULE__ = true;
 
+  const escAttrTemaCuad = (s) =>
+    String(s ?? "").replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#039;",
+        }[c])
+    );
+
   const MODAL_SEL = "#modalTemas";
   const TABLA_SEL = "#tabla-temas";
   const BTN_OPEN_SEL = "#btnTemasMatriz";
   const BTN_ADD_SEL = "#btnAgregarTema";
   const MODAL_PADRE_ID = "modalMatriz";
+  const PANEL_TEMA_OPEN_CLASS = "cuad-tema-form-panel--open";
 
   let dtTemasCuad = null;
   let renderingCuad = false;
 
   function destroyDtWrappersCuad() {
+    const host = document.getElementById("cuadTemasDtToolbarHost");
+    if (host) host.replaceChildren();
+
     const t = document.querySelector(TABLA_SEL);
     if (!t) return;
     const $t = $(t);
@@ -3115,7 +3169,7 @@ btnImprimirClaves?.addEventListener("click", async () => {
     }
 
     for (;;) {
-      const $w = $t.closest(".dataTables_wrapper");
+      const $w = $t.closest(".dt-container, .dataTables_wrapper");
       if (!$w.length) break;
       $w.before($t);
       $w.remove();
@@ -3124,12 +3178,13 @@ btnImprimirClaves?.addEventListener("click", async () => {
     t.querySelector("thead")?.remove();
 
     const thead = document.createElement("thead");
+    thead.className = "table-dark";
     thead.innerHTML = `
       <tr>
-        <th>ID</th>
+        <th class="cuad-temas-th-id text-end">ID</th>
         <th>Nombre</th>
-        <th>Estado</th>
-        <th>Acciones</th>
+        <th class="text-center cuad-temas-th-estado">Estado</th>
+        <th class="text-end cuad-temas-th-actions" style="width:1%">Acciones</th>
       </tr>
     `;
     t.prepend(thead);
@@ -3150,61 +3205,134 @@ btnImprimirClaves?.addEventListener("click", async () => {
     const json = await r.json();
     return Array.isArray(json) ? json : [];
   }
-  
-   function abrirModalHijoTemas(childId) {
-  const parentEl = document.getElementById("modalTemas");
-  const childEl = document.getElementById(childId);
 
-  if (!parentEl || !childEl) {
-    console.error("[CUAD:Temas] faltan modales", { parentEl, childEl });
-    return;
+  function panelTemaCuadEls() {
+    return {
+      panel: document.getElementById("panelTemaCuad"),
+      titulo: document.getElementById("panelTemaCuadTitulo"),
+      icon: document.getElementById("panelTemaCuadIcon"),
+      idInput: document.getElementById("temaIdCuad"),
+      nombreInput: document.getElementById("temaNombreCuad"),
+      btnG: document.getElementById("btnTemaCuadGuardar"),
+      btnC: document.getElementById("btnTemaCuadCancelar"),
+    };
   }
 
-  if (childEl.parentElement !== document.body) {
-    document.body.appendChild(childEl);
+  function hidePanelTemaCuad() {
+    const { panel, idInput, nombreInput, btnG, icon } = panelTemaCuadEls();
+    if (!panel) return;
+    panel.classList.remove(
+      "cuad-tema-form-panel--crear",
+      "cuad-tema-form-panel--editar",
+      PANEL_TEMA_OPEN_CLASS
+    );
+    panel.setAttribute("aria-hidden", "true");
+    if (icon) icon.className = "bi bi-plus-circle";
+    panel.dataset.modo = "";
+    if (idInput) idInput.value = "";
+    if (nombreInput) {
+      nombreInput.value = "";
+      nombreInput.disabled = false;
+    }
+    if (btnG) btnG.disabled = false;
   }
 
-  // marcar que Temas se está ocultando SOLO para abrir hijo
-  parentEl.dataset.openingChild = "1";
-  childEl.dataset.parentModal = "modalTemas";
+  function showPanelTemaCuad(modo, payload = {}) {
+    const { panel, titulo, icon, idInput, nombreInput, btnG } = panelTemaCuadEls();
+    if (!panel || !nombreInput) return;
+    panel.classList.remove(
+      "cuad-tema-form-panel--crear",
+      "cuad-tema-form-panel--editar"
+    );
+    panel.classList.add(
+      modo === "editar" ? "cuad-tema-form-panel--editar" : "cuad-tema-form-panel--crear"
+    );
+    if (icon) {
+      icon.className =
+        modo === "editar" ? "bi bi-pencil-square" : "bi bi-plus-circle";
+    }
+    panel.dataset.modo = modo;
+    if (titulo) {
+      titulo.textContent = modo === "editar" ? "Editar tema" : "Nuevo tema";
+    }
+    if (idInput) idInput.value = modo === "editar" ? String(payload.id ?? "") : "";
+    nombreInput.value =
+      modo === "editar" ? String(payload.nombre ?? "").trim() : "";
+    if (btnG) {
+      const label = btnG.querySelector(".btn-text");
+      if (label) {
+        label.textContent = modo === "editar" ? "Actualizar" : "Guardar";
+      }
+      btnG.classList.toggle("btn-success", modo !== "editar");
+      btnG.classList.toggle("btn-primary", modo === "editar");
+    }
 
-  const parent = bootstrap.Modal.getOrCreateInstance(parentEl);
-  const child = bootstrap.Modal.getOrCreateInstance(childEl, {
-    backdrop: "static",
-    keyboard: false,
-    focus: true,
-  });
+    panel.setAttribute("aria-hidden", "false");
+    panel.classList.remove(PANEL_TEMA_OPEN_CLASS);
+    void panel.offsetWidth;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        panel.classList.add(PANEL_TEMA_OPEN_CLASS);
+        requestAnimationFrame(() => {
+          try {
+            nombreInput.focus();
+          } catch (_) {}
+        });
+      });
+    });
+  }
 
-  parentEl.addEventListener(
-    "hidden.bs.modal",
-    () => {
-      child.show();
-    },
-    { once: true }
-  );
+  async function guardarPanelTemaCuad() {
+    const modal = document.querySelector(MODAL_SEL);
+    if (!modal || modal.dataset.ctx !== "cuad") return;
 
-  parent.hide();
-}
+    const { panel, idInput, nombreInput, btnG } = panelTemaCuadEls();
+    const modo = panel?.dataset?.modo;
+    if (!modo || !panel.classList.contains(PANEL_TEMA_OPEN_CLASS)) return;
 
-document.addEventListener("hidden.bs.modal", (ev) => {
-  const childEl = ev.target;
-  if (!childEl || !["modalTemaCrear", "modalTemaEditar"].includes(childEl.id)) return;
+    const nombre = nombreInput?.value.trim() || "";
+    if (!nombre) return;
 
-  const parentId = childEl.dataset.parentModal;
-  if (!parentId) return;
+    if (btnG) btnG.disabled = true;
+    if (nombreInput) nombreInput.disabled = true;
 
-  const parentEl = document.getElementById(parentId);
-  if (!parentEl) return;
-
-  const parent = bootstrap.Modal.getOrCreateInstance(parentEl, {
-    backdrop: "static",
-    keyboard: false,
-    focus: true,
-  });
-
-  parent.show();
-});
-
+    try {
+      if (modo === "crear") {
+        const r = await fetch(window.TEMAS_API_BASE_CUAD, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          alert(d.error || "Error al crear.");
+          return;
+        }
+      } else if (modo === "editar") {
+        const id = idInput?.value;
+        if (!id) return;
+        const r = await fetch(`${window.TEMAS_API_BASE_CUAD}/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          alert(d.error || "Error al actualizar.");
+          return;
+        }
+      }
+      hidePanelTemaCuad();
+      await renderTemasCuad();
+    } catch (e2) {
+      console.error(e2);
+      alert("Error de red.");
+    } finally {
+      const els = panelTemaCuadEls();
+      if (els.btnG) els.btnG.disabled = false;
+      if (els.nombreInput) els.nombreInput.disabled = false;
+    }
+  }
 
   async function renderTemasCuad() {
     const modal = document.querySelector(MODAL_SEL);
@@ -3227,34 +3355,65 @@ document.addEventListener("hidden.bs.modal", (ev) => {
         data,
         destroy: true,
         autoWidth: false,
-        responsive: true,
-        pageLength: 8,
+        responsive: false,
+        pageLength: 12,
+        lengthMenu: [
+          [8, 12, 20, 50, -1],
+          [8, 12, 20, 50, "Todos"],
+        ],
+        dom: "<'cuad-temas-dt-toolbar cuad-temas-dt-toolbar--row'lf>rt<'cuad-temas-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
+        columnDefs: [
+          { targets: 0, width: "2.75rem" },
+          { targets: 2, width: "8rem" },
+          { targets: 3, width: "16.25rem" },
+        ],
         columns: [
-          { data: "id" },
-          { data: "nombre" },
+          {
+            data: "id",
+            title: "ID",
+            className:
+              "text-muted text-nowrap text-end cuad-temas-col-id cuad-temas-th-id",
+          },
+          {
+            data: "nombre",
+            title: "Nombre",
+            className: "cuad-temas-col-nombre",
+          },
           {
             data: "activo",
+            title: "Estado",
+            className:
+              "text-nowrap text-center cuad-temas-col-estado cuad-temas-th-estado",
             render: (v) =>
               v
-                ? '<span class="badge bg-success">Activo</span>'
-                : '<span class="badge bg-secondary">Inactivo</span>',
+                ? '<span class="badge rounded-2 bg-success cuad-temas-badge">Activo</span>'
+                : '<span class="badge rounded-2 bg-secondary cuad-temas-badge">Inactivo</span>',
           },
           {
             data: null,
+            title: "Acciones",
             orderable: false,
+            className: "text-end cuad-temas-col-actions cuad-temas-th-actions",
             render: (row) => {
               const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
-              const toggleClass = row.activo ? "btn-warning" : "btn-success";
+              const toggleIcon = row.activo ? "bi-pause-circle" : "bi-play-circle";
+              const toggleBtnClass = row.activo
+                ? "btn-outline-warning"
+                : "btn-outline-success";
               return `
-                <div class="btn-group btn-group-sm" role="group">
-                  <button class="btn btn-primary btn-editar-tema"
+                <div class="cuad-temas-actions d-inline-flex align-items-center justify-content-end flex-nowrap" role="group">
+                  <button type="button" class="btn btn-sm cuad-temas-act-btn btn-outline-primary btn-editar-tema"
                           data-id="${row.id}"
-                          data-nombre="${row.nombre || ""}">
-                    Editar
+                          data-nombre="${escAttrTemaCuad(row.nombre)}"
+                          title="Editar nombre del tema">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                    <span>Editar</span>
                   </button>
-                  <button class="btn ${toggleClass} btn-toggle-tema"
-                          data-id="${row.id}">
-                    ${toggleTxt}
+                  <button type="button" class="btn btn-sm cuad-temas-act-btn ${toggleBtnClass} btn-toggle-tema"
+                          data-id="${row.id}"
+                          title="${toggleTxt}">
+                    <i class="bi ${toggleIcon}" aria-hidden="true"></i>
+                    <span>${toggleTxt}</span>
                   </button>
                 </div>
               `;
@@ -3262,19 +3421,82 @@ document.addEventListener("hidden.bs.modal", (ev) => {
           },
         ],
         language: {
-          search: "Buscar:",
-          lengthMenu: "Mostrar _MENU_ registros por página",
+          search: "",
+          searchPlaceholder: "Buscar por nombre o ID…",
+          lengthMenu: "_MENU_",
           zeroRecords: "No se encontraron resultados",
-          info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-          infoEmpty: "Mostrando 0 a 0 de 0 registros",
-          infoFiltered: "(filtrado de _MAX_ registros totales)",
+          info: "_START_–_END_ de _TOTAL_",
+          infoEmpty: "0 temas",
+          infoFiltered: "(de _MAX_)",
           paginate: {
-            first: "Primero",
-            last: "Último",
-            next: "Siguiente",
-            previous: "Anterior",
+            first: "«",
+            last: "»",
+            next: "›",
+            previous: "‹",
           },
-          processing: "Procesando...",
+          processing: "Procesando…",
+        },
+        initComplete: function () {
+          const api = this.api();
+          const $wrap = $(api.table().container());
+          $wrap.addClass("cuad-temas-dt-wrap");
+          const $toolbar = $wrap.find(".cuad-temas-dt-toolbar").first();
+          const modalTemas = document.getElementById("modalTemas");
+          const $host = modalTemas
+            ? $(modalTemas).find("#cuadTemasDtToolbarHost")
+            : $("#cuadTemasDtToolbarHost");
+          if ($host.length && $toolbar.length) {
+            $toolbar.detach().appendTo($host);
+          }
+
+          const findCtl = (sel) => {
+            let $el = $host.find(sel);
+            if (!$el.length) $el = $toolbar.find(sel);
+            if (!$el.length) $el = $wrap.find(sel);
+            return $el;
+          };
+
+          const $length = findCtl(".dt-length, .dataTables_length");
+          const $lenSelect = $length.find("select").first().detach();
+          if ($lenSelect.length && $length.length) {
+            $length.addClass("cuad-temas-toolbar-field cuad-temas-toolbar-field--length");
+            $length.find("label").remove();
+            $lenSelect.addClass("form-select cuad-temas-length-select");
+            const lenId = $lenSelect.attr("id") || "cuadTemasDtLengthSelect";
+            $lenSelect.attr("id", lenId);
+            $length.find(".cuad-temas-toolbar-block-label--length").remove();
+            $length.prepend(
+              `<label class="form-label cuad-temas-toolbar-block-label cuad-temas-toolbar-block-label--length" for="${lenId}">Filas por página</label>`
+            );
+            $("<div>")
+              .addClass("cuad-temas-length-wrap")
+              .append($lenSelect)
+              .appendTo($length);
+          }
+
+          const $fil = findCtl(".dt-search, .dataTables_filter");
+          const $inp = $fil.find("input[type=search], input").first().detach();
+          if ($inp.length && $fil.length) {
+            $fil.empty();
+            $fil.addClass("cuad-temas-filter-wrap cuad-temas-toolbar-field cuad-temas-toolbar-field--search");
+            const searchId = "cuadTemasDtSearchInput";
+            $fil.prepend(
+              `<label class="form-label cuad-temas-toolbar-block-label cuad-temas-toolbar-block-label--search" for="${searchId}">Buscar en la tabla</label>`
+            );
+            $inp.attr({
+              id: searchId,
+              type: "search",
+              placeholder: "Nombre o ID del tema…",
+              autocomplete: "off",
+            });
+            $inp.addClass("form-control cuad-temas-search-input flex-grow-1");
+            const $ig = $('<div class="input-group cuad-temas-search-ig align-items-stretch"></div>');
+            $ig.append(
+              '<span class="input-group-text cuad-temas-search-prefix" aria-hidden="true"><i class="bi bi-search"></i></span>',
+              $inp
+            );
+            $("<div>").addClass("cuad-temas-filter-label").append($ig).appendTo($fil);
+          }
         },
       });
 
@@ -3282,11 +3504,10 @@ document.addEventListener("hidden.bs.modal", (ev) => {
       $tabla.off("click.temasCuadTabla", ".btn-toggle-tema");
 
       $tabla.on("click.temasCuadTabla", ".btn-editar-tema", function () {
-        document.getElementById("temaIdEditar").value = this.dataset.id;
-        document.getElementById("temaNombreEditar").value =
-          this.dataset.nombre || "";
-
-        abrirModalHijoTemas("modalTemaEditar");
+        showPanelTemaCuad("editar", {
+          id: this.dataset.id,
+          nombre: this.dataset.nombre || "",
+        });
       });
 
       $tabla.on("click.temasCuadTabla", ".btn-toggle-tema", async function () {
@@ -3333,7 +3554,6 @@ document.addEventListener("hidden.bs.modal", (ev) => {
     ev.preventDefault();
 
     const modalTemas = document.getElementById("modalTemas");
-    const modalPadre = document.getElementById(MODAL_PADRE_ID);
 
     if (!modalTemas) return;
 
@@ -3344,15 +3564,7 @@ document.addEventListener("hidden.bs.modal", (ev) => {
       backdrop: "static",
     });
 
-    const mPadre = modalPadre
-      ? bootstrap.Modal.getOrCreateInstance(modalPadre)
-      : null;
-
-    console.log("[CUAD:Temas] open -> modalTemas");
-
-    if (mPadre && modalPadre.classList.contains("show")) {
-      mPadre.hide();
-    }
+    console.log("[CUAD:Temas] open -> modalTemas (matriz permanece abierta)");
 
     mTemas.show();
   });
@@ -3369,11 +3581,7 @@ document.addEventListener("hidden.bs.modal", (ev) => {
   $(document).on("hidden.bs.modal.temasCuad", MODAL_SEL, function () {
   if (this.dataset.ctx !== "cuad") return;
 
-  // si se ocultó solo para abrir Crear/Editar, NO volver a Matriz
-  if (this.dataset.openingChild === "1") {
-    delete this.dataset.openingChild;
-    return;
-  }
+  hidePanelTemaCuad();
 
   const returnTo = this.dataset.returnTo;
   if (!returnTo) return;
@@ -3396,66 +3604,32 @@ document.addEventListener("hidden.bs.modal", (ev) => {
     await renderTemasCuad();
   });
 
-  // agregar tema
-$(document).on("click.temasCuad", BTN_ADD_SEL, function (ev) {
-  ev.preventDefault();
-  abrirModalHijoTemas("modalTemaCrear");
-});
-
-  // crear tema
-  $(document).on("submit.temasCuad", "#formTemaCrear", async function (e) {
+  // agregar tema (panel inline)
+  $(document).on("click.temasCuad", BTN_ADD_SEL, function (ev) {
+    ev.preventDefault();
     const modal = document.querySelector(MODAL_SEL);
     if (modal?.dataset?.ctx !== "cuad") return;
-
-    e.preventDefault();
-
-    const nombre = document.getElementById("temaNombreCrear").value.trim();
-    if (!nombre) return;
-
-    try {
-      const r = await fetch(window.TEMAS_API_BASE_CUAD, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre }),
-      });
-      const d = await r.json();
-      if (!r.ok) return alert(d.error || "Error al crear.");
-
-      bootstrap.Modal.getInstance(document.getElementById("modalTemaCrear"))?.hide();
-      document.getElementById("temaNombreCrear").value = "";
-      await renderTemasCuad();
-    } catch (e2) {
-      console.error(e2);
-      alert("Error de red.");
-    }
+    showPanelTemaCuad("crear");
   });
 
-  // editar tema
-  $(document).on("submit.temasCuad", "#formTemaEditar", async function (e) {
+  $(document).on("click.temasCuad", "#btnTemaCuadGuardar", function (ev) {
+    ev.preventDefault();
+    void guardarPanelTemaCuad();
+  });
+
+  $(document).on("click.temasCuad", "#btnTemaCuadCancelar", function (ev) {
+    ev.preventDefault();
+    hidePanelTemaCuad();
+  });
+
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Escape") return;
     const modal = document.querySelector(MODAL_SEL);
-    if (modal?.dataset?.ctx !== "cuad") return;
-
-    e.preventDefault();
-
-    const id = document.getElementById("temaIdEditar").value;
-    const nombre = document.getElementById("temaNombreEditar").value.trim();
-    if (!nombre) return;
-
-    try {
-      const r = await fetch(`${window.TEMAS_API_BASE_CUAD}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre }),
-      });
-      const d = await r.json();
-      if (!r.ok) return alert(d.error || "Error al actualizar.");
-
-      bootstrap.Modal.getInstance(document.getElementById("modalTemaEditar"))?.hide();
-      await renderTemasCuad();
-    } catch (e2) {
-      console.error(e2);
-      alert("Error de red.");
-    }
+    if (!modal?.classList.contains("show") || modal.dataset.ctx !== "cuad") return;
+    const panel = document.getElementById("panelTemaCuad");
+    if (!panel || !panel.classList.contains(PANEL_TEMA_OPEN_CLASS)) return;
+    ev.stopPropagation();
+    hidePanelTemaCuad();
   });
 })();
 
