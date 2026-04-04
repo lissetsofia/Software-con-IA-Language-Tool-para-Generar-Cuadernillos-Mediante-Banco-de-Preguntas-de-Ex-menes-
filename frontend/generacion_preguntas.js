@@ -1119,6 +1119,12 @@ if (typeof window.__origGenerarNuevoExamen === "undefined") {
   window.__origGenerarNuevoExamen = window.generarNuevoExamen;
 }
 window.generarNuevoExamen = function () {
+  const banco = document.getElementById("modalBancoPreguntas");
+  if (banco && banco.classList.contains("show")) {
+    const inst = bootstrap.Modal.getInstance(banco);
+    if (inst) inst.hide();
+  }
+
   renderGruposLeftPanel();
   if (typeof window.__origGenerarNuevoExamen === "function") {
     window.__origGenerarNuevoExamen();
@@ -2477,6 +2483,11 @@ async function volverABancoResumen() {
   // ------------- Abrir modal principal -------------
   async function abrirModalBancoPreguntas() {
     try {
+      const mainEx = document.getElementById("modal-examen");
+      if (mainEx && mainEx.classList.contains("mostrar-flex")) {
+        cerrarModalExamen();
+      }
+
       temaSeleccionadoBanco = null;
       const vRes = document.getElementById("vista-banco-resumen");
       const vDet = document.getElementById("vista-banco-detalle");

@@ -2260,9 +2260,9 @@ main {
   line-height: 1;
 }
 
-/* #modal-examen below Bootstrap modal stack */
-#modal-examen {
-  z-index: 1020;
+/* Below Bootstrap modals (1050+); .modal-custom alone uses 9999 */
+#modal-examen.modal-custom {
+  z-index: 1020 !important;
   backdrop-filter: blur(2px);
 }
 

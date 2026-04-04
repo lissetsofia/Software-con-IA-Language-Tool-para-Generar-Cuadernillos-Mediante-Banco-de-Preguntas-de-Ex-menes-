@@ -1585,22 +1585,23 @@ document.addEventListener("click", (ev) => {
   }
 });
 
-  const modalBancoRoot = document.getElementById("modalBancoPreguntasCuad");
-  if (modalBancoRoot && !modalBancoRoot.dataset.cuadBancoCloseBound) {
-    modalBancoRoot.dataset.cuadBancoCloseBound = "1";
-    modalBancoRoot.addEventListener(
+  if (!window.__CUAD_BANCO_HEADER_CLOSE_DELEGATED__) {
+    window.__CUAD_BANCO_HEADER_CLOSE_DELEGATED__ = true;
+    document.addEventListener(
       "click",
       (e) => {
         const btn = e.target.closest(".cuad-banco-header-close");
-        if (!btn || !modalBancoRoot.contains(btn)) return;
+        if (!btn) return;
+        const modalRoot = btn.closest("#modalBancoPreguntasCuad");
+        if (!modalRoot || !modalRoot.classList.contains("show")) return;
         e.preventDefault();
-        e.stopImmediatePropagation();
-        if (modalBancoRoot.dataset.cuadBancoVista === "detalle") {
+        e.stopPropagation();
+        if (modalRoot.dataset.cuadBancoVista === "detalle") {
           mostrarVistaBancoCuad("resumen");
         } else {
           const inst =
-            bootstrap.Modal.getInstance(modalBancoRoot) ||
-            bootstrap.Modal.getOrCreateInstance(modalBancoRoot);
+            bootstrap.Modal.getInstance(modalRoot) ||
+            bootstrap.Modal.getOrCreateInstance(modalRoot);
           inst.hide();
         }
       },
