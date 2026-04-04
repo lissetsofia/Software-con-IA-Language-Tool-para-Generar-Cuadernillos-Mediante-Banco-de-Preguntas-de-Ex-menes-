@@ -1324,10 +1324,60 @@ main {
   opacity: 0.92;
 }
 
-/* Mayor especificidad que .modal-cuad-root .cuad-modal-toolbar (margin-bottom: 1rem más abajo) */
-.modal-cuad-root.cuad-modal-temas .cuad-modal-toolbar.cuad-modal-toolbar--temas {
+/* Toolbar + formulario en una sola card (separador interno al abrir el panel) */
+.cuad-modal-temas .cuad-temas-actions-stack {
+  margin-bottom: 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(26, 45, 69, 0.11);
+  box-shadow: 0 2px 12px rgba(15, 23, 41, 0.07);
+  background: linear-gradient(
+    180deg,
+    rgba(237, 241, 247, 0.98) 0%,
+    rgba(228, 234, 242, 0.92) 100%
+  );
+  overflow: hidden;
+}
+
+.cuad-modal-temas .cuad-temas-actions-stack .cuad-modal-toolbar.cuad-modal-toolbar--temas {
   margin-bottom: 0;
   overflow: visible;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.cuad-modal-temas .cuad-temas-actions-stack .cuad-tema-form-panel {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.cuad-modal-temas
+  .cuad-temas-actions-stack
+  .cuad-tema-form-panel.cuad-tema-form-panel--anim.cuad-tema-form-panel--open {
+  margin-bottom: 0 !important;
+  border-width: 1px 0 0 0;
+  border-style: solid;
+  border-color: rgba(26, 45, 69, 0.12);
+  box-shadow: none;
+}
+
+.cuad-modal-temas
+  .cuad-temas-actions-stack
+  .cuad-tema-form-panel--crear.cuad-tema-form-panel--open {
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-left-color: var(--bs-success);
+}
+
+.cuad-modal-temas
+  .cuad-temas-actions-stack
+  .cuad-tema-form-panel--editar.cuad-tema-form-panel--open {
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-left-color: var(--unamba-navy);
 }
 
 .cuad-modal-temas .cuad-modal-toolbar--temas .btn .bi {
@@ -1617,13 +1667,28 @@ main {
 .cuad-modal-temas .cuad-tema-form-panel__field .form-control {
   border-radius: 9px;
   min-height: 2.35rem;
+  background-color: var(--lunia-white);
+  color: var(--lunia-text);
 }
 
 .cuad-modal-temas .cuad-tema-form-panel__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.45rem;
   padding-bottom: 0.1rem;
+}
+
+/* Misma altura que .cuad-tema-form-panel__field .form-control (2.35rem) */
+.cuad-modal-temas .cuad-tema-form-panel__actions .btn {
+  min-height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.9rem;
+  border-radius: 9px;
+  font-size: 0.875rem;
+  line-height: 1.2;
 }
 
 .cuad-modal-temas .cuad-tema-form-panel__actions .btn .bi {
