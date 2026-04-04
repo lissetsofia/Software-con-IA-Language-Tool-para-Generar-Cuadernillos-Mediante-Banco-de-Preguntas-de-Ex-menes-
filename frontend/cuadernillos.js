@@ -894,6 +894,23 @@ window.__matrizSeleccionada = null;
     }
   });
 
+  // Clic en la tarjeta marca el radio; no interferir con select ni file
+  document.addEventListener("click", (ev) => {
+    const block = ev.target.closest(
+      "#modalImportarMatriz .cuad-import-matriz-block"
+    );
+    if (!block) return;
+    if (ev.target.closest("#selMatriz, #matrizFile")) return;
+    if (ev.target.closest("select")) return;
+    if (ev.target.closest("input[type='file']")) return;
+    if (ev.target.closest('label[for="selMatriz"]')) return;
+
+    const radio = block.querySelector('input[type="radio"][name="origen"]');
+    if (!radio || radio.checked) return;
+    radio.checked = true;
+    radio.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+
   // ---------- Al mostrar el modal, enganchar el click de "#btnImportarOK" ----------
   document.addEventListener("shown.bs.modal", (ev) => {
      if (ev.target.id !== "modalImportarMatriz") return;
@@ -1678,11 +1695,19 @@ function rowGrupoHTML(g) {
     <tr data-id="${g.idgrupo}">
       <td>${g.idgrupo}</td>
       <td>${g.clave || ""}</td>
-      <td>${g.nombre || ""}</td>
+      <td class="text-start">${g.nombre || ""}</td>
       <td>${Number(g.total_preguntas || 0)}</td>
       <td class="text-nowrap">
-        <button type="button" class="btn btn-sm btn-primary btn-edit">Editar</button>
-        <button type="button" class="btn btn-sm btn-danger  btn-del">Eliminar</button>
+        <div class="d-flex flex-wrap gap-1 justify-content-center">
+        <button type="button" class="btn btn-sm btn-outline-primary btn-edit d-inline-flex align-items-center gap-1">
+          <i class="bi bi-pencil-square" aria-hidden="true"></i>
+          Editar
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-danger btn-del d-inline-flex align-items-center gap-1">
+          <i class="bi bi-trash3" aria-hidden="true"></i>
+          Eliminar
+        </button>
+        </div>
       </td>
     </tr>`;
 }
@@ -1693,15 +1718,21 @@ async function renderGruposCuadSimple() {
     document.querySelector("#tablaGrupos tbody") ||
     document.getElementById("tbodyGrupos");
   if (!tb) return;
-  tb.innerHTML = `<tr><td colspan="5">Cargando…</td></tr>`;
+  tb.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">
+    <span class="d-inline-flex align-items-center gap-2 justify-content-center"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Cargando…</span>
+  </td></tr>`;
   try {
     const data = await fetchGruposAll();
     tb.innerHTML = data.length
       ? data.map(rowGrupoHTML).join("")
-      : `<tr><td colspan="5">Sin grupos aún</td></tr>`;
+      : `<tr><td colspan="5" class="text-center text-muted py-4">
+    <span class="d-inline-flex flex-column align-items-center gap-2"><i class="bi bi-inbox fs-3 opacity-50" aria-hidden="true"></i> Sin grupos aún</span>
+  </td></tr>`;
   } catch (e) {
     console.error(e);
-    tb.innerHTML = `<tr><td colspan="5">Error cargando grupos</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">
+    <span class="d-inline-flex align-items-center gap-2 justify-content-center"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Error cargando grupos</span>
+  </td></tr>`;
   }
 }
 
@@ -1734,10 +1765,12 @@ function filaCuotaHTML2(temas, preset = {}) {
         </select>
       </div>
       <div class="col-3">
-        <input type="number" min="0" class="form-control inp-cant" value="${cant}">
+        <input type="number" min="0" class="form-control inp-cant" value="${cant}" aria-label="Cantidad de preguntas">
       </div>
       <div class="col-1 text-end">
-        <button type="button" class="btn btn-outline-danger btn-sm btnQuitarCuota">&times;</button>
+        <button type="button" class="btn btn-outline-danger btn-sm btnQuitarCuota d-inline-flex align-items-center justify-content-center p-2" title="Quitar tema" aria-label="Quitar tema">
+          <i class="bi bi-trash3" aria-hidden="true"></i>
+        </button>
       </div>
     </div>`;
 }
@@ -1784,9 +1817,17 @@ async function abrirEditorGrupoCuadSimple(datos) {
     datos?.clave || ""
   ).toUpperCase();
   document.getElementById("grupo-nombre").value = datos?.nombre || "";
-  document.getElementById("tituloGrupo").textContent = datos?.idgrupo
-    ? "Editar grupo"
-    : "Nuevo grupo";
+  const tituloEl = document.getElementById("tituloGrupo");
+  const tituloIcon = document.getElementById("tituloGrupoIcon");
+  const editar = Boolean(datos?.idgrupo);
+  if (tituloEl) {
+    tituloEl.textContent = editar ? "Editar grupo" : "Nuevo grupo";
+  }
+  if (tituloIcon) {
+    tituloIcon.className = editar
+      ? "bi bi-pencil-square cuad-grupo-form-header-icon"
+      : "bi bi-person-plus-fill cuad-grupo-form-header-icon";
+  }
 
   const temas = await fetchTemasActivos2();
   const cont = document.getElementById("cuotasWrap");
@@ -1857,8 +1898,9 @@ cuotasBase.forEach((c) =>
     totalFrom2("#cuotasWrap", "#totalCuotas");
   };
   cont.onclick = (e) => {
-    if (e.target.classList.contains("btnQuitarCuota")) {
-      e.target.closest(".cuota-row")?.remove();
+    const quitar = e.target.closest(".btnQuitarCuota");
+    if (quitar) {
+      quitar.closest(".cuota-row")?.remove();
       totalFrom2("#cuotasWrap", "#totalCuotas");
     }
   };

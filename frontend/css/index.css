@@ -2123,18 +2123,141 @@ main {
   padding: 2px 6px;
 }
 
-/* ========== Tamaño del modal de Gestión de grupos ========== */
-/* Funciona en Bootstrap 5.x */
-#modalGrupos .modal-dialog {
-  /* Ancho responsivo grande */
-  max-width: 750px; /* ajusta a gusto: 900, 1100, etc. */
-  width: 95vw; /* que no se pase del viewport */
+/* ========== Modales: Gestión de grupos, formulario, importar matriz ========== */
+#modalGrupos .cuad-modal-grupos-dialog {
+  max-width: min(96vw, 780px);
+  width: min(96vw, 780px);
 }
 
-/* (Opcional) Si tu tabla es alta, que el cuerpo sea scrollable */
+#modalGrupos .cuad-modal-grupos-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+}
+
+#modalGrupos .modal-header .cuad-grupos-header-icon {
+  font-size: 1.2rem;
+  opacity: 0.92;
+}
+
+/*
+  scrollbar-gutter: stable reserva carril a la derecha aunque no haya scroll → parece más padding
+  a la derecha que a la izquierda. auto mantiene el mismo padding lateral hasta que la barra exista.
+*/
 #modalGrupos .modal-body {
-  max-height: 70vh;
-  overflow: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  scrollbar-gutter: auto;
+}
+
+#modalGrupos .cuad-modal-toolbar--grupos {
+  margin-bottom: 1rem;
+  padding: 0.65rem 0.85rem;
+  background: linear-gradient(180deg, rgba(237, 242, 248, 0.95), rgba(228, 234, 242, 0.88));
+  border: 1px solid rgba(26, 45, 69, 0.1);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+}
+
+#modalGrupos .cuad-grupos-table-panel {
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 3px 14px rgba(15, 23, 41, 0.08);
+}
+
+#modalGrupos .cuad-grupos-table-panel .table-responsive {
+  border-radius: 14px;
+}
+
+#modalGrupos .cuad-grupos-table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+
+#modalGrupos .cuad-grupos-table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+#modalGrupos .cuad-grupos-table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+#modalGrupos .cuad-grupos-table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
+}
+
+#modalGrupoForm .cuad-grupo-form-header-icon {
+  font-size: 1.15rem;
+  opacity: 0.92;
+  flex-shrink: 0;
+}
+
+#modalGrupoForm .modal-body .form-control,
+#modalGrupoForm .modal-body .form-select {
+  background-color: #fff;
+}
+
+#modalGrupoForm .modal-body .form-control:focus,
+#modalGrupoForm .modal-body .form-select:focus {
+  background-color: #fff;
+  border-color: rgba(13, 110, 253, 0.55);
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12);
+}
+
+#modalGrupoForm .cuad-grupo-cuotas-head {
+  padding: 0.5rem 0.7rem;
+  background: rgba(228, 234, 242, 0.45);
+  border-radius: 10px;
+  border: 1px solid rgba(26, 45, 69, 0.08);
+}
+
+#modalGrupoForm .cuad-grupo-cuotas-wrap {
+  padding: 0.15rem 0 0;
+}
+
+/* Total al pie de las filas: icono + texto, poco aire respecto a las cuotas */
+#modalGrupoForm .cuad-grupo-total-footer {
+  margin-top: 0.4rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid rgba(26, 45, 69, 0.08);
+}
+
+#modalGrupoForm .cuad-grupo-total-footer small {
+  font-size: 0.875rem;
+}
+
+#modalImportarMatriz .cuad-import-matriz-header-icon {
+  font-size: 1.15rem;
+  opacity: 0.92;
+}
+
+#modalImportarMatriz .cuad-import-matriz-block {
+  padding: 0.75rem 0.85rem;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(26, 45, 69, 0.1);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+#modalImportarMatriz .cuad-import-matriz-block .form-select,
+#modalImportarMatriz .cuad-import-matriz-block input.form-control[type="file"] {
+  cursor: auto;
+  background-color: #fff;
+}
+
+#modalImportarMatriz .cuad-import-matriz-block .form-select:focus,
+#modalImportarMatriz .cuad-import-matriz-block input.form-control[type="file"]:focus {
+  background-color: #fff;
+  border-color: rgba(13, 110, 253, 0.55);
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12);
+}
+
+#modalImportarMatriz .form-check-label {
+  cursor: pointer;
+}
+
+#modalImportarMatriz .cuad-import-matriz-hint__icon {
+  font-size: 1.05rem;
+  line-height: 1;
 }
 
 /* ========== Z-index para que no se meta detrás de tu modal custom ========== */
@@ -2150,6 +2273,10 @@ main {
 }
 #modalGrupos {
   z-index: 1050; /* gestión de grupos encima del backdrop */
+}
+#modalGrupoForm,
+#modalImportarMatriz {
+  z-index: 1060; /* encima de #modalGrupos */
 }
 #modalGrupoEditar,
 #modalGrupoCrear {

@@ -348,10 +348,13 @@
 
 <div class="modal fade modal-cuad-root" id="modalGrupos" tabindex="-1"  data-bs-backdrop="static"
   data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered modal-xl">
+  <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable cuad-modal-grupos-dialog">
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
-        <h5 class="modal-title">Gestión de grupos</h5>
+        <h5 class="modal-title d-flex align-items-center gap-2 mb-0">
+          <i class="bi bi-people-fill cuad-grupos-header-icon" aria-hidden="true"></i>
+          <span>Gestión de grupos</span>
+        </h5>
         <button
           type="button"
           class="btn-close"
@@ -360,20 +363,22 @@
       </div>
 
       <div class="modal-body">
-        <div class="cuad-modal-toolbar justify-content-between">
-          <button class="btn btn-primary" id="btnNuevoGrupo" type="button">
-            <i class="bi bi-plus-circle"></i> Agregar grupo
+        <div class="cuad-modal-toolbar cuad-modal-toolbar--grupos justify-content-between align-items-center flex-wrap gap-2">
+          <button class="btn btn-primary d-inline-flex align-items-center gap-2" id="btnNuevoGrupo" type="button">
+            <i class="bi bi-plus-circle" aria-hidden="true"></i>
+            Agregar grupo
           </button>
-          <button class="btn btn-success" id="btnImportarMatriz" type="button">
-            <i class="bi bi-upload"></i> Importar matriz
+          <button class="btn btn-success d-inline-flex align-items-center gap-2" id="btnImportarMatriz" type="button">
+            <i class="bi bi-upload" aria-hidden="true"></i>
+            Importar matriz
           </button>
         </div>
 
-        <div class="cuad-table-panel mb-3">
+        <div class="cuad-table-panel cuad-grupos-table-panel mb-3">
           <div class="table-responsive">
             <table
               id="tablaGrupos"
-              class="table table-bordered table-hover text-center mb-0"
+              class="table table-bordered table-hover text-center mb-0 cuad-grupos-table"
             >
               <thead class="table-dark">
                 <tr>
@@ -390,14 +395,11 @@
         </div>
 
         <div class="text-end">
-          <button class="btn btn-success" id="btnGenerarGrupos" type="button">
-            <i class="bi bi-download"></i> Descargar grupos
+          <button class="btn btn-success d-inline-flex align-items-center gap-2" id="btnGenerarGrupos" type="button">
+            <i class="bi bi-download" aria-hidden="true"></i>
+            Descargar grupos
           </button>
         </div>
-      </div>
-
-      <div class="modal-footer">
-        
       </div>
     </div>
   </div>
@@ -405,10 +407,13 @@
 
 <!-- Modal: Crear/Editar grupo con cuotas -->
 <div class="modal fade modal-cuad-root" id="modalGrupoForm" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <form class="modal-content modal-evalunia" id="formGrupo">
       <div class="modal-header">
-        <h5 class="modal-title" id="tituloGrupo">Editar grupo</h5>
+        <h5 class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1 min-w-0">
+          <i class="bi bi-pencil-square cuad-grupo-form-header-icon" id="tituloGrupoIcon" aria-hidden="true"></i>
+          <span id="tituloGrupo">Editar grupo</span>
+        </h5>
         <button
           type="button"
           class="btn-close"
@@ -419,36 +424,41 @@
       <div class="modal-body">
         <input type="hidden" id="grupo-id" />
 
-        <div class="row g-2 mb-3">
+        <div class="row g-2 mb-2">
           <div class="col-4">
-            <label class="form-label">Clave</label>
+            <label class="form-label" for="grupo-clave">Clave</label>
             <input id="grupo-clave" class="form-control" maxlength="5" />
           </div>
           <div class="col-8">
-            <label class="form-label">Nombre</label>
+            <label class="form-label" for="grupo-nombre">Nombre</label>
             <input id="grupo-nombre" class="form-control" maxlength="100" />
           </div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center">
-          <label class="form-label m-0"><strong>Cuotas por tema</strong></label>
-          <button class="btn btn-sm btn-success" type="button" id="btnAddCuota">
-            + Agregar tema
+        <div class="cuad-grupo-cuotas-head d-flex flex-wrap justify-content-between align-items-center gap-2 mb-1">
+          <span class="d-inline-flex align-items-center gap-2 fw-semibold text-body">
+            <i class="bi bi-sliders2 text-primary" aria-hidden="true"></i>
+            Cuotas por tema
+          </span>
+          <button class="btn btn-sm btn-success d-inline-flex align-items-center gap-1" type="button" id="btnAddCuota">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+            Agregar tema
           </button>
         </div>
 
-        <div id="cuotasWrap" class="mt-2"></div>
+        <div id="cuotasWrap" class="cuad-grupo-cuotas-wrap"></div>
 
-        <div class="text-end mt-2">
-          <small class="text-muted"
-            >Total preguntas: <span id="totalCuotas">0</span></small
-          >
+        <div class="cuad-grupo-total-footer d-flex justify-content-end align-items-center gap-2">
+          <i class="bi bi-calculator text-muted" aria-hidden="true"></i>
+          <small class="text-muted mb-0">
+            Total preguntas: <strong class="text-body" id="totalCuotas">0</strong>
+          </small>
         </div>
       </div>
 
       <div class="modal-footer">
-      
-        <button type="submit" class="btn btn-primary" id="btnGuardarGrupo">
+        <button type="submit" class="btn btn-primary d-inline-flex align-items-center gap-2" id="btnGuardarGrupo">
+          <i class="bi bi-check2-circle" aria-hidden="true"></i>
           Guardar
         </button>
       </div>
@@ -468,7 +478,10 @@
   <div class="modal-dialog modal-dialog-centered">
     <form class="modal-content modal-evalunia" id="formImportarMatriz">
       <div class="modal-header">
-        <h5 class="modal-title">Importar matriz</h5>
+        <h5 class="modal-title d-flex align-items-center gap-2 mb-0">
+          <i class="bi bi-file-earmark-arrow-up-fill cuad-import-matriz-header-icon" aria-hidden="true"></i>
+          <span>Importar matriz</span>
+        </h5>
         <button
           type="button"
           class="btn-close"
@@ -476,56 +489,63 @@
         ></button>
       </div>
       <div class="modal-body">
-        <div class="form-check mb-2">
-          <input
-            class="form-check-input"
-            type="radio"
-            name="origen"
-            id="origenBD"
-            value="bd"
-            checked
-          />
-          <label class="form-check-label" for="origenBD"
-            >Desde Base de Datos</label
-          >
-        </div>
-        <div class="mb-3 ps-4" id="boxBD">
-          <label class="form-label">Matriz</label>
-          <select id="selMatriz" class="form-select">
-            <option value="">Cargando…</option>
-          </select>
-        </div>
-
-        <!-- Dentro del modal Importar matriz -->
-        <div class="form-check my-2">
-          <input
-            class="form-check-input"
-            type="radio"
-            name="origen"
-            id="origenArchivo"
-          />
-          <label class="form-check-label" for="origenArchivo">
-            Desde archivo (.docx)
-          </label>
+        <div class="cuad-import-matriz-block mb-3">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="radio"
+              name="origen"
+              id="origenBD"
+              value="bd"
+              checked
+            />
+            <label class="form-check-label fw-semibold d-flex align-items-center gap-2" for="origenBD">
+              <i class="bi bi-database text-primary" aria-hidden="true"></i>
+              Desde base de datos
+            </label>
+          </div>
+          <div class="mt-2 ps-4 pt-1" id="boxBD">
+            <label class="form-label small text-muted mb-1" for="selMatriz">Matriz guardada</label>
+            <select id="selMatriz" class="form-select">
+              <option value="">Cargando…</option>
+            </select>
+          </div>
         </div>
 
-        <div class="mt-2" id="boxFile">
-          <input
-            type="file"
-            id="matrizFile"
-            name="file"
-            class="form-control"
-            accept=".docx"
-          />
-          <small class="text-muted"
-            >Selecciona un documento Word (.docx).</small
-          >
+        <div class="cuad-import-matriz-block">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="radio"
+              name="origen"
+              id="origenArchivo"
+            />
+            <label class="form-check-label fw-semibold d-flex align-items-center gap-2" for="origenArchivo">
+              <i class="bi bi-file-earmark-word text-success" aria-hidden="true"></i>
+              Desde archivo (.docx)
+            </label>
+          </div>
+          <div class="mt-2 ps-4 pt-1" id="boxFile">
+            <input
+              type="file"
+              id="matrizFile"
+              name="file"
+              class="form-control"
+              accept=".docx"
+            />
+            <small class="text-muted d-flex align-items-center gap-2 mt-2 cuad-import-matriz-hint">
+              <i class="bi bi-info-circle flex-shrink-0 cuad-import-matriz-hint__icon" aria-hidden="true"></i>
+              <span class="lh-sm">Selecciona un documento Word (.docx).</span>
+            </small>
+          </div>
         </div>
       </div>
 
       <div class="modal-footer">
-        
-        <button class="btn btn-success" id="btnImportarOK">Importar</button>
+        <button type="button" class="btn btn-success d-inline-flex align-items-center gap-2" id="btnImportarOK">
+          <i class="bi bi-cloud-arrow-up" aria-hidden="true"></i>
+          Importar
+        </button>
       </div>
     </form>
   </div>
