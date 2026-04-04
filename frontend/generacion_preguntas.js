@@ -380,20 +380,10 @@ async function renderTemas() {
   $tabla.off("click.temasBanco", ".btn-toggle-tema");
 
   $tabla.on("click.temasBanco", ".btn-editar-tema", function () {
-    const id = this.dataset.id;
-    const nombre = this.dataset.nombre || "";
-
-    document.getElementById("temaIdEditar").value = id;
-    document.getElementById("temaNombreEditar").value = nombre;
-
-    const modalEditarEl = document.getElementById("modalTemaEditar");
-    if (modalEditarEl.parentElement !== document.body) {
-      document.body.appendChild(modalEditarEl);
-    }
-
-    bootstrap.Modal.getOrCreateInstance(modalEditarEl, {
-      backdrop: "static",
-    }).show();
+    showPanelTemaBanco("editar", {
+      id: this.dataset.id,
+      nombre: this.dataset.nombre || "",
+    });
   });
 
   $tabla.on("click.temasBanco", ".btn-toggle-tema", async function () {
@@ -471,6 +461,119 @@ function destroyDtWrappersBanco() {
   if (!tb.parentElement) t.appendChild(tb);
 }
 
+  function panelTemaBancoEls() {
+    return {
+      panel: document.getElementById("panelTemaBanco"),
+      titulo: document.getElementById("panelTemaBancoTitulo"),
+      icon: document.getElementById("panelTemaBancoIcon"),
+      idInput: document.getElementById("temaIdBanco"),
+      nombreInput: document.getElementById("temaNombreBanco"),
+      btnG: document.getElementById("btnTemaBancoGuardar"),
+    };
+  }
+
+  function hidePanelTemaBanco() {
+    const { panel, idInput, nombreInput, btnG, icon } = panelTemaBancoEls();
+    if (!panel) return;
+    panel.classList.remove(
+      "gen-tema-form-panel--crear",
+      "gen-tema-form-panel--editar"
+    );
+    if (icon) icon.className = "bi bi-plus-circle";
+    panel.classList.add("d-none");
+    panel.dataset.modo = "";
+    if (idInput) idInput.value = "";
+    if (nombreInput) {
+      nombreInput.value = "";
+      nombreInput.disabled = false;
+    }
+    if (btnG) btnG.disabled = false;
+  }
+
+  function showPanelTemaBanco(modo, payload = {}) {
+    const { panel, titulo, icon, idInput, nombreInput, btnG } = panelTemaBancoEls();
+    if (!panel || !nombreInput) return;
+    panel.classList.remove(
+      "gen-tema-form-panel--crear",
+      "gen-tema-form-panel--editar"
+    );
+    panel.classList.add(
+      modo === "editar" ? "gen-tema-form-panel--editar" : "gen-tema-form-panel--crear"
+    );
+    if (icon) {
+      icon.className =
+        modo === "editar" ? "bi bi-pencil-square" : "bi bi-plus-circle";
+    }
+    panel.classList.remove("d-none");
+    panel.dataset.modo = modo;
+    if (titulo) {
+      titulo.textContent = modo === "editar" ? "Editar tema" : "Nuevo tema";
+    }
+    if (idInput) idInput.value = modo === "editar" ? String(payload.id ?? "") : "";
+    nombreInput.value =
+      modo === "editar" ? String(payload.nombre ?? "").trim() : "";
+    nombreInput.focus();
+    if (btnG) {
+      const label = btnG.querySelector(".btn-text");
+      if (label) {
+        label.textContent = modo === "editar" ? "Actualizar" : "Guardar";
+      }
+      btnG.classList.toggle("btn-success", modo !== "editar");
+      btnG.classList.toggle("btn-primary", modo === "editar");
+    }
+  }
+
+  async function guardarPanelTemaBanco() {
+    const modal = document.getElementById("modalTemas");
+    if (modal?.dataset?.ctx !== "banco") return;
+
+    const { panel, idInput, nombreInput, btnG } = panelTemaBancoEls();
+    const modo = panel?.dataset?.modo;
+    if (!modo || panel.classList.contains("d-none")) return;
+
+    const nombre = nombreInput?.value.trim() || "";
+    if (!nombre) return;
+
+    if (btnG) btnG.disabled = true;
+    if (nombreInput) nombreInput.disabled = true;
+
+    try {
+      if (modo === "crear") {
+        const r = await fetch(window.TEMAS_API_BASE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          alert(d.error || "Error al crear.");
+          return;
+        }
+      } else if (modo === "editar") {
+        const id = idInput?.value;
+        if (!id) return;
+        const r = await fetch(`${window.TEMAS_API_BASE}/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          alert(d.error || "Error al actualizar.");
+          return;
+        }
+      }
+      hidePanelTemaBanco();
+      await renderTemas();
+    } catch (e2) {
+      console.error(e2);
+      alert("Error de red.");
+    } finally {
+      const els = panelTemaBancoEls();
+      if (els.btnG) els.btnG.disabled = false;
+      if (els.nombreInput) els.nombreInput.disabled = false;
+    }
+  }
 
   // ————— Cableado robusto —————
 
@@ -513,62 +616,37 @@ $(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function 
   }
 });
 
+  $(document).on("click.temasBancoPanel", "#btnAgregarTemaBanco", function (ev) {
+    ev.preventDefault();
+    const modal = document.getElementById("modalTemas");
+    if (modal?.dataset?.ctx !== "banco") return;
+    showPanelTemaBanco("crear");
+  });
 
-  // 3) Crear
-$(document).on("submit", "#formTemaCrear", async function (e) {
-  const modal = document.getElementById("modalTemas");
-  if (modal?.dataset?.ctx !== "banco") return;
+  $(document).on("click.temasBancoPanel", "#btnTemaBancoGuardar", function (ev) {
+    ev.preventDefault();
+    void guardarPanelTemaBanco();
+  });
 
-  e.preventDefault();
+  $(document).on("click.temasBancoPanel", "#btnTemaBancoCancelar", function (ev) {
+    ev.preventDefault();
+    hidePanelTemaBanco();
+  });
 
-  const nombre = document.getElementById("temaNombreCrear").value.trim();
-  if (!nombre) return;
+  $(document).on("hidden.bs.modal.temasBancoPanel", "#modalTemas", function () {
+    if (this.dataset.ctx !== "banco") return;
+    hidePanelTemaBanco();
+  });
 
-  try {
-    const r = await fetch(window.TEMAS_API_BASE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre }),
-    });
-    const d = await r.json();
-    if (!r.ok) return alert(d.error || "Error al crear.");
-
-    bootstrap.Modal.getInstance(document.getElementById("modalTemaCrear"))?.hide();
-    document.getElementById("temaNombreCrear").value = "";
-    await renderTemas();
-  } catch (e2) {
-    console.error(e2);
-    alert("Error de red.");
-  }
-});
-
-  // 4) Editar
- $(document).on("submit", "#formTemaEditar", async function (e) {
-  const modal = document.getElementById("modalTemas");
-  if (modal?.dataset?.ctx !== "banco") return;
-
-  e.preventDefault();
-
-  const id = document.getElementById("temaIdEditar").value;
-  const nombre = document.getElementById("temaNombreEditar").value.trim();
-  if (!nombre) return;
-
-  try {
-    const r = await fetch(`${window.TEMAS_API_BASE}/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre }),
-    });
-    const d = await r.json();
-    if (!r.ok) return alert(d.error || "Error al actualizar.");
-
-    bootstrap.Modal.getInstance(document.getElementById("modalTemaEditar"))?.hide();
-    await renderTemas();
-  } catch (e2) {
-    console.error(e2);
-    alert("Error de red.");
-  }
-});
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Escape") return;
+    const modal = document.getElementById("modalTemas");
+    if (!modal?.classList.contains("show") || modal.dataset.ctx !== "banco") return;
+    const panel = document.getElementById("panelTemaBanco");
+    if (!panel || panel.classList.contains("d-none")) return;
+    ev.stopPropagation();
+    hidePanelTemaBanco();
+  });
  })();
 // Reusa tu objeto de traducciones si lo tienes
 //preguntas

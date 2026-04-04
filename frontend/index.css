@@ -45,4 +45,7 @@ body {
   .modal-temas-ancha { --bs-modal-width: 1250px; }   /* más grande en pantallas grandes */
 }
 /* Altura cómoda */
-#modalTemas .modal-content { min-height: 70vh; }
+/* Cuadernillos: modal temario (evita pisar generacion_preguntas con el mismo id) */
+.cuad-modal-temas .modal-content {
+  min-height: 70vh;
+}
