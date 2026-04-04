@@ -16,8 +16,20 @@ const BACKEND_PORT = 5050;
 
 if (isDev) {
   try {
+    // watchRenderer vigila todo el cwd (raíz del repo con package.json). Sin ignorar
+    // backend/temas_archivos, cada .docx creado al partir exámenes recarga la ventana
+    // y aborta el fetch largo de partir_y_guardar.
+    const ignoreBackendGenerated = (filePath) => {
+      const norm = path.normalize(filePath).replace(/\\/g, "/");
+      if (/(^|\/)backend\/(temas_archivos|uploads|data|descargas)(\/|$)/i.test(norm))
+        return true;
+      if (/(^|\/)descargas(\/|$)/i.test(norm)) return true;
+      if (/(^|\/)static\/previews(\/|$)/i.test(norm)) return true;
+      return false;
+    };
     require("electron-reloader")(module, {
       watchRenderer: true,
+      ignore: [ignoreBackendGenerated],
     });
   } catch (_) {}
 }
