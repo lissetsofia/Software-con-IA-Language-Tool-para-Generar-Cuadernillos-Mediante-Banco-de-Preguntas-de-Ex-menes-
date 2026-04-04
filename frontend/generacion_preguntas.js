@@ -98,6 +98,50 @@ window.addEventListener("focus", () => {
   setTimeout(repararEstadoModales, 0);
 });
 
+/** Same pattern as destroyDtWrappersCuad / #tabla-temas: clear toolbar host, strip DT chrome, rebuild thead. */
+function destroyDtWrappersExamenes() {
+  const host = document.getElementById("bancoExamenesDtToolbarHost");
+  if (host) host.replaceChildren();
+
+  const t = document.querySelector("#tabla-examenes");
+  if (!t) return;
+
+  const $t = $(t);
+
+  if ($.fn.DataTable.isDataTable(t)) {
+    try {
+      $t.DataTable().clear().destroy();
+    } catch (e) {
+      console.warn("[Examenes] destroy error:", e);
+    }
+  }
+
+  for (;;) {
+    const $w = $t.closest(".dataTables_wrapper, .dt-container");
+    if (!$w.length) break;
+    $w.before($t);
+    $w.remove();
+  }
+
+  t.querySelector("thead")?.remove();
+
+  const thead = document.createElement("thead");
+  thead.className = "table-dark";
+  thead.innerHTML = `
+    <tr>
+      <th class="banco-examenes-th-nombre">Nombre</th>
+      <th class="text-end text-nowrap banco-examenes-th-numero">Número</th>
+      <th class="banco-examenes-th-institucion">Institución</th>
+      <th class="text-center text-nowrap banco-examenes-th-anio">Año</th>
+      <th class="text-end text-nowrap banco-examenes-th-actions">Acciones</th>
+    </tr>
+  `;
+  t.prepend(thead);
+
+  const tb = t.querySelector("tbody") || document.createElement("tbody");
+  tb.innerHTML = "";
+  if (!tb.parentElement) t.appendChild(tb);
+}
 
 async function cargarExamenes() {
   try {
@@ -111,48 +155,166 @@ async function cargarExamenes() {
       return;
     }
 
-    if (!$.fn.DataTable.isDataTable("#tabla-examenes")) {
-      tabla.DataTable({
-        data: examenes,
-        columns: [
-          { data: "nombre" },
-          { data: "numero" },
-          { data: "institucion" },
-          { data: "anio" },
-          {
-            data: null,
-            render: function (data, type, row) {
-              return `
-  <button class="btn btn-sm btn-primary btn-buscar" data-id="${row.idexamenes}">Cursos</button>
-  <button class="btn btn-sm btn-success mx-1" onclick="abrirModalExportar(${row.idexamenes})">Exportar</button>
-  <button class="btn btn-sm btn-danger eliminar-examen" data-id="${row.idexamenes}">Eliminar</button>
-`;
-            },
-          },
-        ],
-        autoWidth: false, // Desactiva el ancho automático de columnas
-        responsive: true, // Activa responsividad si lo usas
-        language: {
-          search: "Buscar:",
-          lengthMenu: "Mostrar _MENU_ registros por página",
-          zeroRecords: "No se encontraron resultados",
-          info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-          infoEmpty: "Mostrando 0 a 0 de 0 registros",
-          infoFiltered: "(filtrado de _MAX_ registros totales)",
-          paginate: {
-            first: "Primero",
-            last: "Último",
-            next: "Siguiente",
-            previous: "Anterior",
+    destroyDtWrappersExamenes();
+
+    tabla.DataTable({
+      data: examenes,
+      destroy: true,
+      autoWidth: false,
+      responsive: false,
+      pageLength: 12,
+      lengthMenu: [
+        [8, 12, 20, 50, -1],
+        [8, 12, 20, 50, "Todos"],
+      ],
+      dom: "<'banco-exam-dt-toolbar banco-exam-dt-toolbar--row'lf>rt<'banco-exam-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
+      columnDefs: [
+        { targets: 0, width: "26%" },
+        { targets: 1, width: "9%" },
+        { targets: 2, width: "26%" },
+        { targets: 3, width: "7%" },
+        { targets: 4, width: "32%", orderable: false },
+      ],
+      columns: [
+        {
+          data: "nombre",
+          className: "banco-examenes-col-nombre",
+        },
+        {
+          data: "numero",
+          className: "text-end text-nowrap banco-examenes-col-numero",
+        },
+        {
+          data: "institucion",
+          className: "banco-examenes-col-institucion",
+        },
+        {
+          data: "anio",
+          className: "text-center text-nowrap banco-examenes-col-anio",
+        },
+        {
+          data: null,
+          orderable: false,
+          searchable: false,
+          className: "text-end banco-examenes-col-actions",
+          render: function (data, type, row) {
+            const id = row.idexamenes;
+            return `
+<div class="btn-group btn-group-sm banco-examenes-actions-group" role="group">
+  <button type="button" class="btn btn-primary btn-buscar d-inline-flex align-items-center gap-1" data-id="${id}">
+    <i class="bi bi-mortarboard-fill" aria-hidden="true"></i>
+    Cursos
+  </button>
+  <button type="button" class="btn btn-success d-inline-flex align-items-center gap-1" onclick="abrirModalExportar(${id})">
+    <i class="bi bi-download" aria-hidden="true"></i>
+    Exportar
+  </button>
+  <button type="button" class="btn btn-danger eliminar-examen d-inline-flex align-items-center gap-1" data-id="${id}">
+    <i class="bi bi-trash" aria-hidden="true"></i>
+    Eliminar
+  </button>
+</div>`;
           },
         },
-      });
-    } else {
-      const dt = tabla.DataTable();
-      dt.clear();
-      dt.rows.add(examenes);
-      dt.draw();
-    }
+      ],
+      language: {
+        ...(window.DT_ES || {}),
+        search: "",
+        searchPlaceholder: "Buscar por nombre, institución o año…",
+        lengthMenu: "_MENU_",
+        zeroRecords: "No se encontraron resultados",
+        info: "_START_–_END_ de _TOTAL_",
+        infoEmpty: "0 exámenes",
+        infoFiltered: "(de _MAX_)",
+        paginate: {
+          first: "«",
+          last: "»",
+          next: "›",
+          previous: "‹",
+        },
+        processing: "Procesando…",
+      },
+      initComplete: function () {
+        const $wrap = $(this.api().table().container());
+        $wrap.addClass("banco-exam-dt-wrap");
+        const $toolbar = $wrap.find(".banco-exam-dt-toolbar").first();
+        const $host = $("#bancoExamenesDtToolbarHost");
+        if ($host.length && $toolbar.length) {
+          $toolbar.detach().appendTo($host);
+        }
+
+        const findCtl = (sel) => {
+          let $el = $host.find(sel);
+          if (!$el.length) $el = $toolbar.find(sel);
+          if (!$el.length) $el = $wrap.find(sel);
+          return $el;
+        };
+
+        const $length = findCtl(".dt-length, .dataTables_length");
+        const $lenSelect = $length.find("select").first().detach();
+        if ($lenSelect.length && $length.length) {
+          $length.addClass(
+            "banco-exam-toolbar-field banco-exam-toolbar-field--length"
+          );
+          $length.find("label").remove();
+          $lenSelect.addClass("form-select banco-exam-length-select");
+          const lenId =
+            $lenSelect.attr("id") || "bancoExamenesDtLengthSelect";
+          $lenSelect.attr("id", lenId);
+          $length.find(".banco-exam-toolbar-block-label--length").remove();
+          $length.prepend(
+            `<label class="form-label banco-exam-toolbar-block-label banco-exam-toolbar-block-label--length" for="${lenId}">Filas por página</label>`
+          );
+          $("<div>")
+            .addClass("banco-exam-length-wrap")
+            .append($lenSelect)
+            .appendTo($length);
+        }
+
+        const $fil = findCtl(".dt-search, .dataTables_filter");
+        const $inp = $fil.find("input[type=search], input").first().detach();
+        if ($inp.length && $fil.length) {
+          $fil.empty();
+          $fil.addClass(
+            "banco-exam-filter-wrap banco-exam-toolbar-field banco-exam-toolbar-field--search"
+          );
+          const searchId = "bancoExamenesDtSearchInput";
+          $fil.prepend(
+            `<label class="form-label banco-exam-toolbar-block-label banco-exam-toolbar-block-label--search" for="${searchId}">Buscar en la tabla</label>`
+          );
+          $inp.attr({
+            id: searchId,
+            type: "search",
+            placeholder: "Nombre, institución o número…",
+            autocomplete: "off",
+          });
+          $inp.addClass("form-control banco-exam-search-input flex-grow-1");
+          const $ig = $(
+            '<div class="input-group banco-exam-search-ig align-items-stretch"></div>'
+          );
+          $ig.append(
+            '<span class="input-group-text banco-exam-search-prefix" aria-hidden="true"><i class="bi bi-search"></i></span>',
+            $inp
+          );
+          $("<div>")
+            .addClass("banco-exam-filter-label")
+            .append($ig)
+            .appendTo($fil);
+        }
+      },
+    });
+
+    setTimeout(() => {
+      try {
+        const api = tabla.DataTable();
+        api.columns.adjust();
+        if (api.responsive && typeof api.responsive.recalc === "function") {
+          api.responsive.recalc();
+        }
+      } catch (e) {
+        console.warn("[Examenes] DataTable columns.adjust", e);
+      }
+    }, 0);
   } catch (error) {
     console.error("❌ Error al cargar exámenes:", error);
   }
@@ -162,8 +324,24 @@ async function cargarExamenes() {
 window.initGeneracionPreguntas = function () {
   console.log("🔁 initGeneracionPreguntas() → recargar tabla y wiring");
 
+  if ($.fn.dataTable && $.fn.dataTable.ext) {
+    $.fn.dataTable.ext.errMode = "console";
+  }
+
   // 1) Cargar / recargar tabla de exámenes
   cargarExamenes();
+
+  setTimeout(() => {
+    try {
+      if ($.fn.DataTable.isDataTable("#tabla-examenes")) {
+        const api = $("#tabla-examenes").DataTable();
+        api.columns.adjust();
+        if (api.responsive && typeof api.responsive.recalc === "function") {
+          api.responsive.recalc();
+        }
+      }
+    } catch (e) {}
+  }, 150);
 
   // 2) Enganchar input de archivo y botón importar (solo una vez)
   const archivo = document.getElementById("archivo");
@@ -173,6 +351,12 @@ window.initGeneracionPreguntas = function () {
     archivo.dataset.wired = "1"; // marca para no duplicar el listener
     archivo.addEventListener("change", () => {
       btnImportar.disabled = false;
+      const hint = document.getElementById("banco-file-name-display");
+      if (hint) {
+        hint.textContent = archivo.files[0]
+          ? archivo.files[0].name
+          : "Ningún archivo seleccionado";
+      }
     });
   }
 };

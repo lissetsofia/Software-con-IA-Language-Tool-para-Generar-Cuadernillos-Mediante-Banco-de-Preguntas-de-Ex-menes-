@@ -1,60 +1,139 @@
 <!-- CONTENIDO -->
-<div class="p-3 d-flex flex-column align-items-center mt-generacion">
-  <!-- CONTENEDOR -->
-  <div class="card-contenedor w-75 mb-3 p-4">
-    <div class="card card-custom p-3 mb-3">
-      <h6><strong>EXÁMENES</strong></h6>
+<div class="banco-examenes-page">
+  <header class="banco-examenes-page__head">
+    <h1 class="banco-examenes-page__title">Banco de preguntas</h1>
+    <p class="banco-examenes-page__lead">
+      Importa exámenes en DOCX, revisa el temario y gestiona preguntas por tema.
+    </p>
+  </header>
 
-      <table id="tabla-examenes" class="table table-bordered table-striped">
-        <thead class="table-dark">
-          <tr>
-            <th>Nombre</th>
-            <th>Número</th>
-            <th>Institución</th>
-            <th>Año</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-
-    <div class="d-flex justify-content-start grupo-tooltip">
-      <input type="file" id="archivo" accept=".docx" />
-      <button id="btnImportar" class="btn btn-azul" onclick="importarExamen()">
-        Importar
-      </button>
-
-      <div class="info-tooltip">
-        <div class="tooltip-arrow"></div>
-        <div class="tooltip-content">
-          <strong>Información:</strong><br />
-          El nombre del archivo debe tener la siguiente estructura:<br />
-          Nombre, Número, Institución y Año.<br /><br />
-          <strong>Adicional:</strong> El botón se bloqueará una vez que se
-          importe un archivo.<br />
+  <div class="banco-examenes-page__main">
+    <section
+      class="banco-page__panel banco-page__panel--examenes-importados"
+      aria-labelledby="banco-tabla-examenes-heading"
+    >
+      <div class="banco-examenes-list-shell">
+        <header class="banco-examenes-shell-header">
+          <h2
+            id="banco-tabla-examenes-heading"
+            class="banco-examenes-shell-title"
+          >
+            Exámenes importados
+          </h2>
+        </header>
+        <div
+          id="bancoExamenesDtToolbarHost"
+          class="banco-exam-dt-outside"
+          aria-live="polite"
+        ></div>
+        <div
+          class="banco-page__table-panel banco-examenes-table-panel"
+        >
+          <div class="table-responsive">
+            <table
+              id="tabla-examenes"
+              class="table table-sm table-striped align-middle mb-0 banco-page__datatable banco-page__examenes-dt banco-examenes-table"
+            >
+              <thead class="table-dark">
+                <tr>
+                  <th class="banco-examenes-th-nombre">Nombre</th>
+                  <th class="text-end text-nowrap banco-examenes-th-numero">
+                    Número
+                  </th>
+                  <th class="banco-examenes-th-institucion">Institución</th>
+                  <th class="text-center text-nowrap banco-examenes-th-anio">
+                    Año
+                  </th>
+                  <th class="text-end text-nowrap banco-examenes-th-actions">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <!-- 🔸 Nuevo botón Banco de preguntas -->
-      <button class="btn btn-warning btn-sm ms-3" id="btnBancoPreguntas">
-        Banco de preguntas
-      </button>
+    </section>
+
+    <section class="banco-page__panel" aria-label="Importar y catálogo">
+      <h2 class="banco-page__panel-title">Importar y herramientas</h2>
+
+      <div class="banco-page__toolbar">
+        <div class="banco-page__toolbar-block">
+          <span class="banco-page__toolbar-label">Importar examen (.docx)</span>
+          <div class="grupo-tooltip banco-page__import-tooltip-wrap">
+            <div class="banco-page__import-row">
+              <input
+                type="file"
+                id="archivo"
+                class="form-control form-control-sm banco-page__file-input"
+                accept=".docx"
+              />
+              <button
+                type="button"
+                id="btnImportar"
+                class="btn btn-primary d-inline-flex align-items-center gap-2"
+                onclick="importarExamen()"
+              >
+                <i class="bi bi-upload" aria-hidden="true"></i>
+                Importar
+              </button>
+            </div>
+            <p class="banco-page__file-hint mb-0" id="banco-file-name-display">
+              Ningún archivo seleccionado
+            </p>
+            <div class="info-tooltip">
+              <div class="tooltip-arrow"></div>
+              <div class="tooltip-content">
+                <strong>Información:</strong><br />
+                El nombre del archivo debe tener la siguiente estructura:<br />
+                Nombre, Número, Institución y Año.<br /><br />
+                <strong>Adicional:</strong> El botón se bloqueará una vez que se
+                importe un archivo.<br />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="banco-page__toolbar-divider" aria-hidden="true"></div>
+
+        <div class="banco-page__toolbar-block banco-page__toolbar-block--actions">
+          <span class="banco-page__toolbar-label">Catálogo</span>
+          <div class="banco-page__actions-row">
+            <button
+              type="button"
+              class="btn btn-outline-secondary d-inline-flex align-items-center gap-2"
+              id="btnBancoPreguntas"
+            >
+              <i class="bi bi-collection" aria-hidden="true"></i>
+              Banco de preguntas
+            </button>
+            <button
+              type="button"
+              id="btnTemarioBanco"
+              class="btn btn-outline-primary d-inline-flex align-items-center gap-2"
+              data-bs-toggle="modal"
+              data-bs-target="#modalTemas"
+            >
+              <i class="bi bi-journal-text" aria-hidden="true"></i>
+              Temario
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="banco-page__cta">
       <button
-       id="btnTemarioBanco"
-        class="btn btn-primary ms-auto"
-        data-bs-toggle="modal"
-        data-bs-target="#modalTemas"
+        type="button"
+        class="btn btn-header banco-page__cta-btn w-100"
+        onclick="generarNuevoExamen()"
       >
-        Temario
+        <i class="bi bi-file-earmark-plus me-2" aria-hidden="true"></i>
+        Generar nuevo examen
       </button>
     </div>
-  </div>
-
-  <!-- BOTÓN QUE ABRE EL MODAL -->
-  <div class="d-flex gap-3 mb-3 mt-4">
-    <button class="btn btn-header" onclick="generarNuevoExamen()">
-      Generar nuevo examen
-    </button>
   </div>
 </div>
 
