@@ -23,11 +23,14 @@ window.descargarDocBanco = async function (id) {
   }
 };
 
-function repararEstadoModales() {
-  const visibles = [...document.querySelectorAll(".modal.show")];
-  const backdrops = [...document.querySelectorAll(".modal-backdrop")];
+const EVALUNIA_DIALOG_MODAL_ID = "evaluniaDialogModal";
 
-  if (!visibles.length) {
+/** Nested BS5 modals — backdrop z-index stack; see .cursor/rules/main-instructions.mdc */
+function repararEstadoModales() {
+  const allShown = [...document.querySelectorAll(".modal.show")];
+  let backdrops = [...document.querySelectorAll(".modal-backdrop")];
+
+  if (!allShown.length) {
     backdrops.forEach((b) => b.remove());
     document.body.classList.remove("modal-open");
     document.body.style.removeProperty("padding-right");
@@ -37,26 +40,62 @@ function repararEstadoModales() {
   document.body.classList.add("modal-open");
   document.body.style.removeProperty("padding-right");
 
-  visibles.forEach((m, i) => {
+  allShown.forEach((m) => {
     m.style.display = "block";
     m.removeAttribute("aria-hidden");
     m.setAttribute("aria-modal", "true");
-    m.style.zIndex = String(1055 + i * 20);
   });
 
-  // dejar solo los backdrops necesarios
-  while (backdrops.length > visibles.length) {
+  while (backdrops.length > allShown.length) {
     const b = backdrops.shift();
     b?.remove();
   }
 
-  const backdropsFinal = [...document.querySelectorAll(".modal-backdrop")];
-  backdropsFinal.forEach((b, i) => {
-    b.style.zIndex = String(1050 + i * 20);
-    b.style.pointerEvents = i === backdropsFinal.length - 1 ? "auto" : "none";
-  });
+  backdrops = [...document.querySelectorAll(".modal-backdrop")];
 
-  const top = visibles[visibles.length - 1];
+  if (allShown.length === 1) {
+    allShown[0].style.removeProperty("z-index");
+    backdrops.forEach((b) => {
+      b.style.removeProperty("z-index");
+      b.style.pointerEvents = "auto";
+    });
+  } else {
+    const cuadStack = allShown.filter((m) => m.id !== EVALUNIA_DIALOG_MODAL_ID);
+    cuadStack.sort((a, b) => {
+      const ta = parseInt(a.dataset.cuadZStackTs || "0", 10);
+      const tb = parseInt(b.dataset.cuadZStackTs || "0", 10);
+      if (ta !== tb) return ta - tb;
+      const bit = a.compareDocumentPosition(b);
+      if (bit & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (bit & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      return 0;
+    });
+
+    allShown.forEach((m) => m.style.removeProperty("z-index"));
+    backdrops.forEach((b) => b.style.removeProperty("z-index"));
+
+    cuadStack.forEach((m, i) => {
+      m.style.zIndex = String(1055 + i * 20);
+    });
+    for (let i = 0; i < cuadStack.length && i < backdrops.length; i++) {
+      backdrops[i].style.zIndex = String(1050 + i * 20);
+    }
+
+    const evaluniaEl = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
+    if (evaluniaEl && evaluniaEl.classList.contains("show")) {
+      const shown = allShown.length;
+      const base = 1055 + shown * 30;
+      evaluniaEl.style.zIndex = String(base + 25);
+      const lastBd = backdrops[backdrops.length - 1];
+      if (lastBd) lastBd.style.zIndex = String(base + 15);
+    }
+
+    backdrops.forEach((b, i) => {
+      b.style.pointerEvents = i === backdrops.length - 1 ? "auto" : "none";
+    });
+  }
+
+  const top = allShown[allShown.length - 1];
   setTimeout(() => {
     top
       ?.querySelector(
@@ -65,6 +104,20 @@ function repararEstadoModales() {
       ?.focus();
   }, 0);
 }
+
+document.addEventListener("shown.bs.modal", (ev) => {
+  const el = ev.target;
+  if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+  el.dataset.cuadZStackTs = String(Date.now());
+  requestAnimationFrame(() => repararEstadoModales());
+});
+
+document.addEventListener("hidden.bs.modal", (ev) => {
+  const el = ev.target;
+  if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+  delete el.dataset.cuadZStackTs;
+  requestAnimationFrame(() => repararEstadoModales());
+});
 
 function uiAlert(msg, opts) {
   const p =

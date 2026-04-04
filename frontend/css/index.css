@@ -2260,27 +2260,22 @@ main {
   line-height: 1;
 }
 
-/* ========== Z-index para que no se meta detrás de tu modal custom ========== */
-/* Baja un poco tu modal personalizado para que los Bootstrap queden encima */
+/* #modal-examen below Bootstrap modal stack */
 #modal-examen {
-  z-index: 1020; /* debajo del stack Bootstrap */
+  z-index: 1020;
   backdrop-filter: blur(2px);
 }
 
-/* Backdrop y modales Bootstrap por encima del custom */
-.modal-backdrop {
-  z-index: 1040;
-}
 #modalGrupos {
-  z-index: 1050; /* gestión de grupos encima del backdrop */
+  z-index: 1060;
 }
 #modalGrupoForm,
 #modalImportarMatriz {
-  z-index: 1060; /* encima de #modalGrupos */
+  z-index: 1070;
 }
 #modalGrupoEditar,
 #modalGrupoCrear {
-  z-index: 1060; /* editar/crear encima de gestión */
+  z-index: 1080;
 }
 
 #modalAleatorizacion.modal.show {
@@ -3189,7 +3184,7 @@ main {
   width: min(92vw, 960px);
   max-width: min(92vw, 960px);
   margin: 1rem auto;
-  transform: none !important;
+  transform: translateZ(0) !important;
 }
 
 #modalTipoPrueba .cuad-modal-tipo-prueba-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
@@ -3356,6 +3351,14 @@ main {
   border-left: 3px solid var(--lunia-steel);
 }
 
+/* Todos los modales Bootstrap: capa compuesta propia para que box-shadow se pinte de
+   forma estable (repaint al cambiar de ventana / capturas / Electron–Chromium). */
+.modal .modal-dialog {
+  isolation: isolate;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
 /* Modales cuadernillos (y formularios con .modal-content)
    - Borde Bootstrap: --bs-border-color-translucent → halo claro; lo anulamos abajo.
    - Halo en esquinas redondeadas: el fondo de .modal-content era blanco y el header azul.
@@ -3370,6 +3373,8 @@ main {
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(15, 23, 41, 0.22);
+  transform: translateZ(0);
+  isolation: isolate;
   background: var(--lunia-navy-deep);
   /* Tope de altura: no sale de pantalla; el scroll va en .modal-body */
   max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
@@ -3420,12 +3425,27 @@ main {
   box-shadow: none;
 }
 
+body.modal-open:has(.modal.show ~ .modal.show) .modal.modal-cuad-root.show > .modal-dialog {
+  box-shadow:
+    0 24px 56px rgba(8, 15, 28, 0.34),
+    0 10px 28px rgba(8, 15, 28, 0.14);
+}
+
+body.modal-open:has(.modal.show ~ .modal.show)
+  .modal.show:not(.modal-cuad-root)
+  > .modal-dialog
+  > .modal-content.modal-evalunia {
+  box-shadow:
+    0 20px 56px rgba(15, 23, 41, 0.3),
+    0 8px 26px rgba(15, 23, 41, 0.14);
+}
+
 /*
   Sin slide en .modal-dialog (evita desfase sombra/contenido con el fade de Bootstrap).
-  Sin transición de opacity en el .modal: respuesta inmediata al pulsar (los datos siguen en fetch).
+  translateZ(0) mantiene capa GPU; no usar transform:none (anula composición estable).
 */
 .modal.modal-cuad-root.fade .modal-dialog {
-  transform: none;
+  transform: translateZ(0);
   transition: none;
 }
 
@@ -4132,7 +4152,7 @@ main {
   width: min(92vw, 960px);
   max-width: min(92vw, 960px);
   margin: 1rem auto;
-  transform: none !important;
+  transform: translateZ(0) !important;
 }
 
 #modalAleatorizacion .cuad-modal-aleatorizacion-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
