@@ -2314,22 +2314,28 @@ main {
 }
 
 /*
-  .modal-dialog-scrollable → overflow-y:auto en .modal-body: la barra va *dentro* del body
-  y resta ancho al contenido (parece más padding a la derecha). scrollbar-gutter reserva
-  esa calle; both-edges equilibra izq/der donde el navegador lo permita. min-height:0 en
-  la columna flex evita solapes con el footer.
+  Altura al contenido con tope al viewport y scroll interno en .modal-body.
+  Bootstrap en .modal-dialog-scrollable fuerza height: calc(100% - márgenes) → diálogo siempre
+  alto de pantalla (banda del backdrop o cuerpo flex vacío). Lo sustituimos por height:auto +
+  max-height para que la tarjeta encaje al contenido hasta el tope; .modal-content.modal-evalunia
+  lleva max-height global y el body hace overflow-y: auto.
 */
-.modal-cuad-root .modal-dialog-scrollable .modal-content {
+.modal-dialog-scrollable {
+  height: auto !important;
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin));
+}
+
+.modal-dialog-scrollable .modal-content {
   min-height: 0;
 }
 
-.modal-cuad-root .modal-dialog-scrollable .modal-body {
+.modal-dialog-scrollable .modal-content.modal-evalunia .modal-body {
   scrollbar-gutter: stable;
   min-height: 0;
 }
 
 @supports (scrollbar-gutter: stable both-edges) {
-  .modal-cuad-root .modal-dialog-scrollable .modal-body {
+  .modal-dialog-scrollable .modal-content.modal-evalunia .modal-body {
     scrollbar-gutter: stable both-edges;
   }
 }
@@ -2691,24 +2697,49 @@ main {
   overflow: hidden;
   box-shadow: 0 16px 48px rgba(15, 23, 41, 0.22);
   background: var(--lunia-navy-deep);
+  /* Tope de altura: no sale de pantalla; el scroll va en .modal-body */
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  min-height: 0;
+}
+
+.modal .modal-dialog .modal-content.modal-evalunia .modal-body {
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /*
-  Sombra en .modal-dialog + sin sombra en .modal-content:
-  - El content scrollable lleva overflow:hidden; la sombra aquí evita depender solo del content.
-  - NO usar filter: drop-shadow en el dialog: durante el fade, Bootstrap anima transform y
-    recalcular el filtro cada frame rinde a ~10–20 fps en Electron/Chromium.
+  Cuadernillos (reparent a body): sombra en .modal-dialog porque .modal-content lleva overflow:hidden.
 
-  Por qué .modal-cuad-root y no “global”:
-  - Los modales de Cuadernillos se reparentan a body; hace falta una clase en el propio .modal
-    para que los estilos sigan aplicando. El aspecto compartido (colores, tablas, botones) ya
-    vive en .modal-evalunia en cualquier página; lo que es específico de reparent + sombra + scroll
-    se mantiene bajo .modal-cuad-root para no forzar el mismo comportamiento en modales simples
-    del resto de la app.
+  Centrado: Bootstrap usa .modal-dialog-centered con min-height ~viewport → el .modal-dialog queda
+  una columna muy alta y transparente; debajo del pie se ve el backdrop y la sombra parece un “glass”.
+  Solución: .modal.show en flex centra el diálogo; .modal-dialog sin min-height y altura al contenido;
+  la sombra rodea solo la tarjeta real.
 */
+.modal.modal-cuad-root.show {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bs-modal-margin);
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
 .modal.modal-cuad-root .modal-dialog {
+  margin: 0 !important;
+  flex-shrink: 0;
+  max-width: 100%;
   border-radius: 12px;
   box-shadow: 0 20px 48px rgba(8, 15, 28, 0.3), 0 8px 22px rgba(8, 15, 28, 0.12);
+}
+
+.modal.modal-cuad-root .modal-dialog.modal-dialog-centered {
+  min-height: unset !important;
+  height: auto;
+  display: block;
 }
 
 .modal.modal-cuad-root .modal-dialog .modal-content.modal-evalunia {
