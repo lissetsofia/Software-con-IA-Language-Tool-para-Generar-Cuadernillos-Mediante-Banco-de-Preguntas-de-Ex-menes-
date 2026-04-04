@@ -2563,18 +2563,6 @@ main {
   color: #f1f5f9;
 }
 
-.shortcut--matriz .shortcut__icon {
-  background: var(--unamba-navy);
-}
-
-.shortcut--grupos .shortcut__icon {
-  background: var(--lunia-steel);
-}
-
-.shortcut--alea .shortcut__icon {
-  background: #355077;
-}
-
 .shortcut__label {
   font-weight: 600;
   font-size: 0.95rem;
