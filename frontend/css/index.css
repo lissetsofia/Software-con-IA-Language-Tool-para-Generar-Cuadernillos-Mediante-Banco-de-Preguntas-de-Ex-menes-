@@ -4334,9 +4334,29 @@ main {
   transform: translateZ(0);
 }
 
-/* Modales sin .modal-cuad-root (p. ej. EvaluniaDialog): misma sombra de tarjeta en el dialog. */
+/*
+  Modales sin .modal-cuad-root (p. ej. EvaluniaDialog): sombra en el dialog + altura real del dialog.
+  Sin esto, .modal-dialog-centered deja min-height ~100vh y el box-shadow abarca toda la ventana (franja/pilar).
+*/
+.modal:not(.modal-cuad-root).modal.show:has(> .modal-dialog > .modal-content.modal-evalunia) {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--bs-modal-margin) + 8px);
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
 .modal:not(.modal-cuad-root) .modal-dialog:has(> .modal-content.modal-evalunia) {
   border-radius: 12px;
+  min-height: unset !important;
+  height: auto;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
   box-shadow:
     0 22px 54px rgba(8, 15, 28, 0.42),
     0 10px 28px rgba(8, 15, 28, 0.18);
@@ -4471,15 +4491,13 @@ body.modal-open:has(.modal.show ~ .modal.show)
 
 /* ——— Diálogos globales EvaluniaDialog (alert / confirm) ——— */
 .evalunia-dialog-modal .modal-dialog {
-  max-width: min(92vw, 440px);
-  border-radius: 12px;
-  box-shadow:
-    0 22px 54px rgba(8, 15, 28, 0.42),
-    0 10px 28px rgba(8, 15, 28, 0.18);
+  width: min(94vw, 520px);
+  max-width: min(94vw, 520px);
 }
 
 .evalunia-dialog-modal.evalunia-dialog-modal--choice .modal-dialog {
-  max-width: min(92vw, 520px);
+  width: min(94vw, 640px);
+  max-width: min(94vw, 640px);
 }
 
 .evalunia-dialog-modal .evalunia-dialog-body--tight {
@@ -4489,8 +4507,10 @@ body.modal-open:has(.modal.show ~ .modal.show)
 }
 
 .evalunia-dialog-modal .evalunia-dialog-body--choice {
-  padding-left: 1.25rem;
-  padding-right: 1.25rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  padding-top: 0.35rem;
+  padding-bottom: 0.5rem;
 }
 
 .evalunia-dialog-modal .evalunia-dialog-choice-lead {
@@ -4520,8 +4540,9 @@ body.modal-open:has(.modal.show ~ .modal.show)
 
 .evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn {
   flex: 1 1 0;
-  min-width: min(100%, 9.25rem);
+  min-width: min(100%, 13.5rem);
   max-width: 100%;
+  white-space: nowrap;
 }
 
 .evalunia-dialog-modal .evalunia-dialog-choice-btn--cancel {
@@ -4574,7 +4595,7 @@ body.modal-open:has(.modal.show ~ .modal.show)
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 1rem 1rem 0.9rem 1.1rem;
+  padding: 1.05rem 1.25rem 0.95rem 1.25rem;
   min-height: 3.25rem;
   flex-wrap: nowrap;
 }
@@ -4590,7 +4611,7 @@ body.modal-open:has(.modal.show ~ .modal.show)
   font-size: 0.95rem;
   line-height: 1.5;
   color: var(--lunia-text);
-  padding-top: 0.35rem;
+  padding: 0.35rem 1.35rem 0.5rem;
 }
 
 .evalunia-dialog-modal .evalunia-dialog-title-icon {
