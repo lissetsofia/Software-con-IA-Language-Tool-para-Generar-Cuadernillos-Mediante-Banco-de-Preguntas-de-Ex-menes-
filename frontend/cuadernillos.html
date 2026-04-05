@@ -713,7 +713,8 @@
   data-bs-keyboard="false"
 >
   <div
-    class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable cuad-modal-temas-dialog"
+    class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl cuad-modal-temas-dialog"
+    style="--bs-modal-width: min(96vw, 1020px)"
   >
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
@@ -798,18 +799,18 @@
         </div>
         </div>
 
-        <!-- Lista de temas: toolbar DataTables + tabla en un solo bloque visual -->
-        <div class="cuad-temas-list-shell">
+        <!-- DataTable: mismo shell elevado que Generación (toolbar fuera + tarjeta tabla) -->
+        <div class="mbanco-dt-shell">
           <div
-            id="cuadTemasDtToolbarHost"
-            class="cuad-temas-dt-outside"
+            id="temarioDtToolbarHost"
+            class="mbanco-dt-outside"
             aria-live="polite"
           ></div>
-          <div class="cuad-table-panel cuad-temas-table-panel">
+          <div class="mbanco-table-panel">
             <div class="table-responsive">
               <table
                 id="tabla-temas"
-                class="table table-sm table-striped align-middle w-100 mb-0 cuad-temas-table"
+                class="table table-sm table-striped align-middle w-100 mb-0 mbanco-banco-dt"
               >
                 <thead class="table-dark">
                   <tr>
@@ -904,3 +905,4 @@
 <script src="./js/evalunia-dialog.js"></script>
 <script src="./libs/dataTables.min.js"></script>
 <script src="./libs/dataTables.bootstrap5.min.js"></script>
+<script src="./js/temario_modal.js"></script>

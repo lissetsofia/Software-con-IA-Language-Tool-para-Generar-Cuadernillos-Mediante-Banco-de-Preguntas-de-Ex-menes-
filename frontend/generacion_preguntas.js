@@ -492,6 +492,7 @@ async function exportarExamenSeleccionado(formato) {
   window.__TEMAS_WIRED__ = true;
 
   let dtTemas = null;
+  const PANEL_TEMA_OPEN_CLASS_BANCO = "cuad-tema-form-panel--open";
 
   // Mostrar errores de DataTables en consola
   $.fn.dataTable.ext.errMode = "console";
@@ -524,10 +525,16 @@ async function renderTemas() {
 
   const data = await fetchTemas(showInactivos);
   const $tabla = $("#tabla-temas");
+  const ETM = window.EvaluniaTemarioModal;
 
   destroyDtWrappersBanco();
 
   console.log("[Temas] reconstruyendo DataTable...");
+
+  if (!ETM) {
+    console.error("[Temas] Falta EvaluniaTemarioModal (temario_modal.js).");
+    return;
+  }
 
   dtTemas = $tabla.DataTable({
     data,
@@ -535,51 +542,18 @@ async function renderTemas() {
     autoWidth: false,
     responsive: true,
     pageLength: 8,
-    columns: [
-      { data: "id" },
-      { data: "nombre" },
-      { data: "n_preguntas" },
-      {
-        data: "activo",
-        render: (v) =>
-          v
-            ? '<span class="badge bg-success">Activo</span>'
-            : '<span class="badge bg-secondary">Inactivo</span>',
-      },
-      {
-        data: null,
-        orderable: false,
-        render: (row) => {
-          const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
-          const toggleClass = row.activo ? "btn-warning" : "btn-success";
-          return `
-            <div class="btn-group btn-group-sm" role="group">
-              <button class="btn btn-primary btn-editar-tema"
-                      data-id="${row.id}" data-nombre="${row.nombre || ""}">
-                Editar
-              </button>
-              <button class="btn ${toggleClass} btn-toggle-tema"
-                      data-id="${row.id}">
-                ${toggleTxt}
-              </button>
-            </div>`;
-        },
-      },
-    ],
-    language: {
-      search: "Buscar:",
-      lengthMenu: "Mostrar _MENU_ registros por página",
-      zeroRecords: "No se encontraron resultados",
-      info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-      infoEmpty: "Mostrando 0 a 0 de 0 registros",
-      infoFiltered: "(filtrado de _MAX_ registros totales)",
-      paginate: {
-        first: "Primero",
-        last: "Último",
-        next: "Siguiente",
-        previous: "Anterior",
-      },
-      processing: "Procesando...",
+    lengthMenu: ETM.lengthMenu,
+    dom: ETM.dom,
+    columnDefs: ETM.columnDefsForMode(true),
+    columns: ETM.buildColumns(true),
+    language: ETM.language("Nombre del tema…"),
+    initComplete: function () {
+      ETM.wireToolbar(this.api(), {
+        hostSelector: "#temarioDtToolbarHost",
+        lengthId: "temarioGenDtLength",
+        searchId: "temarioGenDtSearch",
+        searchPlaceholder: "Nombre del tema…",
+      });
     },
   });
 
@@ -640,6 +614,15 @@ function destroyDtWrappersBanco() {
   const t = document.querySelector("#tabla-temas");
   if (!t) return;
 
+  const ETM = window.EvaluniaTemarioModal;
+  if (ETM) {
+    ETM.destroy("#tabla-temas", ETM.TOOLBAR_HOST_ID);
+    ETM.rebuildThead(t, { includePreguntas: true });
+    return;
+  }
+
+  document.getElementById("temarioDtToolbarHost")?.replaceChildren();
+
   const $t = $(t);
 
   if ($.fn.DataTable.isDataTable(t)) {
@@ -660,6 +643,7 @@ function destroyDtWrappersBanco() {
   t.querySelector("thead")?.remove();
 
   const thead = document.createElement("thead");
+  thead.className = "table-dark";
   thead.innerHTML = `
     <tr>
       <th>ID</th>
@@ -691,11 +675,12 @@ function destroyDtWrappersBanco() {
     const { panel, idInput, nombreInput, btnG, icon } = panelTemaBancoEls();
     if (!panel) return;
     panel.classList.remove(
-      "gen-tema-form-panel--crear",
-      "gen-tema-form-panel--editar"
+      "cuad-tema-form-panel--crear",
+      "cuad-tema-form-panel--editar",
+      PANEL_TEMA_OPEN_CLASS_BANCO
     );
+    panel.setAttribute("aria-hidden", "true");
     if (icon) icon.className = "bi bi-plus-circle";
-    panel.classList.add("d-none");
     panel.dataset.modo = "";
     if (idInput) idInput.value = "";
     if (nombreInput) {
@@ -709,17 +694,16 @@ function destroyDtWrappersBanco() {
     const { panel, titulo, icon, idInput, nombreInput, btnG } = panelTemaBancoEls();
     if (!panel || !nombreInput) return;
     panel.classList.remove(
-      "gen-tema-form-panel--crear",
-      "gen-tema-form-panel--editar"
+      "cuad-tema-form-panel--crear",
+      "cuad-tema-form-panel--editar"
     );
     panel.classList.add(
-      modo === "editar" ? "gen-tema-form-panel--editar" : "gen-tema-form-panel--crear"
+      modo === "editar" ? "cuad-tema-form-panel--editar" : "cuad-tema-form-panel--crear"
     );
     if (icon) {
       icon.className =
         modo === "editar" ? "bi bi-pencil-square" : "bi bi-plus-circle";
     }
-    panel.classList.remove("d-none");
     panel.dataset.modo = modo;
     if (titulo) {
       titulo.textContent = modo === "editar" ? "Editar tema" : "Nuevo tema";
@@ -727,7 +711,6 @@ function destroyDtWrappersBanco() {
     if (idInput) idInput.value = modo === "editar" ? String(payload.id ?? "") : "";
     nombreInput.value =
       modo === "editar" ? String(payload.nombre ?? "").trim() : "";
-    nombreInput.focus();
     if (btnG) {
       const label = btnG.querySelector(".btn-text");
       if (label) {
@@ -736,6 +719,20 @@ function destroyDtWrappersBanco() {
       btnG.classList.toggle("btn-success", modo !== "editar");
       btnG.classList.toggle("btn-primary", modo === "editar");
     }
+
+    panel.setAttribute("aria-hidden", "false");
+    panel.classList.remove(PANEL_TEMA_OPEN_CLASS_BANCO);
+    void panel.offsetWidth;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        panel.classList.add(PANEL_TEMA_OPEN_CLASS_BANCO);
+        requestAnimationFrame(() => {
+          try {
+            nombreInput.focus();
+          } catch (_) {}
+        });
+      });
+    });
   }
 
   async function guardarPanelTemaBanco() {
@@ -744,7 +741,7 @@ function destroyDtWrappersBanco() {
 
     const { panel, idInput, nombreInput, btnG } = panelTemaBancoEls();
     const modo = panel?.dataset?.modo;
-    if (!modo || panel.classList.contains("d-none")) return;
+    if (!modo || !panel.classList.contains(PANEL_TEMA_OPEN_CLASS_BANCO)) return;
 
     const nombre = nombreInput?.value.trim() || "";
     if (!nombre) return;
@@ -858,7 +855,7 @@ $(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function 
     const modal = document.getElementById("modalTemas");
     if (!modal?.classList.contains("show") || modal.dataset.ctx !== "banco") return;
     const panel = document.getElementById("panelTemaBanco");
-    if (!panel || panel.classList.contains("d-none")) return;
+    if (!panel || !panel.classList.contains(PANEL_TEMA_OPEN_CLASS_BANCO)) return;
     ev.stopPropagation();
     hidePanelTemaBanco();
   });
@@ -2385,6 +2382,8 @@ function ponerLinksVista(docxUrl, pdfUrl) {
         .appendTo($fil);
     }
   }
+
+  window.wireMbancoDataTableToolbar = wireMbancoDataTableToolbar;
 
   // ------------- Helpers de fetch -------------
   async function cargarBancoDesdeApi() {

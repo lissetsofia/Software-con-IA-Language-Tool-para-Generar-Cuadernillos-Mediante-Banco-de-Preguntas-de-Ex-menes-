@@ -1293,15 +1293,24 @@ main {
   width: 300px;
   border-radius: 10px;
 }
-/* Modal Temario — solo Cuadernillos (.cuad-modal-temas; no afecta generacion_preguntas) */
-.cuad-modal-temas .modal-dialog.cuad-modal-temas-dialog {
-  max-width: none !important;
-  width: min(98vw, 1200px) !important;
-  margin: 0.75rem auto !important;
+/* Modal Temario: mismo tope en Generación (gen-modal-temas-dialog) y Cuadernillos (cuad-modal-temas-dialog) */
+.cuad-modal-temas .modal-dialog.cuad-modal-temas-dialog,
+.cuad-modal-temas .modal-dialog.gen-modal-temas-dialog {
+  max-width: min(96vw, 1020px) !important;
+  margin: 1.75rem auto !important;
   max-height: calc(100vh - 1.5rem);
 }
 
-.cuad-modal-temas .modal-content {
+/* Generación: mantiene altura mínima cómoda para la tabla con columna Preguntas */
+.cuad-modal-temas.gen-modal-temas .modal-content.modal-evalunia {
+  min-height: min(82vh, 760px);
+  max-height: calc(100vh - 1.5rem);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Cuadernillos: misma altura mínima del cuerpo que Generación (tabla + paginación cómodas) */
+.cuad-modal-temas:not(.gen-modal-temas) .modal-content.modal-evalunia {
   min-height: min(82vh, 760px);
   max-height: calc(100vh - 1.5rem);
   display: flex;
@@ -1531,65 +1540,57 @@ main {
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(237, 241, 247, 0.92));
 }
 
-/* Despliegue / plegado del panel (grid 0fr → 1fr) */
+/*
+  Despliegue sin “hueco” reservado: antes 0fr usaba mínimo automático del contenido.
+  minmax(0, 0fr) → minmax(0, 1fr) fuerza pista 0 real y permite transición de altura.
+*/
 .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim {
   display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
+  grid-template-rows: minmax(0, 0fr);
+  padding: 0;
   margin-bottom: 0 !important;
-  pointer-events: none;
-  visibility: hidden;
   border-width: 0;
   border-color: transparent;
   box-shadow: none;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  overflow: hidden;
   transition:
     grid-template-rows 0.34s cubic-bezier(0.33, 1, 0.68, 1),
-    opacity 0.28s ease,
-    margin-bottom 0.34s cubic-bezier(0.33, 1, 0.68, 1),
-    border-width 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.28s ease,
+    opacity 0.26s ease,
     visibility 0s linear 0.34s;
 }
 
 .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim.cuad-tema-form-panel--open {
-  grid-template-rows: 1fr;
+  grid-template-rows: minmax(0, 1fr);
   opacity: 1;
   margin-bottom: 1rem !important;
   pointer-events: auto;
   visibility: visible;
-  border-width: 1px;
-  border-color: rgba(26, 45, 69, 0.12);
-  box-shadow: 0 2px 14px rgba(15, 23, 41, 0.06);
+  overflow: hidden;
   transition:
     grid-template-rows 0.34s cubic-bezier(0.33, 1, 0.68, 1),
-    opacity 0.3s ease 0.04s,
-    margin-bottom 0.34s cubic-bezier(0.33, 1, 0.68, 1),
-    border-width 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.28s ease,
+    opacity 0.28s ease 0.05s,
     visibility 0s linear 0s;
 }
 
 .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim .cuad-tema-form-panel__inner {
   min-height: 0;
   overflow: hidden;
-  transform: translateY(-0.4rem);
+  transform: translateY(-0.35rem);
   transition: transform 0.32s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
 .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim.cuad-tema-form-panel--open .cuad-tema-form-panel__inner {
   transform: translateY(0);
+  overflow: visible;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim,
   .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim .cuad-tema-form-panel__inner {
     transition: none !important;
-  }
-
-  .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim .cuad-tema-form-panel__inner {
-    transform: none;
   }
 
   .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim:not(.cuad-tema-form-panel--open) {
@@ -1603,9 +1604,11 @@ main {
     visibility: visible;
     pointer-events: auto;
     margin-bottom: 1rem !important;
-    border-width: 1px;
-    border-color: rgba(26, 45, 69, 0.12);
-    box-shadow: 0 2px 14px rgba(15, 23, 41, 0.06);
+    overflow: visible;
+  }
+
+  .cuad-modal-temas .cuad-tema-form-panel.cuad-tema-form-panel--anim.cuad-tema-form-panel--open .cuad-tema-form-panel__inner {
+    transform: none;
   }
 }
 
@@ -1774,12 +1777,15 @@ main {
 }
 
 .cuad-modal-temas .cuad-temas-col-actions {
-  position: relative;
-  z-index: 1;
   min-width: 15.75rem;
   width: 16.25rem;
   white-space: nowrap;
   box-sizing: border-box;
+}
+
+.cuad-modal-temas tbody .cuad-temas-col-actions {
+  position: relative;
+  z-index: 1;
 }
 
 .cuad-modal-temas .cuad-temas-table-panel thead th.cuad-temas-th-actions {
@@ -1787,7 +1793,7 @@ main {
   width: 16.25rem;
 }
 
-/* DataTables: filas + búsqueda (#cuadTemasDtToolbarHost); si no está en .cuad-temas-list-shell, mantiene tarjeta suelta */
+/* DataTables Cuadernillos (toolbar legacy cuad-temas-dt-*; tabla usa #temarioDtToolbarHost + mbanco) */
 .cuad-modal-temas .cuad-temas-dt-outside {
   flex-shrink: 0;
   --cuad-temas-toolbar-ctrl-h: 2.65rem;
@@ -2012,100 +2018,446 @@ main {
   opacity: 0.9;
 }
 
-.gen-modal-temas .cuad-modal-toolbar--temas-gen {
-  margin-bottom: 0.5rem;
-}
-
-.gen-modal-temas .cuad-modal-toolbar--temas-gen .btn .bi {
-  margin-right: 0.32rem;
-}
-
-.gen-modal-temas .gen-tema-form-panel {
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid rgba(26, 45, 69, 0.12);
-  box-shadow: 0 2px 12px rgba(15, 23, 41, 0.06);
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(237, 241, 247, 0.92));
+/* Generación: card superior baja; switch a la izquierda, Agregar a la derecha, centrados en vertical */
+#modalTemas.gen-modal-temas .cuad-temas-actions-stack {
   margin-bottom: 0.75rem;
+  min-height: 0;
 }
 
-.gen-modal-temas .gen-tema-form-panel--crear {
-  border-left: 3px solid var(--bs-success);
+#modalTemas.gen-modal-temas .cuad-temas-actions-stack .cuad-modal-toolbar.cuad-modal-toolbar--temas {
+  display: flex !important;
+  flex-direction: row;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  align-content: center;
+  justify-content: space-between !important;
+  gap: 0.5rem !important;
+  padding: 0.3rem 0.6rem !important;
+  min-height: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.gen-modal-temas .gen-tema-form-panel--editar {
-  border-left: 3px solid var(--unamba-navy);
+#modalTemas.gen-modal-temas .cuad-temas-actions-stack .cuad-temas-show-inactive-switch.form-check.form-switch {
+  align-self: center;
+  min-height: 0;
 }
 
-.gen-modal-temas .gen-tema-form-panel__inner {
-  padding: 0.65rem 0.9rem 0.75rem;
+#modalTemas.gen-modal-temas .cuad-temas-actions-stack .cuad-modal-toolbar--temas .btn {
+  align-self: center;
+  flex-shrink: 0;
 }
 
-.gen-modal-temas .gen-tema-form-panel__title-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.45rem;
+/* Gestión del Temario (#modalTemas en Generación y Cuadernillos): DataTables + toolbar mbanco */
+#modalTemas .modal-body {
+  padding-top: 0.75rem;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
 }
 
-.gen-modal-temas .gen-tema-form-panel__title-row .bi {
-  font-size: 1.02rem;
-  color: var(--unamba-navy);
-  opacity: 0.9;
+#modalTemas .mbanco-dt-shell {
+  border-radius: 0;
+  overflow: visible;
+  border: 0;
+  box-shadow: none;
+  background: var(--lunia-white);
 }
 
-.gen-modal-temas .gen-tema-form-panel--crear .gen-tema-form-panel__title-row .bi {
-  color: #1d6f54;
+#modalTemas .mbanco-dt-outside {
+  flex-shrink: 0;
+  --mbanco-toolbar-ctrl-h: 2.5rem;
 }
 
-.gen-modal-temas .gen-tema-form-panel__title {
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: var(--lunia-navy-deep);
+#modalTemas .mbanco-dt-outside .mbanco-dt-toolbar {
+  padding: 0 0 0.7rem 0;
+  margin-bottom: 0 !important;
+  background: var(--lunia-white);
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
 }
 
-.gen-modal-temas .gen-tema-form-panel__row {
-  display: flex;
+#modalTemas .mbanco-dt-toolbar--row {
+  display: flex !important;
   flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.55rem 0.85rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem 1.35rem;
 }
 
-.gen-modal-temas .gen-tema-form-panel__field {
+#modalTemas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dt-length,
+#modalTemas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dataTables_length {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dt-search,
+#modalTemas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dataTables_filter {
   flex: 1 1 200px;
-  min-width: min(100%, 180px);
+  min-width: min(100%, 160px);
+  max-width: 100%;
 }
 
-.gen-modal-temas .gen-tema-form-panel__field .form-label {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: rgba(26, 45, 69, 0.75);
-  margin-bottom: 0.2rem;
-}
-
-.gen-modal-temas .gen-tema-form-panel__field .form-control {
-  border-radius: 9px;
-}
-
-.gen-modal-temas .gen-tema-form-panel__actions {
+#modalTemas .mbanco-dt-outside .mbanco-toolbar-field {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
 }
 
-.gen-modal-temas .gen-tema-form-panel__actions .btn .bi {
-  margin-right: 0.28rem;
+#modalTemas .mbanco-dt-outside .mbanco-toolbar-block-label {
+  display: block !important;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(26, 45, 69, 0.88) !important;
+  margin: 0 0 0.38rem 0;
+  line-height: 1.25;
 }
 
-.gen-modal-temas .gen-temas-table-panel {
+#modalTemas .mbanco-dt-outside .dt-length,
+#modalTemas .mbanco-dt-outside .dataTables_length {
+  margin: 0;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-length-wrap {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-length-select.form-select {
+  min-width: 5.25rem;
+  width: auto;
+  max-width: 100%;
+  height: var(--mbanco-toolbar-ctrl-h) !important;
+  min-height: var(--mbanco-toolbar-ctrl-h) !important;
+  border-radius: 7px;
+  border: 1px solid rgba(26, 45, 69, 0.22);
+  background: var(--lunia-white) !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--lunia-navy-deep);
+  padding: 0.35rem 2rem 0.35rem 0.65rem;
+  box-shadow: none;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-length-select:focus {
+  border-color: rgba(0, 74, 140, 0.45);
+  box-shadow: 0 0 0 0.2rem rgba(0, 74, 140, 0.12);
+}
+
+#modalTemas .mbanco-dt-outside .dt-search,
+#modalTemas .mbanco-dt-outside .dataTables_filter {
+  margin: 0;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-filter-label {
+  display: flex;
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-search-ig {
+  width: 100%;
+  height: var(--mbanco-toolbar-ctrl-h) !important;
+  min-height: var(--mbanco-toolbar-ctrl-h) !important;
+  max-height: var(--mbanco-toolbar-ctrl-h) !important;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(26, 45, 69, 0.22);
+  background: var(--lunia-white);
+  box-sizing: border-box;
+  box-shadow: none;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-search-ig:focus-within {
+  border-color: rgba(0, 74, 140, 0.45);
+  box-shadow: 0 0 0 0.2rem rgba(0, 74, 140, 0.12);
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-search-prefix {
+  background: linear-gradient(180deg, #fafbfd, #f2f5f9);
+  border: 0;
+  border-right: 1px solid rgba(26, 45, 69, 0.12);
+  color: rgba(26, 45, 69, 0.65);
+  padding: 0.45rem 0.65rem;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-search-input {
+  min-width: 0;
+  width: 1%;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--lunia-white) !important;
+  box-shadow: none !important;
+  font-size: 0.875rem;
+  padding: 0.45rem 0.75rem;
+}
+
+#modalTemas .mbanco-dt-outside .mbanco-search-input::placeholder {
+  color: rgba(26, 45, 69, 0.42);
+}
+
+#modalTemas .mbanco-table-panel {
+  margin-top: 0;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 10px rgba(15, 23, 41, 0.06);
+  border: 1px solid rgba(26, 45, 69, 0.11);
+  background: var(--lunia-white);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 41, 0.04),
+    0 6px 16px rgba(15, 23, 41, 0.08),
+    0 14px 36px -8px rgba(15, 23, 41, 0.14);
 }
 
-.gen-modal-temas .gen-temas-table-panel .table > :not(caption) > * > * {
+#modalTemas .mbanco-table-panel .table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#modalTemas .mbanco-table-panel .dt-container {
+  padding: 0 !important;
+}
+
+#modalTemas .mbanco-dt-wrap .mbanco-dt-bottom {
+  padding: 0.45rem 0.65rem 0.65rem;
+  margin-top: 0;
+  font-size: 0.8rem;
+  color: rgba(26, 45, 69, 0.65);
+  background: var(--lunia-white);
+  border-top: 1px solid rgba(26, 45, 69, 0.08);
+}
+
+#modalTemas .mbanco-dt-wrap .dt-paging .dt-paging-button,
+#modalTemas .mbanco-dt-wrap .dataTables_paginate .paginate_button {
+  border-radius: 7px !important;
+  margin: 0 0.08rem;
+  min-width: 1.85rem;
+  text-align: center;
+}
+
+#modalTemas .mbanco-dt-wrap .dt-paging .dt-paging-button.active .page-link,
+#modalTemas .mbanco-dt-wrap .dataTables_paginate .paginate_button.current {
+  background: var(--unamba-navy) !important;
+  color: #fff !important;
+  border-color: var(--unamba-navy) !important;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable {
+  --dt-header-align-items: center;
+}
+
+/* Temario ambos modales: cabeceras ordenables — título antes que icono (order en DOM DT2) */
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:has(span.dt-column-order) .dt-column-header,
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:has(span.dt-column-order) .dt-column-footer {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:has(span.dt-column-order) .dt-column-title {
+  order: 1;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:has(span.dt-column-order) span.dt-column-order {
+  order: 2;
+  flex-shrink: 0;
+}
+
+/* ID: celda compacta; grupo título + icono alineado al final (columna numérica) */
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:nth-child(1):has(span.dt-column-order) .dt-column-header,
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:nth-child(1):has(span.dt-column-order) .dt-column-footer {
+  justify-content: flex-end;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:nth-child(1):has(span.dt-column-order) span.dt-column-order {
+  margin-left: 0 !important;
+}
+
+/* Nombre: icono al borde derecho de la celda */
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:nth-child(2):has(span.dt-column-order) .dt-column-header,
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:nth-child(2):has(span.dt-column-order) .dt-column-footer {
+  justify-content: flex-start;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:nth-child(2):has(span.dt-column-order) span.dt-column-order {
+  margin-left: auto !important;
+}
+
+/* Preguntas / Estado (centrados): texto + icono juntos centrados */
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th.text-center:has(span.dt-column-order) .dt-column-header,
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th.text-center:has(span.dt-column-order) .dt-column-footer {
+  justify-content: center;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th.text-center:has(span.dt-column-order) span.dt-column-order {
+  margin-left: 0 !important;
+}
+
+/* Acciones: ancho acotado (dos botones), sin icono de orden */
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:last-child,
+#modalTemas .mbanco-banco-dt.table.dataTable .cuad-temas-th-actions,
+#modalTemas .mbanco-banco-dt.table.dataTable .cuad-temas-col-actions {
+  min-width: 14.75rem;
+  width: 16rem;
+  max-width: 20rem;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th:last-child {
+  white-space: nowrap;
+}
+
+/* ID: cabecera compacta; celdas pueden crecer con números largos */
+#modalTemas .mbanco-banco-dt.table.dataTable .cuad-temas-th-id {
+  min-width: 4.35rem;
+  width: 4.35rem;
+  max-width: 5.5rem;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+  text-align: right;
+  box-sizing: border-box;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable .cuad-temas-col-id {
+  min-width: 4.35rem;
+  padding-left: 0.45rem;
+  padding-right: 0.45rem;
+  text-align: right;
+  box-sizing: border-box;
+}
+
+/* DataTables fuerza --bs-table-bg en thead; recuperar cabecera oscura (table-dark) */
+#modalTemas .mbanco-banco-dt.table.dataTable thead > tr > th {
+  vertical-align: middle !important;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  background-color: var(--lunia-navy-deep) !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(207, 217, 230, 0.18) !important;
+  font-weight: 600;
+}
+
+#modalTemas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-orderable-asc:hover,
+#modalTemas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-orderable-desc:hover {
+  outline: 2px solid rgba(255, 255, 255, 0.1);
+  outline-offset: -2px;
+}
+
+#modalTemas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th
+  span.dt-column-order:before,
+#modalTemas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th
+  span.dt-column-order:after {
+  color: #f1f5f9;
+  opacity: 0.35;
+}
+
+#modalTemas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-ordering-asc
+  span.dt-column-order:before,
+#modalTemas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-ordering-desc
+  span.dt-column-order:after {
+  opacity: 0.85;
+}
+
+#modalTemas .mbanco-banco-dt.table.dataTable > :not(caption) > * > * {
   padding: 0.55rem 0.75rem;
   vertical-align: middle;
+}
+
+#modalTemas .temario-estado-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  line-height: 1.2;
+}
+
+#modalTemas .temario-estado-badge--activo {
+  color: #0f5132;
+  background: rgba(25, 135, 84, 0.12);
+  border-color: rgba(25, 135, 84, 0.35);
+}
+
+#modalTemas .temario-estado-badge--inactivo {
+  color: rgba(26, 45, 69, 0.72);
+  background: rgba(26, 45, 69, 0.06);
+  border-color: rgba(26, 45, 69, 0.14);
+}
+
+#modalTemas .temario-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#modalTemas .temario-row-actions > .btn + .btn {
+  margin-left: 0 !important;
+}
+
+#modalTemas .temario-row-actions .btn {
+  border-radius: 8px !important;
+  font-weight: 600;
+  font-size: 0.76rem;
+  padding: 0.24rem 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+#modalTemas .temario-row-actions .btn .bi {
+  font-size: 0.88rem;
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
+#modalTemas.cuad-modal-temas .mbanco-table-panel .cuad-temas-col-nombre {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+#modalTemas.cuad-modal-temas:not(.gen-modal-temas) .mbanco-banco-dt.table {
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+}
+
+#modalTemas.cuad-modal-temas:not(.gen-modal-temas) .mbanco-table-panel .table .btn {
+  margin: 0 !important;
 }
 
 /* ponlo en tu css */
@@ -2852,7 +3204,7 @@ main {
   letter-spacing: 0.01em;
 }
 
-/* Igual que .gen-modal-temas .gen-temas-table-panel .table > … */
+/* Igual que celdas del temario en #modalTemas (.mbanco-banco-dt) */
 .banco-examenes-page .banco-page__table-panel .table > :not(caption) > * > * {
   padding: 0.55rem 0.75rem;
   vertical-align: middle;
@@ -4050,6 +4402,34 @@ main {
   box-shadow: none;
 }
 
+/* Temario Cuadernillos: mismo ancho que Generación (.modal-cuad-root fuerza max-width:100% en el diálogo) */
+#modalTemas.modal-cuad-root.cuad-modal-temas .modal-dialog.cuad-modal-temas-dialog {
+  width: min(96vw, 1020px) !important;
+  max-width: min(96vw, 1020px) !important;
+}
+
+#modalTemas.modal-cuad-root.cuad-modal-temas.fade .modal-dialog.cuad-modal-temas-dialog,
+#modalTemas.modal-cuad-root.cuad-modal-temas .modal-dialog.cuad-modal-temas-dialog {
+  transform: none !important;
+}
+
+#modalTemas.modal-cuad-root.cuad-modal-temas .mbanco-banco-dt.table.dataTable thead > tr > th:last-child .dt-column-header,
+#modalTemas.modal-cuad-root.cuad-modal-temas .mbanco-banco-dt.table.dataTable thead > tr > th:last-child .dt-column-footer {
+  display: flex !important;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 1.35rem;
+}
+
+#modalTemas.modal-cuad-root.cuad-modal-temas .mbanco-banco-dt.table.dataTable thead > tr > th {
+  border-bottom-width: 1px !important;
+  border-bottom-style: solid !important;
+  border-bottom-color: rgba(207, 217, 230, 0.18) !important;
+}
+
 body.modal-open:has(.modal.show ~ .modal.show) .modal.modal-cuad-root.show > .modal-dialog {
   box-shadow:
     0 24px 56px rgba(8, 15, 28, 0.34),
@@ -4578,8 +4958,8 @@ body.modal-open:has(.modal.show ~ .modal.show)
   }
 }
 
-/* === Separar botones en tabla de TEMAS (igual que en GRUPOS) === */
-#tabla-temas tbody td .btn-group.btn-group-sm[role="group"] {
+/* === Separar botones en tabla de TEMAS del modal (igual que en GRUPOS) === */
+#modalTemas #tabla-temas tbody td .btn-group.btn-group-sm[role="group"] {
   display: flex;
   gap: 8px; /* espacio entre botones */
   align-items: center;
@@ -4588,26 +4968,26 @@ body.modal-open:has(.modal.show ~ .modal.show)
 }
 
 /* Evita que los botones se peguen por el margen negativo de Bootstrap */
-#tabla-temas .btn-group.btn-group-sm > .btn + .btn {
+#modalTemas #tabla-temas .btn-group.btn-group-sm > .btn + .btn {
   margin-left: 0 !important;
   border-left-width: 1px !important;
 }
 
 /* Bordes redondeados normales, no "píldora" */
-#tabla-temas .btn-group.btn-group-sm > .btn {
+#modalTemas #tabla-temas .btn-group.btn-group-sm > .btn {
   border-radius: 0.375rem !important;
 }
 
 /* Tamaño uniforme opcional */
-#tabla-temas .btn-editar-tema,
-#tabla-temas .btn-toggle-tema {
+#modalTemas #tabla-temas .btn-editar-tema,
+#modalTemas #tabla-temas .btn-toggle-tema {
   min-width: 70px; /* puedes ajustar 90–110 px si quieres más ancho */
   text-align: center;
   padding-left: 10px;
   padding-right: 10px;
 }
 
-/* === Exámenes importados (Banco de preguntas) — mismo criterio que #tabla-temas === */
+/* === Exámenes importados (Banco de preguntas) — mismo criterio que #modalTemas #tabla-temas === */
 #tabla-examenes tbody td .btn-group.btn-group-sm[role="group"] {
   display: flex;
   gap: 8px;
@@ -5101,6 +5481,55 @@ body.modal-open:has(.modal.show ~ .modal.show)
   vertical-align: middle !important;
   font-size: 0.78rem;
   letter-spacing: 0.03em;
+  background-color: var(--lunia-navy-deep) !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(207, 217, 230, 0.18) !important;
+  font-weight: 600;
+}
+
+#modalBancoPreguntas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-orderable-asc:hover,
+#modalBancoPreguntas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-orderable-desc:hover {
+  outline: 2px solid rgba(255, 255, 255, 0.1);
+  outline-offset: -2px;
+}
+
+#modalBancoPreguntas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th
+  span.dt-column-order:before,
+#modalBancoPreguntas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th
+  span.dt-column-order:after {
+  color: #f1f5f9;
+  opacity: 0.35;
+}
+
+#modalBancoPreguntas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-ordering-asc
+  span.dt-column-order:before,
+#modalBancoPreguntas
+  .mbanco-banco-dt.table.dataTable
+  thead
+  > tr
+  > th.dt-ordering-desc
+  span.dt-column-order:after {
+  opacity: 0.85;
 }
 
 #modalBancoPreguntas .btn-banco-detalles {

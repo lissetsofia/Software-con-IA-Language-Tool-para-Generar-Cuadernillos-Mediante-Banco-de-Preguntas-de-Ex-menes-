@@ -234,14 +234,17 @@
 <!-- =================== MODAL PRINCIPAL: TEMAS =================== -->
 
 <div
-  class="modal fade gen-modal-temas"
+  class="modal fade gen-modal-temas cuad-modal-temas"
   id="modalTemas"
   tabindex="-1"
   aria-hidden="true"
   data-bs-backdrop="static"
   data-bs-keyboard="false"
 >
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+  <div
+    class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl gen-modal-temas-dialog"
+    style="--bs-modal-width: min(96vw, 1020px)"
+  >
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
         <h5 class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1">
@@ -257,80 +260,100 @@
       </div>
 
       <div class="modal-body">
-        <div
-          class="cuad-modal-toolbar cuad-modal-toolbar--temas-gen justify-content-between align-items-center flex-wrap gap-2"
-        >
-          <div class="form-check form-switch m-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="chkVerInactivosTemas"
-            />
-            <label class="form-check-label" for="chkVerInactivosTemas"
-              >Mostrar también inactivos</label
+        <div class="cuad-temas-actions-stack">
+          <div
+            class="cuad-modal-toolbar cuad-modal-toolbar--temas d-flex justify-content-between align-items-center flex-nowrap"
+          >
+            <div
+              class="form-check form-switch m-0 cuad-temas-show-inactive-switch"
             >
-          </div>
-
-          <button class="btn btn-success btn-sm" type="button" id="btnAgregarTemaBanco">
-            <i class="bi bi-plus-lg" aria-hidden="true"></i>
-            Agregar tema
-          </button>
-        </div>
-
-        <div
-          id="panelTemaBanco"
-          class="gen-tema-form-panel d-none"
-          role="region"
-          aria-labelledby="panelTemaBancoTitulo"
-        >
-          <div class="gen-tema-form-panel__inner">
-            <div class="gen-tema-form-panel__title-row">
-              <i id="panelTemaBancoIcon" class="bi bi-plus-circle" aria-hidden="true"></i>
-              <span id="panelTemaBancoTitulo" class="gen-tema-form-panel__title"
-                >Nuevo tema</span
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="chkVerInactivosTemas"
+                role="switch"
+              />
+              <label
+                class="form-check-label"
+                for="chkVerInactivosTemas"
+                title="Al activarlo, la tabla incluye también temas dados de baja."
               >
+                Mostrar también inactivos
+              </label>
             </div>
-            <div class="gen-tema-form-panel__row">
-              <input type="hidden" id="temaIdBanco" value="" />
-              <div class="gen-tema-form-panel__field">
-                <label class="form-label" for="temaNombreBanco">Nombre del tema</label>
-                <input
-                  type="text"
-                  class="form-control"
-                  id="temaNombreBanco"
-                  maxlength="100"
-                  autocomplete="off"
-                  placeholder="Ej. Geometría"
-                />
+
+            <button class="btn btn-success" type="button" id="btnAgregarTemaBanco">
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              Agregar tema
+            </button>
+          </div>
+
+          <div
+            id="panelTemaBanco"
+            class="cuad-tema-form-panel cuad-tema-form-panel--anim"
+            role="region"
+            aria-labelledby="panelTemaBancoTitulo"
+            aria-hidden="true"
+          >
+            <div class="cuad-tema-form-panel__inner">
+              <div class="cuad-tema-form-panel__title-row">
+                <i id="panelTemaBancoIcon" class="bi bi-plus-circle" aria-hidden="true"></i>
+                <span id="panelTemaBancoTitulo" class="cuad-tema-form-panel__title"
+                  >Nuevo tema</span
+                >
               </div>
-              <div class="gen-tema-form-panel__actions">
-                <button type="button" class="btn btn-success btn-sm" id="btnTemaBancoGuardar">
-                  <i class="bi bi-check2" aria-hidden="true"></i>
-                  <span class="btn-text">Guardar</span>
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnTemaBancoCancelar">
-                  <i class="bi bi-x-lg" aria-hidden="true"></i>
-                  Cancelar
-                </button>
+              <div class="cuad-tema-form-panel__row">
+                <input type="hidden" id="temaIdBanco" value="" />
+                <div class="cuad-tema-form-panel__field">
+                  <label class="form-label" for="temaNombreBanco">Nombre del tema</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="temaNombreBanco"
+                    maxlength="100"
+                    autocomplete="off"
+                    placeholder="Ej. Geometría"
+                  />
+                </div>
+                <div class="cuad-tema-form-panel__actions">
+                  <button type="button" class="btn btn-success" id="btnTemaBancoGuardar">
+                    <i class="bi bi-check2" aria-hidden="true"></i>
+                    <span class="btn-text">Guardar</span>
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="btnTemaBancoCancelar">
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    Cancelar
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="cuad-table-panel gen-temas-table-panel">
-          <div class="table-responsive">
-            <table id="tabla-temas" class="table table-sm table-striped align-middle w-100 mb-0">
-              <thead class="table-dark">
-                <tr>
-                  <th>ID</th>
-                  <th>Nombre</th>
-                  <th>Preguntas</th>
-                  <th>Estado</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody></tbody>
-            </table>
+        <div class="mbanco-dt-shell">
+          <div
+            id="temarioDtToolbarHost"
+            class="mbanco-dt-outside"
+            aria-live="polite"
+          ></div>
+          <div class="mbanco-table-panel">
+            <div class="table-responsive">
+              <table
+                id="tabla-temas"
+                class="table table-sm table-striped align-middle w-100 mb-0 mbanco-banco-dt"
+              >
+                <thead class="table-dark">
+                  <tr>
+                    <th class="cuad-temas-th-id text-end">ID</th>
+                    <th>Nombre</th>
+                    <th class="text-center">Preguntas</th>
+                    <th class="text-center cuad-temas-th-estado">Estado</th>
+                    <th class="text-end cuad-temas-th-actions" style="width: 1%">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -613,6 +636,7 @@
 <script src="./libs/jquery.min.js"></script>
 <script src="./libs/dataTables.min.js"></script>
 <script src="./libs/dataTables.bootstrap5.min.js"></script>
+<script src="./js/temario_modal.js"></script>
 
 <!-- FUNCIONES JS -->
 <!-- =================== MODAL: BANCO DE PREGUNTAS =================== -->

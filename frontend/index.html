@@ -50,6 +50,17 @@
       if (esLogin) {
         setTimeout(() => engancharLogin(), 0);
       }
+
+      document.querySelectorAll('[id="modalTemas"]').forEach((el) => {
+        if (!cont.contains(el)) {
+          const Modal = window.bootstrap?.Modal;
+          if (Modal) {
+            const inst = Modal.getInstance(el);
+            if (inst) inst.dispose();
+          }
+          el.remove();
+        }
+      });
     }
 
     return Promise.resolve();
@@ -281,5 +292,6 @@
 
     <!-- DataTables Bootstrap 5 integration -->
     <script src="./libs/dataTables.bootstrap5.min.js"></script>
+    <script src="./js/temario_modal.js"></script>
   </body>
 </html>

@@ -152,6 +152,8 @@ window.addEventListener("focus", () => {
   if (window.__CUAD_STATIC_MODALS__) return;
   window.__CUAD_STATIC_MODALS__ = true;
 
+  /* modalTemas vive en #contenido (fragmento Generación/Cuadernillos) y se comparte entre
+     rutas SPA: no moverlo a body (evita duplicados de id y tabla vacía al cambiar de página). */
   const CUAD_MODAL_IDS = [
     "modalMatriz",
     "modalBancoPreguntasCuad",
@@ -160,7 +162,6 @@ window.addEventListener("focus", () => {
     "modalImportarMatriz",
     "modalAleatorizacion",
     "modalTipoPrueba",
-    "modalTemas",
     "modalTiposTema"
   ];
 
@@ -3278,19 +3279,6 @@ btnImprimirClaves?.addEventListener("click", async () => {
   if (window.__TEMAS_CUAD_MODULE__) return;
   window.__TEMAS_CUAD_MODULE__ = true;
 
-  const escAttrTemaCuad = (s) =>
-    String(s ?? "").replace(
-      /[&<>"']/g,
-      (c) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#039;",
-        }[c])
-    );
-
   const MODAL_SEL = "#modalTemas";
   const TABLA_SEL = "#tabla-temas";
   const BTN_OPEN_SEL = "#btnTemasMatriz";
@@ -3302,11 +3290,18 @@ btnImprimirClaves?.addEventListener("click", async () => {
   let renderingCuad = false;
 
   function destroyDtWrappersCuad() {
-    const host = document.getElementById("cuadTemasDtToolbarHost");
-    if (host) host.replaceChildren();
-
     const t = document.querySelector(TABLA_SEL);
     if (!t) return;
+
+    const ETM = window.EvaluniaTemarioModal;
+    if (ETM) {
+      ETM.destroy(TABLA_SEL, ETM.TOOLBAR_HOST_ID);
+      ETM.rebuildThead(t, { includePreguntas: false });
+      return;
+    }
+
+    document.getElementById("temarioDtToolbarHost")?.replaceChildren();
+
     const $t = $(t);
 
     if ($.fn.DataTable.isDataTable(t)) {
@@ -3498,152 +3493,30 @@ btnImprimirClaves?.addEventListener("click", async () => {
 
       console.log("[CUAD:Temas] init DT");
 
+      const ETM = window.EvaluniaTemarioModal;
+      if (!ETM) {
+        console.error("[CUAD:Temas] Falta EvaluniaTemarioModal (temario_modal.js).");
+        return;
+      }
+
       dtTemasCuad = $tabla.DataTable({
         data,
         destroy: true,
         autoWidth: false,
-        responsive: false,
-        pageLength: 12,
-        lengthMenu: [
-          [8, 12, 20, 50, -1],
-          [8, 12, 20, 50, "Todos"],
-        ],
-        dom: "<'cuad-temas-dt-toolbar cuad-temas-dt-toolbar--row'lf>rt<'cuad-temas-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
-        columnDefs: [
-          { targets: 0, width: "2.75rem" },
-          { targets: 2, width: "8rem" },
-          { targets: 3, width: "16.25rem" },
-        ],
-        columns: [
-          {
-            data: "id",
-            title: "ID",
-            className:
-              "text-muted text-nowrap text-end cuad-temas-col-id cuad-temas-th-id",
-          },
-          {
-            data: "nombre",
-            title: "Nombre",
-            className: "cuad-temas-col-nombre",
-          },
-          {
-            data: "activo",
-            title: "Estado",
-            className:
-              "text-nowrap text-center cuad-temas-col-estado cuad-temas-th-estado",
-            render: (v) =>
-              v
-                ? '<span class="badge rounded-2 bg-success cuad-temas-badge">Activo</span>'
-                : '<span class="badge rounded-2 bg-secondary cuad-temas-badge">Inactivo</span>',
-          },
-          {
-            data: null,
-            title: "Acciones",
-            orderable: false,
-            className: "text-end cuad-temas-col-actions cuad-temas-th-actions",
-            render: (row) => {
-              const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
-              const toggleIcon = row.activo ? "bi-pause-circle" : "bi-play-circle";
-              const toggleBtnClass = row.activo
-                ? "btn-outline-warning"
-                : "btn-outline-success";
-              return `
-                <div class="cuad-temas-actions d-inline-flex align-items-center justify-content-end flex-nowrap" role="group">
-                  <button type="button" class="btn btn-sm cuad-temas-act-btn btn-outline-primary btn-editar-tema"
-                          data-id="${row.id}"
-                          data-nombre="${escAttrTemaCuad(row.nombre)}"
-                          title="Editar nombre del tema">
-                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                    <span>Editar</span>
-                  </button>
-                  <button type="button" class="btn btn-sm cuad-temas-act-btn ${toggleBtnClass} btn-toggle-tema"
-                          data-id="${row.id}"
-                          title="${toggleTxt}">
-                    <i class="bi ${toggleIcon}" aria-hidden="true"></i>
-                    <span>${toggleTxt}</span>
-                  </button>
-                </div>
-              `;
-            },
-          },
-        ],
-        language: {
-          search: "",
-          searchPlaceholder: "Buscar por nombre o ID…",
-          lengthMenu: "_MENU_",
-          zeroRecords: "No se encontraron resultados",
-          info: "_START_–_END_ de _TOTAL_",
-          infoEmpty: "0 temas",
-          infoFiltered: "(de _MAX_)",
-          paginate: {
-            first: "«",
-            last: "»",
-            next: "›",
-            previous: "‹",
-          },
-          processing: "Procesando…",
-        },
+        responsive: true,
+        pageLength: 8,
+        lengthMenu: ETM.lengthMenu,
+        dom: ETM.dom,
+        columnDefs: ETM.columnDefsForMode(false),
+        columns: ETM.buildColumns(false),
+        language: ETM.language("Nombre o ID del tema…"),
         initComplete: function () {
-          const api = this.api();
-          const $wrap = $(api.table().container());
-          $wrap.addClass("cuad-temas-dt-wrap");
-          const $toolbar = $wrap.find(".cuad-temas-dt-toolbar").first();
-          const modalTemas = document.getElementById("modalTemas");
-          const $host = modalTemas
-            ? $(modalTemas).find("#cuadTemasDtToolbarHost")
-            : $("#cuadTemasDtToolbarHost");
-          if ($host.length && $toolbar.length) {
-            $toolbar.detach().appendTo($host);
-          }
-
-          const findCtl = (sel) => {
-            let $el = $host.find(sel);
-            if (!$el.length) $el = $toolbar.find(sel);
-            if (!$el.length) $el = $wrap.find(sel);
-            return $el;
-          };
-
-          const $length = findCtl(".dt-length, .dataTables_length");
-          const $lenSelect = $length.find("select").first().detach();
-          if ($lenSelect.length && $length.length) {
-            $length.addClass("cuad-temas-toolbar-field cuad-temas-toolbar-field--length");
-            $length.find("label").remove();
-            $lenSelect.addClass("form-select cuad-temas-length-select");
-            const lenId = $lenSelect.attr("id") || "cuadTemasDtLengthSelect";
-            $lenSelect.attr("id", lenId);
-            $length.find(".cuad-temas-toolbar-block-label--length").remove();
-            $length.prepend(
-              `<label class="form-label cuad-temas-toolbar-block-label cuad-temas-toolbar-block-label--length" for="${lenId}">Filas por página</label>`
-            );
-            $("<div>")
-              .addClass("cuad-temas-length-wrap")
-              .append($lenSelect)
-              .appendTo($length);
-          }
-
-          const $fil = findCtl(".dt-search, .dataTables_filter");
-          const $inp = $fil.find("input[type=search], input").first().detach();
-          if ($inp.length && $fil.length) {
-            $fil.empty();
-            $fil.addClass("cuad-temas-filter-wrap cuad-temas-toolbar-field cuad-temas-toolbar-field--search");
-            const searchId = "cuadTemasDtSearchInput";
-            $fil.prepend(
-              `<label class="form-label cuad-temas-toolbar-block-label cuad-temas-toolbar-block-label--search" for="${searchId}">Buscar en la tabla</label>`
-            );
-            $inp.attr({
-              id: searchId,
-              type: "search",
-              placeholder: "Nombre o ID del tema…",
-              autocomplete: "off",
-            });
-            $inp.addClass("form-control cuad-temas-search-input flex-grow-1");
-            const $ig = $('<div class="input-group cuad-temas-search-ig align-items-stretch"></div>');
-            $ig.append(
-              '<span class="input-group-text cuad-temas-search-prefix" aria-hidden="true"><i class="bi bi-search"></i></span>',
-              $inp
-            );
-            $("<div>").addClass("cuad-temas-filter-label").append($ig).appendTo($fil);
-          }
+          ETM.wireToolbar(this.api(), {
+            hostSelector: "#temarioDtToolbarHost",
+            lengthId: "temarioCuadDtLength",
+            searchId: "temarioCuadDtSearch",
+            searchPlaceholder: "Nombre o ID del tema…",
+          });
         },
       });
 
