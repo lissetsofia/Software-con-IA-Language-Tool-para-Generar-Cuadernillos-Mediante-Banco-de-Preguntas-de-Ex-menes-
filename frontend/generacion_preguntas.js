@@ -2315,6 +2315,77 @@ function ponerLinksVista(docxUrl, pdfUrl) {
   let temasCacheBanco = null;     // todos los temas (para resumen y selects)
   let temaPreseleccionadoImport = null; // para el modal Importar
 
+  /** Misma idea que cargarExamenes: toolbar fuera + select/búsqueda blancos con etiquetas. */
+  function wireMbancoDataTableToolbar(api, opts) {
+    const {
+      hostSelector,
+      lengthId,
+      searchId,
+      searchPlaceholder,
+    } = opts;
+    const $wrap = $(api.table().container());
+    $wrap.addClass("mbanco-dt-wrap");
+    const $toolbar = $wrap.find(".mbanco-dt-toolbar").first();
+    const $host = $(hostSelector);
+    if ($host.length && $toolbar.length) {
+      $toolbar.detach().appendTo($host);
+    }
+
+    const findCtl = (sel) => {
+      let $el = $host.find(sel);
+      if (!$el.length) $el = $toolbar.find(sel);
+      if (!$el.length) $el = $wrap.find(sel);
+      return $el;
+    };
+
+    const $length = findCtl(".dt-length, .dataTables_length");
+    const $lenSelect = $length.find("select").first().detach();
+    if ($lenSelect.length && $length.length) {
+      $length.addClass("mbanco-toolbar-field mbanco-toolbar-field--length");
+      $length.find("label").remove();
+      $lenSelect.addClass("form-select mbanco-length-select");
+      $lenSelect.attr("id", lengthId);
+      $length.find(".mbanco-toolbar-block-label--length").remove();
+      $length.prepend(
+        `<label class="form-label mbanco-toolbar-block-label mbanco-toolbar-block-label--length" for="${lengthId}">Filas por página</label>`
+      );
+      $("<div>")
+        .addClass("mbanco-length-wrap")
+        .append($lenSelect)
+        .appendTo($length);
+    }
+
+    const $fil = findCtl(".dt-search, .dataTables_filter");
+    const $inp = $fil.find("input[type=search], input").first().detach();
+    if ($inp.length && $fil.length) {
+      $fil.empty();
+      $fil.addClass(
+        "mbanco-filter-wrap mbanco-toolbar-field mbanco-toolbar-field--search"
+      );
+      $fil.prepend(
+        `<label class="form-label mbanco-toolbar-block-label mbanco-toolbar-block-label--search" for="${searchId}">Buscar en la tabla</label>`
+      );
+      $inp.attr({
+        id: searchId,
+        type: "search",
+        placeholder: searchPlaceholder,
+        autocomplete: "off",
+      });
+      $inp.addClass("form-control mbanco-search-input flex-grow-1");
+      const $ig = $(
+        '<div class="input-group mbanco-search-ig align-items-stretch"></div>'
+      );
+      $ig.append(
+        '<span class="input-group-text mbanco-search-prefix" aria-hidden="true"><i class="bi bi-search"></i></span>',
+        $inp
+      );
+      $("<div>")
+        .addClass("mbanco-filter-label")
+        .append($ig)
+        .appendTo($fil);
+    }
+  }
+
   // ------------- Helpers de fetch -------------
   async function cargarBancoDesdeApi() {
     const r = await fetch(window.BANCO_API_BASE);
@@ -2384,6 +2455,16 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       autoWidth: false,
       responsive: true,
       pageLength: 8,
+      lengthMenu: [
+        [8, 12, 20, 50, -1],
+        [8, 12, 20, 50, "Todos"],
+      ],
+      dom: "<'mbanco-dt-toolbar mbanco-dt-toolbar--row'lf>rt<'mbanco-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
+      columnDefs: [
+        { targets: 1, width: "11%" },
+        { targets: 2, width: "13%" },
+        { targets: 3, width: "9rem", orderable: false },
+      ],
       columns: [
         { data: "tema", title: "Tema" },
         {
@@ -2401,15 +2482,45 @@ function ponerLinksVista(docxUrl, pdfUrl) {
           title: "Acciones",
           orderable: false,
           className: "text-center",
-          render: (row) =>
-            `<button class="btn btn-info btn-sm btn-banco-detalles"
+          render: (row) => {
+            const nom = String(row.tema ?? "")
+              .replace(/&/g, "&amp;")
+              .replace(/"/g, "&quot;")
+              .replace(/</g, "&lt;");
+            return `<button type="button" class="btn btn-outline-primary btn-sm btn-banco-detalles d-inline-flex align-items-center gap-1"
                       data-tema="${row.id_tema}"
-                      data-nombre="${row.tema}">
-                Detalles
-             </button>`,
+                      data-nombre="${nom}">
+                <i class="bi bi-journal-text" aria-hidden="true"></i>
+                <span>Detalles</span>
+             </button>`;
+          },
         },
       ],
-      language: window.DT_ES || {},
+      language: {
+        ...(window.DT_ES || {}),
+        search: "",
+        searchPlaceholder: "Buscar por nombre de tema…",
+        lengthMenu: "_MENU_",
+        zeroRecords: "No se encontraron resultados",
+        info: "_START_–_END_ de _TOTAL_",
+        infoEmpty: "0 temas",
+        infoFiltered: "(de _MAX_)",
+        paginate: {
+          first: "«",
+          last: "»",
+          next: "›",
+          previous: "‹",
+        },
+        processing: "Procesando…",
+      },
+      initComplete: function () {
+        wireMbancoDataTableToolbar(this.api(), {
+          hostSelector: "#bancoModalResumenDtToolbarHost",
+          lengthId: "mbancoResumenDtLength",
+          searchId: "mbancoResumenDtSearch",
+          searchPlaceholder: "Nombre del tema…",
+        });
+      },
     });
   } else {
     dtBancoResumen.clear().rows.add(resumen).draw(false);
@@ -2436,27 +2547,31 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     const hasSol = !!row.doc_sol_nombre;
 
     const disabledDesc = hasPreg ? "" : "disabled";
-    const solClass = hasSol ? "btn-info" : "btn-outline-info";
+    const solClass = hasSol ? "btn-outline-primary" : "btn-outline-secondary";
     const solText = hasSol ? "Cambiar sol." : "Agregar sol.";
 
     return `
-      <div class="btn-group btn-group-sm" role="group">
-        <button class="btn btn-success"
+      <div class="btn-group btn-group-sm mbanco-detalle-actions" role="group">
+        <button type="button" class="btn btn-outline-success btn-sm"
                 onclick="window.bancoDescPaquete(${id})"
                 ${disabledDesc}>
+          <i class="bi bi-download" aria-hidden="true"></i>
           Descargar
         </button>
-        <button class="btn ${solClass}"
+        <button type="button" class="btn ${solClass} btn-sm"
                 onclick="window.bancoAbrirSolucionario(${id})"
                 ${disabledDesc}>
+          <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
           ${solText}
         </button>
-        <button class="btn btn-primary"
+        <button type="button" class="btn btn-outline-primary btn-sm"
                 onclick="window.bancoAbrirEditar(${id})">
+          <i class="bi bi-pencil" aria-hidden="true"></i>
           Editar
         </button>
-        <button class="btn btn-danger"
+        <button type="button" class="btn btn-outline-danger btn-sm"
                 onclick="window.bancoEliminar(${id})">
+          <i class="bi bi-trash" aria-hidden="true"></i>
           Eliminar
         </button>
       </div>`;
@@ -2513,13 +2628,18 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       responsive: true,
       pageLength: 8,
       destroy: true,
+      lengthMenu: [
+        [8, 12, 20, 50, -1],
+        [8, 12, 20, 50, "Todos"],
+      ],
+      dom: "<'mbanco-dt-toolbar mbanco-dt-toolbar--row'lf>rt<'mbanco-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
       columns: [
         {
           data: "doc_preguntas_nombre",
           title: "DOCX Preguntas",
           render: (d) =>
             d
-              ? `<span class="badge bg-secondary">${d}</span>`
+              ? `<span class="badge rounded-2 bg-secondary">${d}</span>`
               : '<span class="text-muted">No asignado</span>',
         },
         {
@@ -2527,17 +2647,42 @@ function ponerLinksVista(docxUrl, pdfUrl) {
           title: "Solucionario",
           render: (d) =>
             d
-              ? `<span class="badge bg-info">${d}</span>`
+              ? `<span class="badge rounded-2 bg-secondary">${d}</span>`
               : '<span class="text-muted">Sin solucionario</span>',
         },
         {
           data: null,
           title: "Acciones",
           orderable: false,
+          className: "text-nowrap",
           render: (row) => renderAccionesBanco(row),
         },
       ],
-      language: window.DT_ES || {},
+      language: {
+        ...(window.DT_ES || {}),
+        search: "",
+        searchPlaceholder: "Buscar por nombre de archivo…",
+        lengthMenu: "_MENU_",
+        zeroRecords: "No se encontraron resultados",
+        info: "_START_–_END_ de _TOTAL_",
+        infoEmpty: "0 registros",
+        infoFiltered: "(de _MAX_)",
+        paginate: {
+          first: "«",
+          last: "»",
+          next: "›",
+          previous: "‹",
+        },
+        processing: "Procesando…",
+      },
+      initComplete: function () {
+        wireMbancoDataTableToolbar(this.api(), {
+          hostSelector: "#bancoModalDetalleDtToolbarHost",
+          lengthId: "mbancoDetalleDtLength",
+          searchId: "mbancoDetalleDtSearch",
+          searchPlaceholder: "DOCX o solucionario…",
+        });
+      },
     });
   }
 

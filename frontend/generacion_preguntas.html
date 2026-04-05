@@ -642,20 +642,31 @@
       <div class="modal-body">
         <!-- ===== VISTA 1: RESUMEN POR TEMA ===== -->
         <div id="vista-banco-resumen">
-          <table
-            id="tabla-banco-resumen"
-            class="table table-striped table-bordered w-100"
-          >
-            <thead class="table-dark">
-              <tr>
-                <th>Tema</th>
-                <th>Nº de preguntas</th>
-                <th>Nº de solucionarios</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <div class="mbanco-dt-shell">
+            <div
+              id="bancoModalResumenDtToolbarHost"
+              class="mbanco-dt-outside"
+              aria-live="polite"
+            ></div>
+            <div class="mbanco-table-panel">
+              <div class="table-responsive">
+                <table
+                  id="tabla-banco-resumen"
+                  class="table table-sm table-striped align-middle mb-0 w-100 mbanco-banco-dt"
+                >
+                  <thead class="table-dark">
+                    <tr>
+                      <th>Tema</th>
+                      <th>Nº de preguntas</th>
+                      <th>Nº de solucionarios</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- ===== VISTA 2: DETALLE POR TEMA ===== -->
@@ -688,19 +699,30 @@
             </button>
           </div>
 
-          <table
-            id="tabla-banco-detalle"
-            class="table table-striped table-bordered w-100"
-          >
-            <thead class="table-dark">
-              <tr>
-                <th>DOCX Preguntas</th>
-                <th>Solucionario</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
+          <div class="mbanco-dt-shell">
+            <div
+              id="bancoModalDetalleDtToolbarHost"
+              class="mbanco-dt-outside"
+              aria-live="polite"
+            ></div>
+            <div class="mbanco-table-panel">
+              <div class="table-responsive">
+                <table
+                  id="tabla-banco-detalle"
+                  class="table table-sm table-striped align-middle mb-0 w-100 mbanco-banco-dt"
+                >
+                  <thead class="table-dark">
+                    <tr>
+                      <th>DOCX Preguntas</th>
+                      <th>Solucionario</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

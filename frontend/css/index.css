@@ -2596,6 +2596,7 @@ main {
   margin-bottom: 0 !important;
 }
 
+/* Solo Exámenes importados: barra de filtros blanca (no el degradado gris del toolbar genérico) */
 .banco-examenes-page .banco-examenes-list-shell .banco-exam-dt-outside .banco-exam-dt-toolbar {
   border-radius: 0;
   border: 0;
@@ -2621,6 +2622,7 @@ main {
   --banco-exam-toolbar-ctrl-h: 2.65rem;
 }
 
+/* Fuera del list-shell (si existiera otro bloque en la página): mismo criterio blanco */
 .banco-examenes-page .banco-exam-dt-outside .banco-exam-dt-toolbar {
   padding: 0.5rem 0.65rem;
   margin-bottom: 0 !important;
@@ -2700,13 +2702,14 @@ main {
   max-width: 100%;
   height: var(--banco-exam-toolbar-ctrl-h) !important;
   min-height: var(--banco-exam-toolbar-ctrl-h) !important;
-  border-radius: 11px;
-  border: 1px solid rgba(26, 45, 69, 0.2);
-  background: #fff;
+  border-radius: 7px;
+  border: 1px solid rgba(26, 45, 69, 0.22);
+  background-color: var(--lunia-white) !important;
+  background-image: none !important;
   font-weight: 600;
   font-size: 0.875rem;
   color: var(--lunia-navy-deep);
-  box-shadow: 0 1px 3px rgba(15, 23, 41, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow: none;
   padding: 0.375rem 2.1rem 0.375rem 0.75rem;
   line-height: 1.25;
   vertical-align: middle;
@@ -2736,11 +2739,11 @@ main {
   height: var(--banco-exam-toolbar-ctrl-h) !important;
   min-height: var(--banco-exam-toolbar-ctrl-h) !important;
   max-height: var(--banco-exam-toolbar-ctrl-h) !important;
-  border-radius: 11px;
+  border-radius: 7px;
   overflow: hidden;
-  border: 1px solid rgba(26, 45, 69, 0.2);
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(15, 23, 41, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(26, 45, 69, 0.22);
+  background-color: var(--lunia-white) !important;
+  box-shadow: none;
   box-sizing: border-box;
   align-items: stretch;
 }
@@ -2772,7 +2775,7 @@ main {
   height: 100%;
   border: 0 !important;
   border-radius: 0 !important;
-  background-color: #fff !important;
+  background-color: var(--lunia-white) !important;
   color: var(--lunia-text) !important;
   padding: 0.5rem 0.85rem;
   font-size: 0.875rem;
@@ -2830,6 +2833,11 @@ main {
   min-width: 56rem;
   margin-top: 0;
   box-sizing: border-box;
+}
+
+.banco-examenes-page #tabla-examenes thead.table-dark th {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
 }
 
 .banco-examenes-page .banco-examenes-table-panel .table thead th {
@@ -4885,6 +4893,253 @@ body.modal-open:has(.modal.show ~ .modal.show)
 /* Empujar la X al extremo derecho */
 .modal-header-banco .modal-title {
   margin-right: auto;
+}
+
+/* ——— Modal Banco de preguntas: tabla recta, filtros al ras del modal ——— */
+#modalBancoPreguntas .modal-body {
+  padding-top: 0.75rem;
+  padding-left: 0.65rem;
+  padding-right: 0.65rem;
+}
+
+#modalBancoPreguntas .mbanco-dt-shell {
+  border-radius: 0;
+  overflow: visible;
+  border: 0;
+  box-shadow: none;
+  background: var(--lunia-white);
+}
+
+#modalBancoPreguntas .mbanco-dt-outside {
+  flex-shrink: 0;
+  --mbanco-toolbar-ctrl-h: 2.5rem;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-dt-toolbar {
+  padding: 0 0 0.7rem 0;
+  margin-bottom: 0 !important;
+  background: var(--lunia-white);
+  border: 0 !important;
+  border-radius: 0;
+  box-shadow: none !important;
+}
+
+#modalBancoPreguntas .mbanco-dt-toolbar--row {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem 1.35rem;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dt-length,
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dataTables_length {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dt-search,
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-dt-toolbar--row > .dataTables_filter {
+  flex: 1 1 200px;
+  min-width: min(100%, 160px);
+  max-width: 100%;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-toolbar-field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-toolbar-block-label {
+  display: block !important;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgba(26, 45, 69, 0.88) !important;
+  margin: 0 0 0.38rem 0;
+  line-height: 1.25;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .dt-length,
+#modalBancoPreguntas .mbanco-dt-outside .dataTables_length {
+  margin: 0;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-length-wrap {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-length-select.form-select {
+  min-width: 5.25rem;
+  width: auto;
+  max-width: 100%;
+  height: var(--mbanco-toolbar-ctrl-h) !important;
+  min-height: var(--mbanco-toolbar-ctrl-h) !important;
+  border-radius: 7px;
+  border: 1px solid rgba(26, 45, 69, 0.22);
+  background: var(--lunia-white) !important;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--lunia-navy-deep);
+  padding: 0.35rem 2rem 0.35rem 0.65rem;
+  box-shadow: none;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-length-select:focus {
+  border-color: rgba(0, 74, 140, 0.45);
+  box-shadow: 0 0 0 0.2rem rgba(0, 74, 140, 0.12);
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .dt-search,
+#modalBancoPreguntas .mbanco-dt-outside .dataTables_filter {
+  margin: 0;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-filter-label {
+  display: flex;
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-search-ig {
+  width: 100%;
+  height: var(--mbanco-toolbar-ctrl-h) !important;
+  min-height: var(--mbanco-toolbar-ctrl-h) !important;
+  max-height: var(--mbanco-toolbar-ctrl-h) !important;
+  border-radius: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(26, 45, 69, 0.22);
+  background: var(--lunia-white);
+  box-sizing: border-box;
+  box-shadow: none;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-search-ig:focus-within {
+  border-color: rgba(0, 74, 140, 0.45);
+  box-shadow: 0 0 0 0.2rem rgba(0, 74, 140, 0.12);
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-search-prefix {
+  background: linear-gradient(180deg, #fafbfd, #f2f5f9);
+  border: 0;
+  border-right: 1px solid rgba(26, 45, 69, 0.12);
+  color: rgba(26, 45, 69, 0.65);
+  padding: 0.45rem 0.65rem;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-search-input {
+  min-width: 0;
+  width: 1%;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--lunia-white) !important;
+  box-shadow: none !important;
+  font-size: 0.875rem;
+  padding: 0.45rem 0.75rem;
+}
+
+#modalBancoPreguntas .mbanco-dt-outside .mbanco-search-input::placeholder {
+  color: rgba(26, 45, 69, 0.42);
+}
+
+/* Bloque tabla + paginación como tarjeta elevada (filtros quedan fuera) */
+#modalBancoPreguntas .mbanco-table-panel {
+  margin-top: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(26, 45, 69, 0.11);
+  background: var(--lunia-white);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 41, 0.04),
+    0 6px 16px rgba(15, 23, 41, 0.08),
+    0 14px 36px -8px rgba(15, 23, 41, 0.14);
+}
+
+#modalBancoPreguntas .mbanco-table-panel .table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#modalBancoPreguntas .mbanco-table-panel .dt-container {
+  padding: 0 !important;
+}
+
+#modalBancoPreguntas .mbanco-dt-wrap .mbanco-dt-bottom {
+  padding: 0.45rem 0.65rem 0.65rem;
+  margin-top: 0;
+  font-size: 0.8rem;
+  color: rgba(26, 45, 69, 0.65);
+  background: var(--lunia-white);
+  border-top: 1px solid rgba(26, 45, 69, 0.08);
+}
+
+#modalBancoPreguntas .mbanco-dt-wrap .dt-paging .dt-paging-button,
+#modalBancoPreguntas .mbanco-dt-wrap .dataTables_paginate .paginate_button {
+  border-radius: 7px !important;
+  margin: 0 0.08rem;
+  min-width: 1.85rem;
+  text-align: center;
+}
+
+#modalBancoPreguntas .mbanco-dt-wrap .dt-paging .dt-paging-button.active .page-link,
+#modalBancoPreguntas .mbanco-dt-wrap .dataTables_paginate .paginate_button.current {
+  background: var(--unamba-navy) !important;
+  color: #fff !important;
+  border-color: var(--unamba-navy) !important;
+}
+
+#modalBancoPreguntas .mbanco-banco-dt.table.dataTable {
+  --dt-header-align-items: center;
+}
+
+#modalBancoPreguntas .mbanco-banco-dt.table.dataTable thead > tr > th {
+  vertical-align: middle !important;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
+#modalBancoPreguntas .btn-banco-detalles {
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.28rem 0.55rem;
+  font-size: 0.8rem;
+}
+
+#modalBancoPreguntas .btn-banco-detalles .bi {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+#modalBancoPreguntas .mbanco-detalle-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+#modalBancoPreguntas .mbanco-detalle-actions > .btn + .btn {
+  margin-left: 0 !important;
+}
+
+#modalBancoPreguntas .mbanco-detalle-actions .btn {
+  border-radius: 8px !important;
+  font-weight: 600;
+  font-size: 0.76rem;
+  padding: 0.22rem 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#modalBancoPreguntas .mbanco-detalle-actions .btn .bi {
+  font-size: 0.9rem;
+  flex-shrink: 0;
 }
 
 /* Contenedor del botón Importar temas */
