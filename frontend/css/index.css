@@ -1287,13 +1287,13 @@ main {
 .cuad-modal-temas .modal-dialog.gen-modal-temas-dialog {
   max-width: min(96vw, 1020px) !important;
   margin: 1.75rem auto !important;
-  max-height: calc(100vh - 1.5rem);
+  max-height: calc(100vh - 1.5rem + 3px);
 }
 
 /* Generación: mantiene altura mínima cómoda para la tabla con columna Preguntas */
 .cuad-modal-temas.gen-modal-temas .modal-content.modal-evalunia {
   min-height: min(82vh, 760px);
-  max-height: calc(100vh - 1.5rem);
+  max-height: calc(100vh - 1.5rem + 3px);
   display: flex;
   flex-direction: column;
 }
@@ -1301,7 +1301,7 @@ main {
 /* Cuadernillos: misma altura mínima del cuerpo que Generación (tabla + paginación cómodas) */
 .cuad-modal-temas:not(.gen-modal-temas) .modal-content.modal-evalunia {
   min-height: min(82vh, 760px);
-  max-height: calc(100vh - 1.5rem);
+  max-height: calc(100vh - 1.5rem + 3px);
   display: flex;
   flex-direction: column;
 }
@@ -1310,7 +1310,9 @@ main {
   flex: 1 1 auto;
   min-height: 0;
   max-height: none !important;
+  overflow-x: hidden;
   overflow-y: auto !important;
+  scrollbar-gutter: auto;
 }
 
 .cuad-modal-temas .modal-header {
@@ -2471,8 +2473,8 @@ main {
 }
 
 #modalGrupos .cuad-modal-grupos-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
-  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
 }
 
 #modalGrupos .modal-header .cuad-grupos-header-icon {
@@ -2480,10 +2482,7 @@ main {
   opacity: 0.92;
 }
 
-/*
-  scrollbar-gutter: stable reserva carril a la derecha aunque no haya scroll → parece más padding
-  a la derecha que a la izquierda. auto mantiene el mismo padding lateral hasta que la barra exista.
-*/
+/* scrollbar-gutter: auto — la barra solo cuando hay overflow (evita carril fantasma en modales). */
 #modalGrupos .modal-body {
   min-height: 0;
   overflow-x: hidden;
@@ -2641,8 +2640,8 @@ main {
 }
 
 #modalTiposTema .cuad-modal-tipos-tema-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
-  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
 }
 
 #modalTiposTema .modal-header .cuad-tipos-tema-header-icon {
@@ -3630,26 +3629,21 @@ main {
   Bootstrap en .modal-dialog-scrollable fuerza height: calc(100% - márgenes) → diálogo siempre
   alto de pantalla (banda del backdrop o cuerpo flex vacío). Lo sustituimos por height:auto +
   max-height para que la tarjeta encaje al contenido hasta el tope; .modal-content.modal-evalunia
-  lleva max-height global y el body hace overflow-y: auto.
+  lleva max-height global (+3px holgura anti redondeo) y el body overflow-y:auto + scrollbar-gutter:auto.
 */
 .modal-dialog-scrollable {
   height: auto !important;
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin));
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) + 3px);
 }
 
 .modal-dialog-scrollable .modal-content {
   min-height: 0;
 }
 
+/* auto: barra solo cuando hace falta; stable reservaba carril y empujaba el flex → scroll fantasma */
 .modal-dialog-scrollable .modal-content.modal-evalunia .modal-body {
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   min-height: 0;
-}
-
-@supports (scrollbar-gutter: stable both-edges) {
-  .modal-dialog-scrollable .modal-content.modal-evalunia .modal-body {
-    scrollbar-gutter: stable both-edges;
-  }
 }
 
 /* Modal “Generar matriz”: ancho, aire, tabla redondeada, altura única de controles */
@@ -3803,8 +3797,8 @@ main {
   recortes y barra “flotando” aparte del cuerpo blanco.
 */
 #modalBancoPreguntasCuad .cuad-modal-banco-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
-  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
 }
 
 #modalBancoPreguntasCuad .modal-content.modal-evalunia {
@@ -3815,16 +3809,9 @@ main {
 #modalBancoPreguntasCuad .modal-body {
   min-height: 0;
   overflow-x: hidden;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   /* Misma idea que #modalMatriz .modal-body: aire al llegar al final del scroll */
   padding-bottom: 1.5rem;
-}
-
-/* Un solo carril de reserva (el global both-edges ensancha ambos lados y aquí se notaba raro) */
-@supports (scrollbar-gutter: stable both-edges) {
-  #modalBancoPreguntasCuad .modal-body {
-    scrollbar-gutter: stable;
-  }
 }
 
 #modalBancoPreguntasCuad .modal-header {
@@ -4162,8 +4149,8 @@ main {
 }
 
 #modalTipoPrueba .cuad-modal-tipo-prueba-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
-  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
 }
 
 #modalTipoPrueba .modal-header .cuad-tipo-prueba-header-icon {
@@ -4346,7 +4333,8 @@ main {
   padding: calc(var(--bs-modal-margin) + 8px);
   min-height: 100%;
   overflow-x: hidden;
-  overflow-y: auto;
+  /* Scroll only inside .modal-body; outer bar matched the viewport edge and looked like page scroll. */
+  overflow-y: hidden;
   box-sizing: border-box;
 }
 
@@ -4357,6 +4345,9 @@ main {
   display: block;
   margin-left: auto;
   margin-right: auto;
+  max-height: calc(100vh - 2 * (var(--bs-modal-margin) + 8px));
+  max-height: calc(100dvh - 2 * (var(--bs-modal-margin) + 8px));
+  min-height: 0;
   box-shadow:
     0 22px 54px rgba(8, 15, 28, 0.42),
     0 10px 28px rgba(8, 15, 28, 0.18);
@@ -4378,14 +4369,16 @@ main {
   box-shadow: none;
   background: var(--lunia-navy-deep);
   /* Tope de altura: no sale de pantalla; el scroll va en .modal-body */
-  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
   min-height: 0;
 }
 
 .modal .modal-dialog .modal-content.modal-evalunia .modal-body {
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-gutter: auto;
 }
 
 /*
@@ -4404,14 +4397,18 @@ main {
   padding: calc(var(--bs-modal-margin) + 16px);
   min-height: 100%;
   overflow-x: hidden;
-  overflow-y: auto;
+  /* Same as non–cuad-root: avoid a full-viewport scrollbar on .modal (Bootstrap defaults to overflow-y: auto). */
+  overflow-y: hidden;
   box-sizing: border-box;
 }
 
 .modal.modal-cuad-root .modal-dialog {
   margin: 0 !important;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-height: 0;
   max-width: 100%;
+  max-height: calc(100vh - 2 * (var(--bs-modal-margin) + 16px));
+  max-height: calc(100dvh - 2 * (var(--bs-modal-margin) + 16px));
   border-radius: 12px;
   box-shadow:
     0 24px 56px rgba(8, 15, 28, 0.44),
@@ -4422,6 +4419,11 @@ main {
   min-height: unset !important;
   height: auto;
   display: block;
+}
+
+/* Bootstrap sets height ~100% on .modal-dialog-scrollable; that ignores our extra modal padding and forces outer scroll. */
+.modal.modal-cuad-root .modal-dialog.modal-dialog-scrollable {
+  height: auto;
 }
 
 .modal.modal-cuad-root .modal-dialog .modal-content.modal-evalunia {
@@ -5252,8 +5254,8 @@ body.modal-open:has(.modal.show ~ .modal.show)
 }
 
 #modalAleatorizacion .cuad-modal-aleatorizacion-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
-  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
 }
 
 #modalAleatorizacion .modal-header .cuad-alea-header-icon {
@@ -5689,22 +5691,16 @@ body.modal-open:has(.modal.show ~ .modal.show)
 }
 
 #modalBuscar .gen-modal-cursos-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
-  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
-  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
 }
 
 #modalBuscar .modal-body {
   min-height: 0;
   overflow-x: hidden;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: auto;
   padding: 0.4rem 1rem 1.5rem !important;
   overflow-y: auto;
-}
-
-@supports (scrollbar-gutter: stable both-edges) {
-  #modalBuscar .modal-body {
-    scrollbar-gutter: stable;
-  }
 }
 
 /* Dos vistas en un solo modal (misma idea que .cuad-banco-views-stage) */
