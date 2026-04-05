@@ -1274,9 +1274,6 @@ main {
 .mostrar-flex {
   display: flex !important;
 }
-/* =======================
-   MODAL exportar
-========================== */
 
 /*.modal-content {
   background: rgb(168, 189, 245);
@@ -1285,14 +1282,6 @@ main {
   width: 300px;
   border-radius: 10px;
 }*/
-/* SOLO para tu modal personalizado de exportar */
-#modal-exportar .modal-content {
-  background: rgb(168, 189, 245);
-  padding: 20px;
-  margin: 15% auto;
-  width: 300px;
-  border-radius: 10px;
-}
 /* Modal Temario: mismo tope en Generación (gen-modal-temas-dialog) y Cuadernillos (cuad-modal-temas-dialog) */
 .cuad-modal-temas .modal-dialog.cuad-modal-temas-dialog,
 .cuad-modal-temas .modal-dialog.gen-modal-temas-dialog {
@@ -4472,6 +4461,97 @@ body.modal-open:has(.modal.show ~ .modal.show)
   max-width: min(92vw, 440px);
 }
 
+.evalunia-dialog-modal.evalunia-dialog-modal--choice .modal-dialog {
+  max-width: min(92vw, 520px);
+}
+
+.evalunia-dialog-modal .evalunia-dialog-body--tight {
+  padding-top: 0;
+  padding-bottom: 0;
+  min-height: 0;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-body--choice {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-lead {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: rgba(26, 45, 69, 0.78);
+  text-align: center;
+  padding-bottom: 0.65rem;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem 0.85rem;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-btn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn {
+  flex: 1 1 0;
+  min-width: min(100%, 9.25rem);
+  max-width: 100%;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-btn--cancel {
+  flex: 0 1 auto;
+  min-width: 6.75rem;
+  font-weight: 600;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-btn-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+  opacity: 0.95;
+}
+
+/* Mismos tonos que los botones de #tabla-examenes (Bootstrap .btn-primary / .btn-danger, más claros que modal-evalunia) */
+.evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn.btn-primary {
+  background-color: var(--bs-primary, #0d6efd) !important;
+  border-color: var(--bs-primary, #0d6efd) !important;
+  color: #fff !important;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn.btn-primary:hover {
+  background-color: #0b5ed7 !important;
+  border-color: #0a58ca !important;
+  color: #fff !important;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn.btn-primary:focus-visible {
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.35);
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn.btn-danger {
+  background-color: var(--bs-danger, #dc3545) !important;
+  border-color: var(--bs-danger, #dc3545) !important;
+  color: #fff !important;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn.btn-danger:hover {
+  background-color: #bb2d3b !important;
+  border-color: #b02a37 !important;
+  color: #fff !important;
+}
+
+.evalunia-dialog-modal .evalunia-dialog-choice-row .evalunia-dialog-choice-btn.btn-danger:focus-visible {
+  box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.35);
+}
+
 /* Cabecera: padding generoso + anular márgenes negativos del .btn-close (evitan recorte con overflow del content) */
 .evalunia-dialog-modal .evalunia-dialog-header.modal-header {
   display: flex;
@@ -5015,68 +5095,6 @@ body.modal-open:has(.modal.show ~ .modal.show)
   text-align: center;
   padding-left: 10px;
   padding-right: 10px;
-}
-
-/* ===== Solo para el modal de exportación ===== */
-#modal-exportar {
-  position: fixed;
-  inset: 0;
-  z-index: 1060; /* por encima de tablas y UI */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  /* Backdrop oscuro tipo Bootstrap */
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(1px); /* opcional */
-
-  transition: opacity 0.2s ease;
-}
-
-/* Estado oculto (cuando tiene la clase .oculto) */
-#modal-exportar.oculto {
-  opacity: 0;
-  pointer-events: none; /* no captura clics oculto */
-}
-
-/* Caja del modal exportar (alineado tema Evalunia / sin degradado) */
-#modal-exportar .modal-content.modal-evalunia,
-#modal-exportar .modal-content {
-  background: var(--lunia-white);
-  color: var(--lunia-navy);
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(15, 23, 41, 0.22);
-  padding: 0;
-  width: min(92vw, 520px);
-  max-height: 80vh;
-  overflow: hidden;
-  text-align: left;
-  pointer-events: auto;
-  border: none;
-}
-
-#modal-exportar .modal-content .modal-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: var(--lunia-navy-deep);
-  color: #f1f5f9;
-  border-bottom: 1px solid rgba(207, 217, 230, 0.12);
-  padding: 0.75rem 1rem;
-}
-
-#modal-exportar .modal-content .modal-header .modal-title,
-#modal-exportar .modal-content .modal-header h5 {
-  color: #f1f5f9;
-  font-weight: 700;
-}
-
-#modal-exportar .modal-content .modal-exportar-actions {
-  padding: 1rem 1.25rem 1.25rem;
-  justify-content: center !important;
-  gap: 1rem;
-  flex-wrap: wrap;
-  background: var(--lunia-white);
 }
 
 /* Contenedor del visor dentro del panel celeste */

@@ -94,6 +94,20 @@ function uiConfirm(msg, opts) {
   return Promise.resolve(ok);
 }
 
+function uiChoose(msg, opts) {
+  if (
+    window.EvaluniaDialog &&
+    typeof window.EvaluniaDialog.choose === "function"
+  ) {
+    return window.EvaluniaDialog.choose(msg, opts || {}).then((value) => {
+      setTimeout(repararEstadoModales, 0);
+      return value;
+    });
+  }
+  setTimeout(repararEstadoModales, 0);
+  return Promise.resolve(null);
+}
+
 window.addEventListener("focus", () => {
   setTimeout(repararEstadoModales, 0);
 });
@@ -435,18 +449,33 @@ if (typeof examenSeleccionadoParaExportar === "undefined") {
   var examenSeleccionadoParaExportar = null;
 }
 
-function abrirModalExportar(idexamen) {
-  console.log("🧪 Modal abierto para exportar:", idexamen);
+async function abrirModalExportar(idexamen) {
+  console.log("🧪 Elegir formato para exportar:", idexamen);
+  const formato = await uiChoose("", {
+    title: "¿En qué formato deseas exportar?",
+    variant: "info",
+    actions: [
+      {
+        value: "pdf",
+        label: "Exportar PDF",
+        className: "btn-danger",
+        icon: "bi-file-earmark-pdf",
+      },
+      {
+        value: "word",
+        label: "Exportar Word",
+        className: "btn-primary",
+        icon: "bi-file-earmark-word",
+      },
+    ],
+    cancelLabel: false,
+  });
+  if (!formato) return;
   examenSeleccionadoParaExportar = idexamen;
-  document
-    .getElementById("modal-exportar")
-    .classList.replace("oculto", "mostrar");
+  await exportarExamenSeleccionado(formato);
 }
 
 function cerrarModalExportar() {
-  document
-    .getElementById("modal-exportar")
-    .classList.replace("mostrar", "oculto");
   examenSeleccionadoParaExportar = null;
 }
 
