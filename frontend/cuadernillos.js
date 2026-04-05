@@ -41,7 +41,6 @@ function repararEstadoModales() {
   document.body.style.removeProperty("padding-right");
 
   allShown.forEach((m) => {
-    m.style.display = "block";
     m.removeAttribute("aria-hidden");
     m.setAttribute("aria-modal", "true");
   });
@@ -52,6 +51,8 @@ function repararEstadoModales() {
   }
 
   backdrops = [...document.querySelectorAll(".modal-backdrop")];
+
+  let focusTarget = allShown[allShown.length - 1];
 
   if (allShown.length === 1) {
     allShown[0].style.removeProperty("z-index");
@@ -74,12 +75,13 @@ function repararEstadoModales() {
     allShown.forEach((m) => m.style.removeProperty("z-index"));
     backdrops.forEach((b) => b.style.removeProperty("z-index"));
 
+    /* Misma escalera que index.css (#modalAleatorizacion 1055, #modalTipoPrueba 1065, …): paso 10 */
     cuadStack.forEach((m, i) => {
-      m.style.zIndex = String(1055 + i * 20);
+      m.style.zIndex = String(1055 + i * 10);
     });
-    for (let i = 0; i < cuadStack.length && i < backdrops.length; i++) {
-      backdrops[i].style.zIndex = String(1050 + i * 20);
-    }
+    backdrops.forEach((b, i) => {
+      b.style.zIndex = String(1050 + i * 10);
+    });
 
     const evaluniaEl = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
     if (evaluniaEl && evaluniaEl.classList.contains("show")) {
@@ -93,11 +95,18 @@ function repararEstadoModales() {
     backdrops.forEach((b, i) => {
       b.style.pointerEvents = i === backdrops.length - 1 ? "auto" : "none";
     });
+
+    const evaluniaOpen =
+      document.getElementById(EVALUNIA_DIALOG_MODAL_ID)?.classList.contains("show");
+    if (evaluniaOpen) {
+      focusTarget = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
+    } else if (cuadStack.length) {
+      focusTarget = cuadStack[cuadStack.length - 1];
+    }
   }
 
-  const top = allShown[allShown.length - 1];
   setTimeout(() => {
-    top
+    focusTarget
       ?.querySelector(
         'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
       )
@@ -105,19 +114,20 @@ function repararEstadoModales() {
   }, 0);
 }
 
-document.addEventListener("shown.bs.modal", (ev) => {
-  const el = ev.target;
-  if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
-  el.dataset.cuadZStackTs = String(Date.now());
-  requestAnimationFrame(() => repararEstadoModales());
-});
-
-document.addEventListener("hidden.bs.modal", (ev) => {
-  const el = ev.target;
-  if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
-  delete el.dataset.cuadZStackTs;
-  requestAnimationFrame(() => repararEstadoModales());
-});
+if (!window.__evaluniaBsModalStackListeners) {
+  window.__evaluniaBsModalStackListeners = true;
+  document.addEventListener("shown.bs.modal", (ev) => {
+    const el = ev.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+    el.dataset.cuadZStackTs = String(Date.now());
+    requestAnimationFrame(() => repararEstadoModales());
+  });
+  document.addEventListener("hidden.bs.modal", (ev) => {
+    const el = ev.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+    requestAnimationFrame(() => repararEstadoModales());
+  });
+}
 
 function uiAlert(msg, opts) {
   const p =
