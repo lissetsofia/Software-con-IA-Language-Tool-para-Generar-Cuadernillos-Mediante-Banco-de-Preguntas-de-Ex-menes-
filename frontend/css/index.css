@@ -2963,6 +2963,9 @@ main {
   border-radius: 0;
   box-shadow: none;
   border: 0;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  box-sizing: border-box;
 }
 
 .banco-examenes-page .banco-examenes-list-shell .banco-examenes-table-panel .dt-container {
