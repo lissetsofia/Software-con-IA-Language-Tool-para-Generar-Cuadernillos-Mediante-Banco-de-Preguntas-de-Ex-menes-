@@ -1,5 +1,4 @@
-// Estado global del último archivo generado (docx/pdf)
-// --- SIEMPRE al comienzo del archivo ---
+// Último examen generado: URLs y nombres para guardar / enlaces
 window.__ultimoGenerado = {
   docxUrl: null,
   pdfUrl: null,
@@ -15,18 +14,159 @@ if (window.__GENERACION_PREGUNTAS_LOADED__) {
 }
 
 function generarNuevoExamen() {
-  document
-    .getElementById("modal-examen")
-    .classList.replace("oculto", "mostrar-flex");
+  const el = document.getElementById("modal-examen");
+  if (!el) return;
+  if (el.parentElement !== document.body) {
+    document.body.appendChild(el);
+  }
+  bootstrap.Modal.getOrCreateInstance(el, {
+    backdrop: "static",
+    focus: true,
+    keyboard: false,
+  }).show();
 }
 
 function cerrarModalExamen() {
-  document
-    .getElementById("modal-examen")
-    .classList.replace("mostrar-flex", "oculto");
+  const el = document.getElementById("modal-examen");
+  if (!el) return;
+  const inst = bootstrap.Modal.getInstance(el);
+  if (inst) inst.hide();
 }
 
-/** Misma lógica que cuadernillos.js: apilado z-index y sombras de backdrop con varios modales abiertos. */
+function genExamenBannerHtml(kind, msg) {
+  const icons = {
+    success: "bi-check-circle-fill",
+    danger: "bi-exclamation-octagon-fill",
+    warning: "bi-exclamation-triangle-fill",
+    info: "bi-info-circle-fill",
+  };
+  const ic = icons[kind] || icons.info;
+  return `<span class="gen-modal-examen-alert__inner"><i class="bi ${ic} gen-modal-examen-alert__icon" aria-hidden="true"></i><span class="gen-modal-examen-alert__text">${msg}</span></span>`;
+}
+
+function applyGenExamenBanner(el, kind, msg) {
+  el.className = `gen-modal-examen-alert alert alert-${kind}`;
+  el.setAttribute("role", "alert");
+  el.innerHTML = genExamenBannerHtml(kind, msg);
+}
+
+const GEN_EXAMEN_HINT_SELECCION_VISTO_KEY = "evalunia_genExamen_seleccionHint_visto";
+const GEN_EXAMEN_MSG_SUCCESS_MS = 2800;
+const GEN_EXAMEN_MSG_COLLAPSE_MS = 380;
+const genExamenAvisoTimers = { successHide: null, successCollapse: null };
+
+function getGenExamenMensajeEl() {
+  return document.getElementById("gen-examen-seleccion-hint");
+}
+
+function clearGenExamenAvisoTimers() {
+  if (genExamenAvisoTimers.successHide) {
+    clearTimeout(genExamenAvisoTimers.successHide);
+    genExamenAvisoTimers.successHide = null;
+  }
+  if (genExamenAvisoTimers.successCollapse) {
+    clearTimeout(genExamenAvisoTimers.successCollapse);
+    genExamenAvisoTimers.successCollapse = null;
+  }
+}
+
+function setGenExamenMensajeModal(msg, kind = "info") {
+  const el = getGenExamenMensajeEl();
+  if (!el) return;
+  clearGenExamenAvisoTimers();
+  el.classList.remove("d-none", "gen-modal-examen-alert--hiding");
+  applyGenExamenBanner(el, kind, msg);
+  el.classList.add("flex-shrink-0");
+  const live = kind === "danger" || kind === "warning" ? "assertive" : "polite";
+  el.setAttribute("aria-live", live);
+  el.setAttribute("role", kind === "danger" || kind === "warning" ? "alert" : "status");
+
+  if (kind === "success") {
+    genExamenAvisoTimers.successHide = setTimeout(() => {
+      el.classList.add("gen-modal-examen-alert--hiding");
+      genExamenAvisoTimers.successHide = null;
+      genExamenAvisoTimers.successCollapse = setTimeout(() => {
+        el.classList.remove("gen-modal-examen-alert--hiding");
+        el.classList.add("d-none");
+        genExamenAvisoTimers.successCollapse = null;
+        actualizarGenExamenHintSeleccionGrupo();
+      }, GEN_EXAMEN_MSG_COLLAPSE_MS);
+    }, GEN_EXAMEN_MSG_SUCCESS_MS);
+  }
+}
+
+function escapeHtmlGenExamen(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function actualizarGenExamenHintSeleccionGrupo() {
+  const modal = document.getElementById("modal-examen");
+  const hint = getGenExamenMensajeEl();
+  if (!hint) return;
+
+  if (!modal?.classList.contains("show")) {
+    hint.classList.add("d-none");
+    return;
+  }
+
+  clearGenExamenAvisoTimers();
+  hint.classList.remove("gen-modal-examen-alert--hiding");
+
+  const sel = window.grupoSeleccionado;
+  if (sel?.id) {
+    const clave = escapeHtmlGenExamen(sel.clave);
+    applyGenExamenBanner(
+      hint,
+      "success",
+      `Grupo <b>${clave}</b> seleccionado. Pulsa <b>Generar</b> para crear el examen.`
+    );
+    hint.classList.add("flex-shrink-0");
+    hint.setAttribute("role", "status");
+    hint.setAttribute("aria-live", "polite");
+    hint.classList.remove("d-none");
+    return;
+  }
+
+  if (sessionStorage.getItem(GEN_EXAMEN_HINT_SELECCION_VISTO_KEY) === "1") {
+    hint.classList.add("d-none");
+    return;
+  }
+
+  applyGenExamenBanner(
+    hint,
+    "info",
+    "Selecciona un grupo en el panel izquierdo para poder generar el examen."
+  );
+  hint.classList.add("flex-shrink-0");
+  hint.setAttribute("role", "status");
+  hint.setAttribute("aria-live", "polite");
+  hint.classList.remove("d-none");
+}
+
+document.getElementById("modal-examen")?.addEventListener("shown.bs.modal", () => {
+  actualizarGenExamenHintSeleccionGrupo();
+});
+
+function resetFlujoAvisosModalExamen() {
+  clearGenExamenAvisoTimers();
+  window.grupoSeleccionado = null;
+  sessionStorage.removeItem(GEN_EXAMEN_HINT_SELECCION_VISTO_KEY);
+  const hint = getGenExamenMensajeEl();
+  if (hint) {
+    hint.classList.remove("gen-modal-examen-alert--hiding");
+    hint.classList.add("d-none");
+  }
+  document.querySelector("#modal-examen #banner-estado")?.remove();
+  if (typeof renderGruposLeftPanel === "function") {
+    void renderGruposLeftPanel();
+  }
+}
+
+/** Z-index y backdrops con varios modales (alineado con cuadernillos.js). */
 const EVALUNIA_DIALOG_MODAL_ID = "evaluniaDialogModal";
 
 function repararEstadoModales() {
@@ -78,7 +218,7 @@ function repararEstadoModales() {
     allShown.forEach((m) => m.style.removeProperty("z-index"));
     backdrops.forEach((b) => b.style.removeProperty("z-index"));
 
-    /* Paridad con cuadernillos.js + index.css (escalera z-index paso 10) */
+    // Escalera +10 como en cuadernillos.js / index.css
     cuadStack.forEach((m, i) => {
       m.style.zIndex = String(1055 + i * 10);
     });
@@ -175,7 +315,7 @@ window.addEventListener("focus", () => {
   setTimeout(repararEstadoModales, 0);
 });
 
-/** Same pattern as destroyDtWrappersCuad / #tabla-temas: clear toolbar host, strip DT chrome, rebuild thead. */
+/** Saca #tabla-examenes del wrapper DataTables (como #tabla-temas). */
 function destroyDtWrappersExamenes() {
   const host = document.getElementById("bancoExamenesDtToolbarHost");
   if (host) host.replaceChildren();
@@ -397,7 +537,6 @@ async function cargarExamenes() {
   }
 }
 
-// ================== INICIALIZACIÓN DEL MÓDULO ==================
 window.initGeneracionPreguntas = function () {
   console.log("🔁 initGeneracionPreguntas() → recargar tabla y wiring");
 
@@ -405,7 +544,6 @@ window.initGeneracionPreguntas = function () {
     $.fn.dataTable.ext.errMode = "console";
   }
 
-  // 1) Cargar / recargar tabla de exámenes
   cargarExamenes();
 
   setTimeout(() => {
@@ -420,12 +558,11 @@ window.initGeneracionPreguntas = function () {
     } catch (e) {}
   }, 150);
 
-  // 2) Enganchar input de archivo y botón importar (solo una vez)
   const archivo = document.getElementById("archivo");
   const btnImportar = document.getElementById("btnImportar");
 
   if (archivo && btnImportar && !archivo.dataset.wired) {
-    archivo.dataset.wired = "1"; // marca para no duplicar el listener
+    archivo.dataset.wired = "1";
     archivo.addEventListener("change", () => {
       btnImportar.disabled = false;
       const hint = document.getElementById("banco-file-name-display");
@@ -495,9 +632,7 @@ async function importarExamen() {
     if (resultado.exito) {
       await uiAlert("✅ Examen importado correctamente");
 
-      // 🔒 Desactiva el botón después de importar exitosamente
       document.getElementById("btnImportar").disabled = true;
-      // Recarga tabla
       cargarExamenes();
     } else {
       await uiAlert("❌ " + (resultado.error || "Error al importar"));
@@ -507,7 +642,7 @@ async function importarExamen() {
     await uiAlert("❌ Error al conectar con el servidor");
   }
 }
-//  Para exportar examenes
+
 if (typeof examenSeleccionadoParaExportar === "undefined") {
   var examenSeleccionadoParaExportar = null;
 }
@@ -546,7 +681,6 @@ async function exportarExamenSeleccionado(formato) {
   if (!examenSeleccionadoParaExportar) return;
 
   try {
-    // 1) ¿Existe la API del preload?
     if (window.api && typeof window.api.exportarExamen === "function") {
       const res = await window.api.exportarExamen(
         examenSeleccionadoParaExportar,
@@ -560,7 +694,6 @@ async function exportarExamenSeleccionado(formato) {
         );
       }
     } else {
-      // 2) Fallback: descarga directa desde el backend (abre nueva pestaña)
       console.warn("window.api no disponible, usando fallback fetch.");
       const url = `http://localhost:5050/api/exportar_examen/${examenSeleccionadoParaExportar}?formato=${formato}`;
       window.open(url, "_blank");
@@ -573,11 +706,7 @@ async function exportarExamenSeleccionado(formato) {
   }
 }
 
-/* =======================
-   TEMAS (CRUD en modal) — INICIALIZAR CUANDO EL MODAL ESTÁ VISIBLE
-   ======================= */
-
-
+// Temario (#modalTemas, ctx banco): render al mostrar el modal
 
 (() => {
   if (window.__TEMAS_WIRED__) return;
@@ -586,7 +715,6 @@ async function exportarExamenSeleccionado(formato) {
   let dtTemas = null;
   const PANEL_TEMA_OPEN_CLASS_BANCO = "cuad-tema-form-panel--open";
 
-  // Mostrar errores de DataTables en consola
   $.fn.dataTable.ext.errMode = "console";
 
   const urlTemas = (all) => `${window.TEMAS_API_BASE}${all ? "?all=1" : ""}`;
@@ -879,9 +1007,6 @@ function destroyDtWrappersBanco() {
     }
   }
 
-  // ————— Cableado robusto —————
-
-  // 1) Inicializar SOLO cuando el modal ya está visible
 $(document).off("show.bs.modal.temasBancoCtx", "#modalTemas");
 $(document).on("show.bs.modal.temasBancoCtx", "#modalTemas", function (ev) {
   const trigger = ev.relatedTarget;
@@ -906,9 +1031,6 @@ $(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function 
   }
 });
 
-
-
-  // 2) Filtro “mostrar inactivos”
  $(document).on("change", "#chkVerInactivosTemas", async function () {
   const modal = document.getElementById("modalTemas");
   if (modal?.dataset?.ctx !== "banco") return;
@@ -952,9 +1074,6 @@ $(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function 
     hidePanelTemaBanco();
   });
  })();
-// Reusa tu objeto de traducciones si lo tienes
-//preguntas
-// Helper fetch -> JSON con manejo de errores
 
 async function fetchJSON(url, opts) {
   const r = await fetch(url, opts);
@@ -1101,8 +1220,6 @@ $(document).on("hidden.bs.modal", "#modalBuscar", () => {
   mostrarVistaGenCursos("lista");
 });
 
-// Click en "Buscar" de un examen
-// Click en "Buscar"
 $(document).on("click", ".btn-buscar", async function () {
   const btn = this;
   const raw = btn.dataset.id ?? $(btn).attr("data-id");
@@ -1256,19 +1373,14 @@ $(document).on("click", ".btn-ver-tema", async function () {
   }
 });
 
-// ======================= GRUPOS (nuevo) =======================
-// ======================= GRUPOS (nuevo) =======================
-// --- Definición segura de API_BASEs ---
 if (typeof window.GRUPOS_API_BASE === "undefined")
   window.GRUPOS_API_BASE = "http://localhost:5050/api/grupos";
 
 if (typeof window.TEMAS_API_BASE === "undefined")
   window.TEMAS_API_BASE = "http://localhost:5050/api/temas";
 
-if (typeof window.dtGrupos === "undefined") window.dtGrupos = null;
-window.grupoSeleccionado = null; // { id, clave }
+window.grupoSeleccionado = null;
 
-// --- cache de temas activos ---
 if (typeof window.__temasCache === "undefined") window.__temasCache = null;
 async function cargarTemasActivos() {
   if (__temasCache) return __temasCache;
@@ -1278,7 +1390,6 @@ async function cargarTemasActivos() {
   return __temasCache;
 }
 
-// --- helpers cuotas (fila + total) ---
 function leerCuotasDe(containerSel) {
   const filas = [...document.querySelectorAll(`${containerSel} .cuota-row`)];
   const cuotas = [];
@@ -1328,7 +1439,6 @@ function totalFrom(containerSel, totalSel) {
   document.querySelector(totalSel).textContent = n;
 }
 
-// --- API helpers ---
 async function fetchGrupos(includeInactive) {
   const url = includeInactive
     ? `${window.GRUPOS_API_BASE}?all=1`
@@ -1343,7 +1453,7 @@ async function fetchCuotasGrupo(idgrupo) {
   if (!r.ok) return [];
   return r.json();
 }
-// guardar cuotas por ID de grupo (sin examenes)
+
 async function saveCuotasGrupoById(idgrupo, cuotas) {
   const r = await fetch(`${window.GRUPOS_API_BASE}/${idgrupo}/cuotas`, {
     method: "PUT",
@@ -1355,138 +1465,135 @@ async function saveCuotasGrupoById(idgrupo, cuotas) {
   return j;
 }
 
-
-
-
-
-// -------- panel izquierdo (lista dinámica) --------
 async function renderGruposLeftPanel() {
   const ul = document.getElementById("lista-grupos");
   if (!ul) return;
 
   try {
-    const grupos = await fetchGrupos(false); // solo activos
+    const grupos = await fetchGrupos(false);
     ul.innerHTML = "";
 
     grupos.forEach((g) => {
       const li = document.createElement("li");
-      li.className = "d-flex align-items-center justify-content-between mb-2";
+      li.className =
+        "gen-examen-grupo-row d-flex align-items-center justify-content-between mb-2";
 
-      const left = document.createElement("div");
-      left.className = "d-flex align-items-center gap-2";
-      left.innerHTML = `
-        <span class="btn btn-sm btn-custom">${g.clave}</span>
-        <span class="text-muted small">${g.nombre || ""}</span>
-        <span class="btn btn-sm btn-primary">${g.total_preguntas ?? 0}</span>
+      const main = document.createElement("div");
+      main.className =
+        "gen-examen-grupo-main d-flex align-items-center gap-2 flex-grow-1 min-w-0";
+      main.innerHTML = `
+        <span class="gen-examen-grupo-pill gen-examen-grupo-pill--clave">${g.clave}</span>
+        <span class="text-muted small gen-examen-grupo-name">${g.nombre || ""}</span>
+        <span class="gen-examen-grupo-pill gen-examen-grupo-pill--count">${g.total_preguntas ?? 0}</span>
       `;
 
-      const right = document.createElement("div");
-      right.className = "d-flex align-items-center gap-1";
+      const actions = document.createElement("div");
+      actions.className =
+        "gen-examen-grupo-actions d-flex align-items-center gap-1 flex-shrink-0";
 
       const btnCfg = document.createElement("button");
-      btnCfg.className = "btn btn-sm btn-secondary";
+      btnCfg.type = "button";
+      btnCfg.className =
+        "btn gen-examen-grupo-act gen-examen-grupo-act--config";
       btnCfg.title = "Configurar cuotas por tema";
-      btnCfg.textContent = "⚙";
+      btnCfg.innerHTML =
+        '<i class="bi bi-gear-fill" aria-hidden="true"></i>';
       btnCfg.onclick = (ev) => {
         ev.stopPropagation();
         abrirModalEditarGrupo(g);
       };
 
       const btnDel = document.createElement("button");
-
-      btnDel.className = "btn btn-sm btn-danger btnQuitarCuota";
+      btnDel.type = "button";
+      btnDel.className =
+        "btn gen-examen-grupo-act gen-examen-grupo-act--delete btnQuitarCuota";
       btnDel.title = "Eliminar";
-      btnDel.textContent = "✕";
+      btnDel.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
       btnDel.onclick = async (ev) => {
-      ev.stopPropagation();
-      try {
-        if (
-          !(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" }))
-        ) {
-          return;
-        }
+        ev.stopPropagation();
+        try {
+          if (
+            !(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" }))
+          ) {
+            return;
+          }
 
-        let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
-          method: "DELETE",
-        });
-        let d = await r.json();
-
-        console.log("[GRUPO DELETE] status inicial =", r.status, d);
-
-        if (!r.ok && r.status === 409) {
-          const continuar = await uiConfirm(
-            (d.error || "El grupo tiene cuotas asociadas.") +
-              "\n\n¿Deseas eliminarlo de todas formas?",
-            {
-              variant: "warning",
-              title: "Forzar eliminación",
-              confirmLabel: "Sí, eliminar",
-              dangerous: true,
-            }
-          );
-          if (!continuar) return;
-
-          r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}?force=1`, {
+          let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
             method: "DELETE",
           });
-          d = await r.json();
+          let d = await r.json();
 
-          console.log("[GRUPO DELETE] status force =", r.status, d);
+          console.log("[GRUPO DELETE] status inicial =", r.status, d);
+
+          if (!r.ok && r.status === 409) {
+            const continuar = await uiConfirm(
+              (d.error || "El grupo tiene cuotas asociadas.") +
+                "\n\n¿Deseas eliminarlo de todas formas?",
+              {
+                variant: "warning",
+                title: "Forzar eliminación",
+                confirmLabel: "Sí, eliminar",
+                dangerous: true,
+              }
+            );
+            if (!continuar) return;
+
+            r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}?force=1`, {
+              method: "DELETE",
+            });
+            d = await r.json();
+
+            console.log("[GRUPO DELETE] status force =", r.status, d);
+          }
+
+          if (!r.ok) {
+            await uiAlert(d.error || "No se pudo eliminar");
+            return;
+          }
+
+          if (window.grupoSeleccionado?.id === g.idgrupo) {
+            window.grupoSeleccionado = null;
+          }
+
+          await uiAlert("✅ Grupo eliminado correctamente");
+
+          setTimeout(() => {
+            limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible();
+          }, 50);
+
+          await renderGruposLeftPanel();
+        } catch (e) {
+          console.error(e);
+          await uiAlert("Error de red.");
         }
+      };
 
-        if (!r.ok) {
-          await uiAlert(d.error || "No se pudo eliminar");
-          return;
-        }
+      actions.appendChild(btnCfg);
+      actions.appendChild(btnDel);
 
-        if (window.grupoSeleccionado?.id === g.idgrupo) {
-          window.grupoSeleccionado = null;
-        }
-
-        await uiAlert("✅ Grupo eliminado correctamente");
-        
-        
-       setTimeout(() => {
-          limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible();
-        }, 50);
-
-        await renderGruposLeftPanel();
-
-        if ($.fn.DataTable.isDataTable("#tabla-grupos")) {
-          await renderGruposModal();
-        }
-
-      } catch (e) {
-        console.error(e);
-        await uiAlert("Error de red.");
-      }
-    };
-      right.appendChild(btnCfg);
-      right.appendChild(btnDel);
-
-      li.appendChild(left);
-      li.appendChild(right);
+      li.appendChild(main);
+      li.appendChild(actions);
 
       li.style.cursor = "pointer";
 
       li.onclick = (ev) => {
-        if (ev.target === btnCfg || ev.target === btnDel) return;
+        if (ev.target.closest("button")) return;
         [...ul.children].forEach((n) => n.classList.remove("selected"));
         li.classList.add("selected");
 
-        // ⬇️ importante: guardar en window
         window.grupoSeleccionado = { id: g.idgrupo, clave: g.clave };
         console.log("Grupo seleccionado:", window.grupoSeleccionado);
+        actualizarGenExamenHintSeleccionGrupo();
       };
 
       ul.appendChild(li);
     });
+    actualizarGenExamenHintSeleccionGrupo();
   } catch (e) {
     console.error("[Grupos] No se pudo cargar la lista:", e);
   }
 }
 
-// mostrar lista al abrir tu modal principal
 if (typeof window.__origGenerarNuevoExamen === "undefined") {
   window.__origGenerarNuevoExamen = window.generarNuevoExamen;
 }
@@ -1552,171 +1659,11 @@ const PLANTILLAS_GRUPO = {
   
   ],
 };
-// -------- DataTable del modal (CRUD) --------
-async function renderGruposModal() {
-  const showInactivos = document.getElementById(
-    "chkVerInactivosGrupos"
-  )?.checked;
-  const data = await fetchGrupos(showInactivos);
 
-  if (!$.fn.DataTable.isDataTable("#tabla-grupos")) {
-    dtGrupos = $("#tabla-grupos").DataTable({
-      data,
-      destroy: true,
-      autoWidth: false,
-      responsive: true,
-      pageLength: 8,
-      columns: [
-        { data: "idgrupo", title: "ID" },
-        { data: "clave", title: "Clave" },
-        { data: "nombre", title: "Nombre" },
-        { data: "total_preguntas", title: "Preguntas" },
-        {
-          data: "activo",
-          render: (v) =>
-            v
-              ? '<span class="badge bg-success">Activo</span>'
-              : '<span class="badge bg-secondary">Inactivo</span>',
-        },
-        {
-          data: null,
-          orderable: false,
-          render: (row) => {
-            const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
-            const toggleClass = row.activo ? "btn-warning" : "btn-success";
-            return `
-              <div class="btn-group btn-group-sm" role="group">
-                <button class="btn btn-primary btn-editar-grupo"
-                        data-id="${row.idgrupo}" data-clave="${row.clave}"
-                        data-nombre="${row.nombre || ""}">
-                  Editar
-                </button>
-                <button class="btn ${toggleClass} btn-toggle-grupo" data-id="${
-              row.idgrupo
-            }">
-                  ${toggleTxt}
-                </button>
-                <button class="btn btn-danger btn-eliminar-grupo" data-id="${
-                  row.idgrupo
-                }">
-                  Eliminar
-                </button>
-              </div>`;
-          },
-        },
-      ],
-      language: DT_ES,
-    });
-
-    // Delegados
-    $("#tabla-grupos").off("click", ".btn-editar-grupo");
-    $("#tabla-grupos").on("click", ".btn-editar-grupo", async function () {
-      const { id, clave, nombre } = this.dataset;
-      // usa el mismo editor que el panel izquierdo
-      abrirModalEditarGrupo({ idgrupo: Number(id), clave, nombre });
-    });
-
-    $("#tabla-grupos").on("click", ".btn-toggle-grupo", async function () {
-      const id = this.dataset.id;
-      try {
-        const r = await fetch(`${window.GRUPOS_API_BASE}/${id}/toggle`, {
-          method: "PATCH",
-        });
-        const d = await r.json();
-        if (!r.ok) return await uiAlert(d.error || "No se pudo cambiar el estado.");
-        await renderGruposModal();
-        await renderGruposLeftPanel();
-      } catch (e) {
-        console.error(e);
-        await uiAlert("Error de red.");
-      }
-    });
-
-    $("#tabla-grupos").on("click", ".btn-eliminar-grupo", async function () {
-  const id = this.dataset.id;
-  if (!(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" }))) {
-    return;
-  }
-
-  try {
-    let r = await fetch(`${window.GRUPOS_API_BASE}/${id}`, {
-      method: "DELETE",
-    });
-    let d = await r.json();
-
-    console.log("[GRUPO DELETE TABLA] status inicial =", r.status, d);
-
-    if (!r.ok && r.status === 409) {
-      const continuar = await uiConfirm(
-        (d.error || "El grupo tiene cuotas asociadas.") +
-          "\n\n¿Deseas eliminarlo de todas formas?",
-        {
-          variant: "warning",
-          title: "Forzar eliminación",
-          confirmLabel: "Sí, eliminar",
-          dangerous: true,
-        }
-      );
-      if (!continuar) return;
-
-      r = await fetch(`${window.GRUPOS_API_BASE}/${id}?force=1`, {
-        method: "DELETE",
-      });
-      d = await r.json();
-
-      console.log("[GRUPO DELETE TABLA] status force =", r.status, d);
-    }
-
-    if (!r.ok) {
-      await uiAlert(d.error || "No se pudo eliminar");
-      return;
-    }
-
-    if (window.grupoSeleccionado?.id === Number(id)) {
-      window.grupoSeleccionado = null;
-    }
-
-    await uiAlert("✅ Grupo eliminado correctamente");
-    await renderGruposModal();
-    await renderGruposLeftPanel();
-  } catch (e) {
-    console.error(e);
-    await uiAlert("Error de red.");
-  }
-});
-  } else {
-    dtGrupos.clear().rows.add(data).draw(false);
-  }
-  
-  setTimeout(() => {
-    try {
-      $("#tabla-grupos").DataTable().columns.adjust().responsive.recalc();
-    } catch {}
-  }, 0);
-}
-
-
-// abrir modal → cargar tabla
-$(document).on("shown.bs.modal", "#modalGrupos", async function () {
-  try {
-    await renderGruposModal();
-  } catch (e) {
-    console.error(e);
-    await uiAlert("No se pudo cargar grupos.");
-  }
-});
-
-// filtro “mostrar inactivos”
-$(document).on("change", "#chkVerInactivosGrupos", async function () {
-  try {
-    await renderGruposModal();
-  } catch (e) {
-    console.error(e);
-  }
-});
-
-// ========== CREAR GRUPO ==========
 $(document).on("show.bs.modal", "#modalGrupoCrear", async function () {
+  if (this instanceof HTMLElement && this.parentElement !== document.body) {
+    document.body.appendChild(this);
+  }
   const temas = await cargarTemasActivos();
   const cont = document.getElementById("cuotasContainer");
   const inpClave = document.getElementById("grupoClaveCrear");
@@ -1781,7 +1728,6 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
   const clave = $("#grupoClaveCrear").val().trim();
   const nombre = $("#grupoNombreCrear").val().trim();
 
-  // Armar cuotas
   const cuotas = [];
   const seen = new Set();
   for (const row of document.querySelectorAll("#cuotasContainer .cuota-row")) {
@@ -1800,7 +1746,6 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
     return;
   }
 
-  // 1) crear grupo
   let idgrupo = null;
   try {
     const r = await fetch(window.GRUPOS_API_BASE, {
@@ -1809,7 +1754,7 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
       body: JSON.stringify({ clave, nombre }),
     });
     const j = await r.json().catch(() => ({}));
-    if (r.ok) idgrupo = j.idgrupo ?? j.id; // según lo que devuelva tu API
+    if (r.ok) idgrupo = j.idgrupo ?? j.id;
     else if (r.status !== 409)
       return await uiAlert(j.error || "No se pudo crear el grupo.");
   } catch (e) {
@@ -1817,17 +1762,14 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
     return await uiAlert("Error de red al crear el grupo.");
   }
 
-  // si no vino el id, búscalo por clave
   if (!idgrupo) {
     const todos = await fetchGrupos(true);
     idgrupo = (todos.find((g) => g.clave === clave) || {}).idgrupo;
     if (!idgrupo) return await uiAlert("No se pudo obtener el id del grupo.");
   }
 
-  // 2) guardar cuotas
   try {
     await saveCuotasGrupoById(idgrupo, cuotas);
-    // ⬇️ solo cerrar y refrescar la lista de la izquierda
     bootstrap.Modal.getInstance(
       document.getElementById("modalGrupoCrear")
     ).hide();
@@ -1838,7 +1780,6 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
   }
 });
 
-// ========== EDITAR GRUPO ==========
 async function abrirModalEditarGrupo(g) {
   $("#grupoIdEditar").val(g.idgrupo);
   $("#grupoClaveEditar").val(g.clave);
@@ -1876,41 +1817,11 @@ async function abrirModalEditarGrupo(g) {
     document.body.appendChild(modalEditarEl);
   }
 
-  const modalGruposVisible =
-    document.querySelector("#modalGrupos.show") ||
-    document.querySelector('#modalGrupos[style*="display: block"]');
-
-  if (modalGruposVisible) {
-    abrirModalSobre("modalGrupos", "modalGrupoEditar");
-    return;
-  }
-
-  // caso: abierto desde el modal custom principal
-  const main = document.getElementById("modal-examen");
-  if (main && main.classList.contains("mostrar-flex")) {
-    main.dataset.wasVisible = "1";
-    main.classList.remove("mostrar-flex");
-    main.classList.add("oculto");
-  }
-
   const inst = bootstrap.Modal.getOrCreateInstance(modalEditarEl, {
     backdrop: "static",
     focus: true,
     keyboard: true,
   });
-
-  modalEditarEl.addEventListener(
-    "hidden.bs.modal",
-    () => {
-      const main2 = document.getElementById("modal-examen");
-      if (main2 && main2.dataset.wasVisible === "1") {
-        main2.classList.remove("oculto");
-        main2.classList.add("mostrar-flex");
-        delete main2.dataset.wasVisible;
-      }
-    },
-    { once: true }
-  );
 
   inst.show();
 }
@@ -1953,7 +1864,6 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
   }
 
   try {
-    // 1) actualizar datos del grupo
     const r1 = await fetch(`${window.GRUPOS_API_BASE}/${idgrupo}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1962,22 +1872,17 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
     const j1 = await r1.json();
     if (!r1.ok) throw new Error(j1.error || "No se pudo actualizar el grupo.");
 
-    // 2) reemplazar cuotas
     await saveCuotasGrupoById(idgrupo, cuotas);
 
     bootstrap.Modal.getInstance(
       document.getElementById("modalGrupoEditar")
     ).hide();
-    await renderGruposModal();
     await renderGruposLeftPanel();
-    //new bootstrap.Modal(document.getElementById("modalGrupos")).show();
   } catch (e2) {
     console.error(e2);
     await uiAlert(e2.message || "Error al actualizar cuotas.");
   }
 });
-// --- Gestión de apilamiento entre tu modal custom y los modales Bootstrap ---
-
 
 function getLastById(id) {
   const els = [...document.querySelectorAll(`#${id}`)];
@@ -1993,7 +1898,7 @@ function getVisibleById(id) {
   );
 }
 
-/** Oculta parent y al cerrar child vuelve a mostrar parent (grupos, banco, etc.). */
+/** Modal hijo sobre padre: al cerrar el hijo se reabre el padre. */
 function abrirModalSobre(parentId, childId, opts) {
   const parentEl = getVisibleById(parentId);
   const childEl = getLastById(childId);
@@ -2029,37 +1934,15 @@ function abrirModalSobre(parentId, childId, opts) {
   parent.hide();
 }
 
-// ========= GENERAR EXAMEN DESDE GRUPO (robusto) =========
 (() => {
   const BASE = "http://localhost:5050";
   let blobUrlActual = null;
-  let __bannerEl = null;
-
-  function ensureBanner() {
-    if (__bannerEl && document.body.contains(__bannerEl)) return __bannerEl;
-    const cont =
-      document.querySelector("#zona-avisos") ||
-      document.querySelector(".pdf-vista") ||
-      document.getElementById("modal-examen") ||
-      document.body;
-    __bannerEl =
-      document.getElementById("banner-estado") || document.createElement("div");
-    __bannerEl.id = "banner-estado";
-    __bannerEl.className = "alert alert-info mb-3";
-    if (!__bannerEl.parentElement) cont.prepend(__bannerEl);
-    return __bannerEl;
-  }
-  function setBanner(msg, kind = "info") {
-    const el = ensureBanner();
-    el.className = `alert alert-${kind} mb-3`;
-    el.innerHTML = msg;
-  }
 
   async function generarExamenGrupo(formato = "word") {
     try {
       const sel = window.grupoSeleccionado;
       if (!sel?.id) {
-        setBanner(
+        setGenExamenMensajeModal(
           "Selecciona un grupo en la lista de la izquierda.",
           "warning"
         );
@@ -2069,7 +1952,7 @@ function abrirModalSobre(parentId, childId, opts) {
       const endpoint = `http://localhost:5050/api/grupos/${
         sel.id
       }/generar_doc?formato=${encodeURIComponent(formato)}&numerar=1`;
-      setBanner(`Generando examen para el grupo <b>${sel.clave}</b>…`, "info");
+      setGenExamenMensajeModal(`Generando examen para el grupo <b>${sel.clave}</b>…`, "info");
 
       const res = await fetch(endpoint, { method: "POST" });
       const raw = await res.text();
@@ -2099,16 +1982,14 @@ function abrirModalSobre(parentId, childId, opts) {
 
         console.groupEnd();
 
-        setBanner(`❌ ${msg}`, "danger");
+        setGenExamenMensajeModal(msg, "danger");
         mostrarAccionesDescarga(false);
         return;
       }
 
-      // --- Normalizador de rutas absolutas desde el backend ----
       const toAbs = (p) =>
         p ? `http://127.0.0.1:5050${p.startsWith("/") ? "" : "/"}${p}` : null;
 
-      // 1) Guardamos rutas para DESCARGA (tal como vienen del backend)
       const docxUrlApi = toAbs(data.ruta_rel || "");
       const pdfUrlApi = toAbs(data.ruta_rel_pdf || "");
       const docxName = data.archivo_docx || null;
@@ -2121,10 +2002,7 @@ function abrirModalSobre(parentId, childId, opts) {
       window.__ultimoGenerado.docxName = data.archivo_docx || "examen.docx";
       window.__ultimoGenerado.pdfName = data.archivo_pdf || "examen.pdf";
 
-      // 2) Para la VISTA en iframe, FORZAR SIEMPRE PDF inline:
-      //    a) si viene ruta_rel_pdf (normalmente "/api/descargas/Nombre con espacios.pdf")
-      //       la convertimos a inline quitando "/api" (→ "/descargas/...").
-      // 3) Si NO hay PDF, forzarlo ahora con el nuevo endpoint
+      // Visor PDF: rutas bajo /api/... se sirven mejor sin prefijo api; si no hay PDF, pdf_from_docx
       let previewAbs = toAbs(data.preview_url || "");
       if (!pdfUrlApi && docxName) {
         try {
@@ -2139,7 +2017,6 @@ function abrirModalSobre(parentId, childId, opts) {
             window.__ultimoGenerado.pdfUrl = abs;
             window.__ultimoGenerado.pdfName = j.archivo_pdf;
 
-            // usar el PDF inline en el visor
             previewAbs = abs.replace(
               "http://127.0.0.1:5050/api/",
               "http://127.0.0.1:5050/"
@@ -2152,7 +2029,6 @@ function abrirModalSobre(parentId, childId, opts) {
         }
       }
 
-      // 4) Mostrar en visor:
       ensureViewer();
 
       if (data.preview_kind === "pdf" && previewAbs) {
@@ -2165,32 +2041,28 @@ function abrirModalSobre(parentId, childId, opts) {
           )
         );
       } else {
-        setBanner("❌ No se pudo generar la vista PDF del examen.", "danger");
+        setGenExamenMensajeModal("No se pudo generar la vista PDF del examen.", "danger");
         mostrarAccionesDescarga(false);
         return;
       }
 
-      // 4) Links de arriba del visor + banner
       ponerLinksVista(docxUrlApi, pdfUrlApi);
       mostrarAccionesDescarga(true);
-      setBanner("✅ Tu examen está listo.", "success");
+      setGenExamenMensajeModal("Tu examen está listo.", "success");
     } catch (e) {
       console.error(e);
-      setBanner("❌ Error de red al generar el examen.", "danger");
+      setGenExamenMensajeModal("Error de red al generar el examen.", "danger");
       mostrarAccionesDescarga(false);
     }
   }
 
-  // ⬇⬇ REGISTRO DE CLICK CON DELEGACIÓN (funciona aunque el botón se cree luego)
   document.addEventListener("click", (ev) => {
     const btn = ev.target.closest("#btnGenerarDesdeGrupo");
     if (!btn) return;
-    // Puedes permitir data-formato="pdf" en el botón si quieres
     const formato = btn.dataset.formato || "word";
     generarExamenGrupo(formato);
   });
 
-  // Limpieza del blob si se cierra la página
   window.addEventListener("beforeunload", () => {
     if (blobUrlActual) URL.revokeObjectURL(blobUrlActual);
   });
@@ -2205,8 +2077,7 @@ function showBanner(msg, kind = "info") {
       (document.querySelector(".pdf-vista") || document.body).prepend(el);
       return el;
     })();
-  b.className = `alert alert-${kind} mb-3`;
-  b.innerHTML = msg;
+  applyGenExamenBanner(b, kind, msg);
 }
 
 async function guardarUltimoDeDescargasDocx() {
@@ -2228,18 +2099,14 @@ async function guardarUltimoDeDescargasPdf() {
   if (!res?.ok && !res?.canceled) await uiAlert(res?.message || "No se pudo guardar.");
 }
 
-// Delegación: capturamos clicks aunque el botón se inserte luego
 document.addEventListener("click", async (ev) => {
-  // ----- GUARDAR DOCX -----
   if (ev.target.closest("#btnGuardarDocx")) {
     try {
-      // A) Si vienes del listado (hay id) → exportar por id (IPC)
       if (window.examenSeleccionadoParaExportar) {
         console.log("[GUARDAR DOCX] Plan A: exportarExamenSeleccionado(docx)");
         return exportarExamenSeleccionado("docx");
       }
 
-      // B) Si vienes de Generar (hay URL del backend) → guardar desde URL (IPC)
       const u = window.__ultimoGenerado?.docxUrl;
       const n = window.__ultimoGenerado?.docxName || "examen.docx";
       if (u) {
@@ -2250,7 +2117,6 @@ document.addEventListener("click", async (ev) => {
         return;
       }
 
-      // C) Último archivo en /descargas → copiarlo (IPC)
       console.log("[GUARDAR DOCX] Plan C: saveLastFromFolder");
       const res = await window.api?.saveLastFromFolder?.({
         sourceDir:
@@ -2266,7 +2132,6 @@ document.addEventListener("click", async (ev) => {
     }
   }
 
-  // ----- GUARDAR PDF -----
   if (ev.target.closest("#btnGuardarPdf")) {
     try {
       if (window.examenSeleccionadoParaExportar) {
@@ -2341,7 +2206,6 @@ function ensureViewer() {
     return false;
   }
 
-  // si no existe pdf-host, créalo dentro del cuadro blanco
   if (!pdfHost) {
     const host = document.createElement("div");
     host.id = "pdf-host";
@@ -2362,6 +2226,17 @@ async function mostrarVistaDocx(nombreDocx) {
   const cont = document.getElementById("visor-examen");
   const host = document.getElementById("pdf-host");
   const btnAbrir = document.getElementById("btnAbrirPreview");
+  if (!host) return;
+
+  let frame = host.querySelector("iframe.gen-docx-preview");
+  if (!frame) {
+    host.innerHTML = "";
+    frame = document.createElement("iframe");
+    frame.className = "gen-docx-preview";
+    frame.setAttribute("title", "Vista previa DOCX");
+    frame.style.cssText = "width:100%;height:100%;border:0;";
+    host.appendChild(frame);
+  }
 
   const banner = (msg, kind = "success") => {
     const el =
@@ -2369,16 +2244,16 @@ async function mostrarVistaDocx(nombreDocx) {
       (() => {
         const d = document.createElement("div");
         d.id = "banner-estado";
-        d.className = "alert alert-info mb-3";
-        (document.getElementById("visor-examen") || document.body).prepend(d);
+        (document.querySelector(".pdf-vista") ||
+          document.getElementById("visor-examen") ||
+          document.body
+        ).prepend(d);
         return d;
       })();
-    el.className = `alert alert-${kind} mb-3`;
-    el.innerHTML = msg;
+    applyGenExamenBanner(el, kind, msg);
   };
 
   try {
-    // quita estado cargado mientras cambia el contenido
     cont?.classList.remove("cargado");
 
     const resp = await fetch(
@@ -2397,18 +2272,15 @@ async function mostrarVistaDocx(nombreDocx) {
     const absUrl = `${base}${data.html_url}?v=${Date.now()}`;
     console.log("[preview url]", absUrl);
 
-    // Link “Abrir en pestaña”
     if (btnAbrir) {
       btnAbrir.classList.remove("d-none");
       btnAbrir.onclick = () => window.open(absUrl, "_blank", "noopener");
     }
 
-    // 1) Intento normal con src
     frame.onload = () => cont?.classList.add("cargado");
     frame.removeAttribute("srcdoc");
     frame.src = absUrl;
 
-    // 2) A los 900 ms, si sigue en blanco, usar srcdoc
     setTimeout(async () => {
       let looksBlank = false;
       try {
@@ -2419,7 +2291,7 @@ async function mostrarVistaDocx(nombreDocx) {
         looksBlank = true;
       }
 
-      if (!looksBlank) return; // ya cargó → onload agregó “cargado”
+      if (!looksBlank) return;
 
       try {
         const raw = await fetch(absUrl).then((r) => r.text());
@@ -2432,7 +2304,6 @@ async function mostrarVistaDocx(nombreDocx) {
         frame.removeAttribute("src");
         frame.srcdoc = html;
 
-        // 👇 IMPORTANTE: marcar como cargado cuando usamos srcdoc
         cont?.classList.add("cargado");
 
         console.log("[preview] srcdoc fallback aplicado");
@@ -2461,42 +2332,80 @@ async function mostrarVistaDocx(nombreDocx) {
   }
 }
 
-// Muestra/oculta el bloque de acciones
 function mostrarAccionesDescarga(show) {
   const box = document.getElementById("accionesDescarga");
   if (!box) return;
   box.classList.toggle("d-none", !show);
+  if (!show) {
+    const links = document.getElementById("linksVista");
+    if (links) links.innerHTML = "";
+  }
 }
-
-// Guardar DOCX…
 
 function ponerLinksVista(docxUrl, pdfUrl) {
   const box = document.getElementById("linksVista");
   if (!box) return;
-  let html = "";
-  if (docxUrl)
-    html += `📄 <a href="${docxUrl}" target="_blank" rel="noopener">Ver DOCX</a> `;
-  if (pdfUrl)
-    html += ` | 🖨️ <a href="${pdfUrl}" target="_blank" rel="noopener">Ver PDF</a>`;
-  box.innerHTML = html;
+  const parts = [];
+  if (docxUrl) {
+    parts.push(
+      `<a href="${docxUrl}" target="_blank" rel="noopener" class="btn gen-examen-btn gen-examen-btn--outline-docx"><i class="bi bi-file-earmark-word" aria-hidden="true"></i>Ver DOCX</a>`
+    );
+  }
+  if (pdfUrl) {
+    parts.push(
+      `<a href="${pdfUrl}" target="_blank" rel="noopener" class="btn gen-examen-btn gen-examen-btn--pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>Ver PDF</a>`
+    );
+  }
+  box.innerHTML = parts.join("");
 }
 
-// ======================= BANCO DE PREGUNTAS =======================
-// ======================= BANCO DE PREGUNTAS =======================
+(function initGenExamenGruposToggle() {
+  const layout = document.getElementById("genExamenLayout");
+  const btn = document.getElementById("btnToggleGenExamenGrupos");
+  if (!layout || !btn) return;
+
+  const icon = btn.querySelector("i.bi");
+  const vh = btn.querySelector(".visually-hidden");
+
+  function applyCollapsed(collapsed) {
+    layout.classList.toggle("gen-modal-examen-layout--grupos-collapsed", collapsed);
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    btn.title = collapsed ? "Mostrar panel de grupos" : "Plegar panel de grupos";
+    if (vh) vh.textContent = collapsed ? "Mostrar grupos" : "Plegar grupos";
+    if (icon) {
+      icon.classList.remove("bi-chevron-left", "bi-chevron-right");
+      icon.classList.add(collapsed ? "bi-chevron-right" : "bi-chevron-left");
+    }
+  }
+
+  btn.addEventListener("click", () => {
+    applyCollapsed(!layout.classList.contains("gen-modal-examen-layout--grupos-collapsed"));
+  });
+
+  const modalExamen = document.getElementById("modal-examen");
+  if (modalExamen) {
+    modalExamen.addEventListener("hidden.bs.modal", () => {
+      resetFlujoAvisosModalExamen();
+      if (layout.classList.contains("gen-modal-examen-layout--grupos-collapsed")) {
+        applyCollapsed(false);
+      }
+    });
+  }
+})();
+
 (function () {
   if (typeof window.BANCO_API_BASE === "undefined") {
     window.BANCO_API_BASE = "http://localhost:5050/api/banco_preguntas";
   }
 
-  // DataTables y estado
   let dtBancoResumen = null;
   let dtBancoDetalle = null;
-  let bancoDataCache = [];        // todos los registros del banco
+  let bancoDataCache = [];
   let temaSeleccionadoBanco = null;
-  let temasCacheBanco = null;     // todos los temas (para resumen y selects)
-  let temaPreseleccionadoImport = null; // para el modal Importar
+  let temasCacheBanco = null;
+  let temaPreseleccionadoImport = null;
 
-  /** Misma idea que cargarExamenes: toolbar fuera + select/búsqueda blancos con etiquetas. */
+  /** Toolbar DataTables fuera de la tabla (como en exámenes importados). */
   function wireMbancoDataTableToolbar(api, opts) {
     const {
       hostSelector,
@@ -2569,7 +2478,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
 
   window.wireMbancoDataTableToolbar = wireMbancoDataTableToolbar;
 
-  // ------------- Helpers de fetch -------------
   async function cargarBancoDesdeApi() {
     const r = await fetch(window.BANCO_API_BASE);
     let data = await r.json();
@@ -2589,9 +2497,7 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     return temas;
   }
 
-  // ------------- Construir resumen por tema -------------
   async function construirResumenPorTema() {
-    // contador a partir del banco
     const mapCont = new Map();
     for (const row of bancoDataCache) {
       const temaId = row.tema_id ?? row.temaId ?? row.id_tema ?? 0;
@@ -2610,7 +2516,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       if (row.doc_sol_nombre) item.n_solucionarios++;
     }
 
-    // combinar con TODOS los temas existentes
     const temas = await fetchTemasAllBanco();
     const resumen = temas.map((t) => {
       const base = mapCont.get(t.id) || {
@@ -2619,7 +2524,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
         n_preguntas: 0,
         n_solucionarios: 0,
       };
-      // aseguramos nombre correcto del tema desde /temas
       base.tema = t.nombre;
       return base;
     });
@@ -2627,7 +2531,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     return resumen;
   }
 
-  // ------------- DataTable RESUMEN -------------
  async function cargarBancoResumen() {
   await cargarBancoDesdeApi();
   const resumen = await construirResumenPorTema();
@@ -2709,7 +2612,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     dtBancoResumen.clear().rows.add(resumen).draw(false);
   }
 
-  // SIEMPRE re-enlazar
   $(document).off("click", "#tabla-banco-resumen .btn-banco-detalles");
   $(document).on("click", "#tabla-banco-resumen .btn-banco-detalles", function () {
     console.log("[BANCO][CLICK DETALLE] botón pulsado");
@@ -2723,7 +2625,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
   });
 }
 
-  // Helper para renderizar las acciones (se usa en detalle)
   function renderAccionesBanco(row) {
     const id = row.id;
     const hasPreg = !!row.doc_preguntas_nombre;
@@ -2760,7 +2661,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       </div>`;
   }
 
-  // ------------- DataTable DETALLE POR TEMA -------------
   function cargarBancoDetalle() {
   console.log("[BANCO][cargarBancoDetalle] INICIO");
   console.log("[BANCO][cargarBancoDetalle] temaSeleccionadoBanco =", temaSeleccionadoBanco);
@@ -2872,8 +2772,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
   console.log("[BANCO][cargarBancoDetalle] FIN");
 }
 
-  // ------------- Cambiar entre vistas -------------
- 
 function verDetalleTemaBanco(idTema, nombreTema) {
   console.log("[BANCO][verDetalleTemaBanco] INICIO");
   temaSeleccionadoBanco = idTema;
@@ -2967,7 +2865,6 @@ async function volverABancoResumen() {
     }
   }
 
-  // ------------- Cargar temas en selects (usando cache) -------------
   async function cargarTemasParaBanco() {
     const temas = await fetchTemasAllBanco();
 
@@ -2982,7 +2879,7 @@ async function volverABancoResumen() {
       selImp.innerHTML = opts;
       if (temaPreseleccionadoImport) {
         selImp.value = String(temaPreseleccionadoImport);
-        selImp.disabled = true; // <- bloquea el cambio cuando vienes del detalle
+        selImp.disabled = true;
       } else {
         selImp.disabled = false;
       }
@@ -2992,11 +2889,10 @@ async function volverABancoResumen() {
     }
   }
 
-  // ------------- Abrir modal principal -------------
   async function abrirModalBancoPreguntas() {
     try {
       const mainEx = document.getElementById("modal-examen");
-      if (mainEx && mainEx.classList.contains("mostrar-flex")) {
+      if (mainEx && mainEx.classList.contains("show")) {
         cerrarModalExamen();
       }
 
@@ -3030,27 +2926,23 @@ async function volverABancoResumen() {
     console.log("[BANCO][abrirModalBancoPreguntas] modal mostrado");
   }
 
-  // ------------- Delegación de botones globales -------------
   document.addEventListener("click", async (ev) => {
-    // Abrir modal Banco de preguntas
     if (ev.target.closest("#btnBancoPreguntas")) {
       ev.preventDefault();
-      temaPreseleccionadoImport = null; // modo normal
+      temaPreseleccionadoImport = null;
       await abrirModalBancoPreguntas();
       return;
     }
 
-    // Volver del detalle al resumen
     if (ev.target.closest("#btnBancoVolverResumen")) {
       ev.preventDefault();
       await volverABancoResumen();
       return;
     }
 
-    // Abrir modal Importar (desde resumen)
     if (ev.target.closest("#btnBancoImportar")) {
       ev.preventDefault();
-      temaPreseleccionadoImport = null; // no fijar tema, usuario elige
+      temaPreseleccionadoImport = null;
       await cargarTemasParaBanco();
       const modalImportarEl = document.getElementById("modalBancoImportar");
       if (modalImportarEl && modalImportarEl.parentElement !== document.body) {
@@ -3061,10 +2953,9 @@ async function volverABancoResumen() {
       return;
     }
 
-    // Abrir modal Importar (desde detalle → fijar tema)
     if (ev.target.closest("#btnBancoImportarDetalle")) {
       ev.preventDefault();
-      temaPreseleccionadoImport = temaSeleccionadoBanco; // fijamos tema actual
+      temaPreseleccionadoImport = temaSeleccionadoBanco;
       await cargarTemasParaBanco();
      const modalImportarEl = document.getElementById("modalBancoImportar");
     if (modalImportarEl && modalImportarEl.parentElement !== document.body) {
@@ -3075,14 +2966,12 @@ async function volverABancoResumen() {
       return;
     }
 
-    // Guardar importación (tema + DOCX preguntas)
     if (ev.target.closest("#btnBancoImportarGuardar")) {
       ev.preventDefault();
       await importarTemaBanco();
       return;
     }
 
-    // Guardar edición (tema y posibles reemplazos de archivos)
     if (ev.target.closest("#btnBancoEditarGuardar")) {
       ev.preventDefault();
       await guardarEdicionBanco();
@@ -3090,7 +2979,6 @@ async function volverABancoResumen() {
     }
   });
 
-  // ---- Importar tema (docx preguntas) ----
   async function importarTemaBanco() {
     const temaId = document.getElementById("bancoTemaImportar").value;
     const file = document.getElementById("bancoFilePreguntas").files[0];
@@ -3120,7 +3008,6 @@ async function volverABancoResumen() {
     await recargarBancoDespuesDeCambio();
   }
 
-  // ---- Acciones globales (se usan en las filas de detalle) ----
   window.bancoDescPaquete = function (id) {
     const url = `${window.BANCO_API_BASE}/${id}/download`;
     window.open(url, "_blank");
@@ -3172,7 +3059,7 @@ async function volverABancoResumen() {
   abrirModalSobre("modalBancoPreguntas", "modalBancoEditar");
 };
 
-  // 👉 Cambiar / agregar solucionario SOLO para ese item (sin abrir modal)
+  /** Solucionario vía input file oculto (sin modal propio). */
   window.bancoAbrirSolucionario = function (id) {
     const input = document.createElement("input");
     input.type = "file";
@@ -3181,7 +3068,7 @@ async function volverABancoResumen() {
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
-      if (!file) return; // usuario canceló
+      if (!file) return;
 
       const fd = new FormData();
       fd.append("doc_solucionario", file);
@@ -3208,14 +3095,12 @@ async function volverABancoResumen() {
     input.click();
   };
 
-  // ---- Guardar edición (tema + posibles reemplazos) ----
   async function guardarEdicionBanco() {
     const id = document.getElementById("bancoEditId").value;
     const temaId = document.getElementById("bancoTemaEditar").value;
     const filePreg = document.getElementById("bancoEditFilePreg").files[0];
     const fileSol = document.getElementById("bancoEditFileSol").files[0];
 
-    // 1) actualizar tema
     if (temaId) {
       const r = await fetch(`${window.BANCO_API_BASE}/${id}`, {
         method: "PUT",
@@ -3229,7 +3114,6 @@ async function volverABancoResumen() {
       }
     }
 
-    // 2) reemplazar DOCX de preguntas
     if (filePreg) {
       const fd = new FormData();
       fd.append("doc_preguntas", filePreg);
@@ -3244,7 +3128,6 @@ async function volverABancoResumen() {
       }
     }
 
-    // 3) reemplazar solucionario
     if (fileSol) {
       const fd = new FormData();
       fd.append("doc_solucionario", fileSol);

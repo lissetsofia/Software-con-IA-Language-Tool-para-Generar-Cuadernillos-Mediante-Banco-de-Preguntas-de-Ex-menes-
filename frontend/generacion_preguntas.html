@@ -1,4 +1,3 @@
-<!-- CONTENIDO -->
 <div class="banco-examenes-page">
   <header class="banco-examenes-page__head">
     <h1 class="banco-examenes-page__title">Banco de preguntas</h1>
@@ -137,68 +136,143 @@
   </div>
 </div>
 
-<!-- MODAL QUE SE MUESTRA -->
-<div id="modal-examen" class="modal-custom oculto">
-  <div class="modal-content-custom">
-    <!-- ✅ Encabezado en una sola línea: título + botón cerrar -->
-    <div class="modal-headline">
-      <h3 class="m-0"><strong>Generación de exámenes</strong></h3>
-      <button
-        class="cerrar-modal cerrar-modal--inline"
-        onclick="cerrarModalExamen()"
-      >
-        ✖
-      </button>
-    </div>
-
-    <div class="d-flex">
-      <!-- ✅ Panel con borde y título centrado (fieldset/legend) -->
-      <fieldset class="grupo-fieldset me-4">
-        <div class="grupo-body">
-          <legend>GRUPOS</legend>
-
-          <ul id="lista-grupos" class="list-unstyled"></ul>
-        </div>
+<div
+  class="modal fade modal-cuad-root gen-modal-examen"
+  id="modal-examen"
+  tabindex="-1"
+  aria-labelledby="modalExamenTitulo"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div
+    class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl gen-modal-examen-dialog"
+    style="--bs-modal-width: min(96vw, 1200px)"
+  >
+    <div class="modal-content modal-evalunia">
+      <div class="modal-header">
+        <h5
+          class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1 min-w-0"
+          id="modalExamenTitulo"
+        >
+          <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+          <span class="text-truncate">Generación de exámenes</span>
+        </h5>
         <button
-          class="btn btn-primary mt-2"
-          data-bs-toggle="modal"
-          data-bs-target="#modalGrupoCrear"
-        >
-          + Agregar grupo
-        </button>
-
-        <button id="btnGenerarDesdeGrupo" class="btn btn-custom mt-2">
-          Generar
-        </button>
-      </fieldset>
-
-      <div class="pdf-vista">
-        <!-- MENSAJE (success / error) -->
-        <div id="genMsg" class="alert d-none" role="alert"></div>
-
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+      <div class="modal-body gen-modal-examen-body">
         <div
-          id="visor-examen"
-          class="pdf-vista"
-          style="height: 320px; min-height: 300px; background:#fff;"
+          id="genExamenLayout"
+          class="gen-modal-examen-layout d-flex gap-3 align-items-stretch min-w-0"
         >
-          <div
-            id="pdf-host"
-            style="width:100%; height:100%; border:0; background:#fff;"
-          ></div>
-        </div>
-
-        <div id="accionesDescarga" class="d-none mt-3">
-          <button id="btnGuardarDocx" class="btn btn-primary me-2">
-            Guardar DOCX…
-          </button>
+          <aside class="gen-modal-examen-grupos flex-shrink-0" id="genExamenGruposAside">
+            <div class="gen-modal-examen-grupos-head">
+              <span
+                class="text-uppercase small fw-bold text-muted gen-modal-examen-grupos-label"
+                >Grupos</span>
+              <button
+                type="button"
+                class="btn gen-examen-grupos-toggle"
+                id="btnToggleGenExamenGrupos"
+                aria-expanded="true"
+                aria-controls="genExamenGruposAside"
+                title="Plegar panel de grupos"
+              >
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                <span class="visually-hidden">Plegar grupos</span>
+              </button>
+              <span
+                class="gen-modal-examen-grupos-abbr"
+                aria-hidden="true"
+                title="Grupos"
+                >Grps.</span>
+              <div
+                class="gen-modal-examen-grupos-head-divider"
+                role="presentation"
+                aria-hidden="true"
+              ></div>
+            </div>
+            <div class="gen-modal-examen-grupos-list">
+              <ul id="lista-grupos" class="list-unstyled mb-0"></ul>
+            </div>
+            <div class="gen-examen-toolbar gen-examen-toolbar--sidebar">
+              <button
+                type="button"
+                class="btn gen-examen-btn gen-examen-btn--add"
+                title="Agregar grupo"
+                data-bs-toggle="modal"
+                data-bs-target="#modalGrupoCrear"
+              >
+                <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                <span class="gen-examen-btn-label">Agregar grupo</span>
+              </button>
+              <button
+                type="button"
+                id="btnGenerarDesdeGrupo"
+                class="btn gen-examen-btn gen-examen-btn--generate"
+                title="Generar"
+              >
+                <i class="bi bi-lightning-charge" aria-hidden="true"></i>
+                <span class="gen-examen-btn-label">Generar</span>
+              </button>
+            </div>
+          </aside>
+          <div class="gen-modal-examen-preview flex-grow-1 min-w-0 d-flex flex-column">
+            <div
+              class="pdf-vista gen-modal-examen-pdf-panel flex-grow-1 min-w-0 d-flex flex-column"
+            >
+              <div
+                id="gen-examen-seleccion-hint"
+                class="gen-modal-examen-alert alert alert-info flex-shrink-0 d-none"
+                role="status"
+                aria-live="polite"
+              >
+                <span class="gen-modal-examen-alert__inner">
+                  <i
+                    class="bi bi-info-circle-fill gen-modal-examen-alert__icon"
+                    aria-hidden="true"
+                  ></i>
+                  <span class="gen-modal-examen-alert__text"
+                    >Selecciona un grupo en el panel izquierdo para poder generar el examen.</span>
+                </span>
+              </div>
+              <div id="visor-examen" class="gen-modal-examen-visor flex-grow-1 min-w-0">
+                <div id="pdf-host"></div>
+              </div>
+              <div
+                id="accionesDescarga"
+                class="gen-examen-toolbar gen-examen-toolbar--preview d-none flex-shrink-0"
+                aria-label="Acciones del examen generado"
+              >
+                <div
+                  id="linksVista"
+                  class="gen-examen-toolbar-links"
+                  aria-live="polite"
+                ></div>
+                <div class="gen-examen-toolbar-save">
+                  <button
+                    type="button"
+                    id="btnGuardarDocx"
+                    class="btn gen-examen-btn gen-examen-btn--save"
+                  >
+                    <i class="bi bi-folder-symlink" aria-hidden="true"></i>
+                    Guardar DOCX…
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ====== Gestión de Cursos (Temas) ====== -->
-<!-- =================== MODAL PRINCIPAL: TEMAS =================== -->
 
 <div
   class="modal fade modal-cuad-root gen-modal-temas cuad-modal-temas"
@@ -328,7 +402,6 @@
   </div>
 </div>
 
-<!-- Modal Cursos: listado de temas + detalle de archivos en el mismo modal (#modalBancoPreguntasCuad) -->
 <div class="modal fade modal-cuad-root" id="modalBuscar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div
@@ -397,67 +470,6 @@
   </div>
 </div>
 
-<!-- =================== MODAL: GRUPOS =================== -->
-<div class="modal fade modal-cuad-root" id="modalGrupos" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
-  data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-    <div class="modal-content modal-evalunia">
-      <div class="modal-header">
-        <h5 class="modal-title">Gestión de grupos</h5>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
-          aria-label="Cerrar"
-        ></button>
-      </div>
-
-      <div class="modal-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <div class="form-check form-switch">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="chkVerInactivosGrupos"
-            />
-            <label class="form-check-label" for="chkVerInactivosGrupos"
-              >Mostrar también inactivos</label
-            >
-          </div>
-
-          <button
-            class="btn btn-success btn-sm"
-            data-bs-toggle="modal"
-            data-bs-target="#modalGrupoCrear"
-          >
-            + Agregar grupo
-          </button>
-        </div>
-
-        <table
-          id="tabla-grupos"
-          class="table table-striped table-bordered w-100"
-        >
-          <thead class="table-dark">
-            <tr>
-              <th>ID</th>
-              <th>Clave</th>
-              <th>Nombre</th>
-              <th>Preguntas</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-   
-    </div>
-  </div>
-</div>
-
-<!-- ========== Modal CREAR GRUPO ========== -->
 <div class="modal fade modal-cuad-root" id="modalGrupoCrear" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">
@@ -467,8 +479,7 @@
         <button
           type="button"
           class="btn-close"
-          data-bs-target="#modalGrupos"
-          data-bs-toggle="modal"
+          data-bs-dismiss="modal"
           aria-label="Cerrar"
         ></button>
       </div>
@@ -511,9 +522,7 @@
           </button>
         </div>
 
-        <div id="cuotasContainer" class="mt-2">
-          <!-- filas dinámicas: select de tema + input cantidad + quitar -->
-        </div>
+        <div id="cuotasContainer" class="mt-2"></div>
 
         <div class="mt-2 text-end small text-muted">
           Total preguntas: <span id="totalCuotas" class="fw-bold">0</span>
@@ -528,7 +537,6 @@
   </div>
 </div>
 
-<!-- ========== Modal EDITAR GRUPO (con cuotas) ========== -->
 <div class="modal fade modal-cuad-root" id="modalGrupoEditar" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">
@@ -538,8 +546,7 @@
         <button
           type="button"
           class="btn-close"
-          data-bs-target="#modalGrupos"
-          data-bs-toggle="modal"
+          data-bs-dismiss="modal"
           aria-label="Cerrar"
         ></button>
       </div>
@@ -594,15 +601,11 @@
   </div>
 </div>
 
-<!-- LIBRERÍAS JS PRIMERO -->
 <script src="./libs/jquery.min.js"></script>
 <script src="./libs/dataTables.min.js"></script>
 <script src="./libs/dataTables.bootstrap5.min.js"></script>
 <script src="./js/temario_modal.js"></script>
 
-<!-- FUNCIONES JS -->
-<!-- =================== MODAL: BANCO DE PREGUNTAS =================== -->
-<!-- =================== MODAL: BANCO DE PREGUNTAS =================== -->
 <div
   class="modal fade modal-cuad-root"
   id="modalBancoPreguntas"
@@ -622,11 +625,7 @@
         ></button>
       </div>
 
-      <!-- Botón Importar debajo del título (siempre visible) -->
-      
-
       <div class="modal-body">
-        <!-- ===== VISTA 1: RESUMEN POR TEMA ===== -->
         <div id="vista-banco-resumen">
           <div class="mbanco-dt-shell">
             <div
@@ -655,7 +654,6 @@
           </div>
         </div>
 
-        <!-- ===== VISTA 2: DETALLE POR TEMA ===== -->
         <div id="vista-banco-detalle" class="d-none">
           <div
             class="d-flex justify-content-between align-items-center mb-2"
@@ -676,7 +674,6 @@
               </span>
             </div>
 
-            <!-- segundo botón importar dentro del detalle -->
             <button
               class="btn btn-success btn-sm"
               id="btnBancoImportarDetalle"
@@ -718,7 +715,6 @@
 </div>
 
 
-<!-- ========== Modal IMPORTAR TEMA + DOCX ========== -->
 <div
   class="modal fade modal-cuad-root"
   id="modalBancoImportar"
@@ -761,7 +757,6 @@
   </div>
 </div>
 
-<!-- ========== Modal AGREGAR SOLUCIONARIO ========== -->
 <div
   class="modal fade modal-cuad-root"
   id="modalBancoSolucionario"
@@ -802,7 +797,6 @@
   </div>
 </div>
 
-<!-- ========== Modal EDITAR REGISTRO BANCO ========== -->
 <div class="modal fade modal-cuad-root" id="modalBancoEditar" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content modal-evalunia">

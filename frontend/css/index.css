@@ -1131,121 +1131,7 @@ main {
   display: block;
 }
 
-/* =======================
-   MODAL NUEVO EXAMEN
-========================== */
-.modal-custom {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(50, 50, 50, 0.7);
-  z-index: 9999;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.modal-content-custom {
-  background-color: #ffffff;
-  padding: 2rem;
-  border-radius: 14px;
-  width: 90%;
-  max-width: 1000px;
-  position: relative;
-}
-
-/* Botón cerrar */
-.cerrar-modal {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  border: none;
-  font-size: 1rem;
-  background-color: #dc3545 !important; /* rojo */
-  color: #fff !important;
-  width: 30px;
-  height: 30px;
-  border: none !important;
-  border: 50% !important; /* <- aquí estaba el error */
-  padding: 0 !important;
-  line-height: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 1 !important;
-
-  /* quita el ícono SVG de Bootstrap */
-  background-image: none !important;
-}
-
-.grupo-lista {
-  width: 180px;
-  background-color: white;
-  padding: 1rem;
-  border-radius: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.modal-headline {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-/* El botón cerrar aquí es inline, no absoluto */
-.cerrar-modal--inline {
-  position: static !important;
-  margin-left: 12px;
-}
-
-/* ====== Fieldset de GRUPOS con título centrado en el borde ====== */
-.grupo-fieldset {
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-radius: 12px;
-  padding: 14px 14px 12px; /* espacio interno para el contenido */
-  min-width: 260px; /* parejo con tu panel anterior */
-  background: #d1d1d1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-/* el título centrado encima de la línea del borde */
-.grupo-fieldset > legend {
-  margin: 0 auto; /* centra horizontal */
-  padding: 0 10px; /* “pastilla” sobre el borde */
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  color: #223;
-  text-transform: uppercase;
-  font-size: 0.9rem;
-  background: #fff; /* tapa la línea del borde */
-  border-radius: 8px;
-}
-.grupo-body > legend {
-  margin: 0 auto; /* centra horizontal */
-  padding: 0 10px; /* “pastilla” sobre el borde */
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  color: #223;
-  text-transform: uppercase;
-  font-size: 0.9rem;
-  background: #fff; /* tapa la línea del borde */
-  border-radius: 8px;
-}
-
-/* contenendor interno para tu lista y botones */
-.grupo-fieldset .grupo-body {
-  border: 2px solid rgba(0, 0, 0, 0.12);
-  border-radius: 8px;
-  padding: 2px 14px 2px; /* espacio interno para el contenido */
-  background: #fff; /* tapa la línea del borde */
-}
-
-/* Si quieres un borde más marcado: súbelo a 0.18–0.22 */
-
+/* Legacy panel (banner / otros); #modal-examen usa .gen-modal-examen-pdf-panel */
 .pdf-vista {
   flex-grow: 1;
   background-color: #d1d1d1;
@@ -1262,17 +1148,6 @@ main {
   padding-top: 100px;
   font-weight: bold;
   color: #444;
-}
-
-/* =======================
-   VISIBILIDAD MODAL
-========================== */
-.oculto {
-  display: none !important;
-}
-
-.mostrar-flex {
-  display: flex !important;
 }
 
 /*.modal-content {
@@ -2451,16 +2326,16 @@ main {
   margin: 0 !important;
 }
 
-/* ponlo en tu css */
 #lista-grupos li {
-  padding: 4px 6px;
+  padding: 6px 8px;
   border-radius: 8px;
-
-  outline: 2px solid #326fa0;
+  border: 1px solid rgba(26, 45, 69, 0.14);
+  background: rgba(244, 247, 252, 0.95);
+  outline: none;
 }
 #lista-grupos li.selected {
-  outline: 2px solid #58a8e9;
-  background: #c4e0f7;
+  border-color: rgba(61, 90, 128, 0.55);
+  background: rgba(61, 90, 128, 0.09);
 }
 #lista-grupos .btn {
   padding: 2px 6px;
@@ -2600,10 +2475,8 @@ main {
   line-height: 1;
 }
 
-/* Below Bootstrap modals (1050+); .modal-custom alone uses 9999 */
-#modal-examen.modal-custom {
-  z-index: 1020 !important;
-  backdrop-filter: blur(2px);
+#modal-examen.modal.show {
+  z-index: 1055;
 }
 
 #modalGrupos {
@@ -2774,53 +2647,606 @@ main {
   background-color: rgba(61, 90, 128, 0.07) !important;
 }
 
-/* ===== MODAL GENERACIÓN: agrandar panel de grupos ===== */
-#modal-examen .modal-content-custom {
-  width: 95vw; /* usa casi todo el ancho disponible */
-  max-width: 850px; /* antes 1000px; súbelo si quieres más */
-  height: auto;
-  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.38);
-  border: 1px solid rgba(255, 255, 255, 0.04); /* leve borde para separar del fondo */
-  transform: translateZ(0); /* evita artefactos en Windows */
+/* ===== Generación de exámenes (#modal-examen): Bootstrap + modal-evalunia ===== */
+#modal-examen.modal-cuad-root .modal-dialog.gen-modal-examen-dialog {
+  width: min(96vw, 1200px) !important;
+  max-width: min(96vw, 1200px) !important;
+  flex: 0 0 auto;
 }
 
-/* Panel izquierdo (lista de grupos) más ancho */
-#modal-examen .grupo-lista {
-  width: 260px; /* antes 180px */
-  min-width: 240px; /* evita que se comprima demasiado */
-  border: 1px solid rgb(0, 0, 0);
+#modal-examen.gen-modal-examen .gen-modal-examen-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
 }
 
-/* Asegura que el panel derecho pueda reducirse bien en flex */
-#modal-examen .pdf-vista {
+#modal-examen.gen-modal-examen .modal-body.gen-modal-examen-body {
+  min-height: 0;
+  overflow-x: hidden;
+  scrollbar-gutter: auto;
+  padding: 0.75rem 1rem 1.25rem !important;
+  background: linear-gradient(180deg, #eef2f8 0%, #e8ecf4 100%);
+}
+
+#modal-examen .gen-modal-examen-layout {
+  min-height: min(78vh, 680px);
+}
+
+#modal-examen .gen-modal-examen-preview {
+  min-height: 0;
+}
+
+#modal-examen .gen-modal-examen-grupos {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 300px;
+  max-width: 300px;
+  min-width: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(26, 45, 69, 0.12);
+  background: var(--lunia-white);
+  box-shadow: 0 2px 12px rgba(15, 23, 41, 0.06);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  transition:
+    width 0.3s ease,
+    max-width 0.3s ease,
+    min-width 0.3s ease,
+    padding 0.3s ease;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-modal-examen-grupos {
+  --gen-examen-collapsed-ctl: 2.125rem;
+  width: 3.95rem;
+  max-width: 3.95rem;
+  min-width: 3.95rem;
+  padding: 0.45rem 0.5rem;
+  overflow: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #modal-examen .gen-modal-examen-grupos {
+    transition: none;
+  }
+}
+
+#modal-examen .gen-modal-examen-grupos-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-bottom: 0.5rem;
+}
+
+#modal-examen .gen-examen-grupos-toggle {
+  flex-shrink: 0;
+  width: 2.125rem;
+  height: 2.125rem;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--lunia-steel);
+  background: var(--lunia-steel);
+  color: #fff !important;
+  line-height: 1;
+  box-shadow: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+#modal-examen .gen-examen-grupos-toggle:hover {
+  background-color: #2f4763;
+  border-color: #2f4763;
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-grupos-toggle:focus-visible {
+  outline: 2px solid var(--lunia-focus);
+  outline-offset: 2px;
+}
+
+#modal-examen .gen-examen-grupos-toggle .bi {
+  font-size: 1.1rem;
+  color: inherit;
+}
+
+#modal-examen .gen-modal-examen-grupos-abbr,
+#modal-examen .gen-modal-examen-grupos-head-divider {
+  display: none;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-modal-examen-grupos-label {
+  display: none !important;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-modal-examen-grupos-head {
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-grupos-toggle {
+  width: var(--gen-examen-collapsed-ctl);
+  height: var(--gen-examen-collapsed-ctl);
+  min-width: var(--gen-examen-collapsed-ctl);
+  min-height: var(--gen-examen-collapsed-ctl);
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-grupos-toggle .bi {
+  font-size: 1rem;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-modal-examen-grupos-abbr {
+  display: block;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--lunia-text-muted);
+  line-height: 1.15;
+  user-select: none;
+  margin-top: 0.1rem;
+  text-align: center;
+  max-width: 100%;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-modal-examen-grupos-head-divider {
+  display: block;
+  width: 100%;
+  max-width: var(--gen-examen-collapsed-ctl);
+  height: 1px;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  border: none;
+  background: rgba(26, 45, 69, 0.22);
+  flex-shrink: 0;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-grupo-name,
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-grupo-pill--count {
+  display: none !important;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-grupo-actions {
+  display: none !important;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-modal-examen-grupos-list {
+  padding-top: 0.2rem;
+  overflow-x: visible;
+  overflow-y: auto;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-toolbar--sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+  padding-top: 0.65rem;
+  margin-top: 0.35rem;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-toolbar--sidebar .gen-examen-btn-label {
+  display: none !important;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-toolbar--sidebar .gen-examen-btn {
+  width: var(--gen-examen-collapsed-ctl);
+  min-width: var(--gen-examen-collapsed-ctl);
+  height: var(--gen-examen-collapsed-ctl);
+  min-height: var(--gen-examen-collapsed-ctl);
+  padding: 0;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-toolbar--sidebar .gen-examen-btn .bi {
+  font-size: 1rem;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed #lista-grupos .gen-examen-grupo-row {
+  justify-content: center;
+  margin: 0 3px 0.45rem;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed #lista-grupos .gen-examen-grupo-row.selected {
+  border: none !important;
+  background: transparent !important;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed #lista-grupos li.selected .gen-examen-grupo-pill--clave {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lunia-steel-light) 42%, #ffffff 58%);
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed .gen-examen-grupo-main {
+  flex-grow: 0 !important;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+#modal-examen .gen-modal-examen-layout--grupos-collapsed #lista-grupos .gen-examen-grupo-pill--clave {
+  width: var(--gen-examen-collapsed-ctl);
+  min-width: var(--gen-examen-collapsed-ctl);
+  height: var(--gen-examen-collapsed-ctl);
+  min-height: var(--gen-examen-collapsed-ctl);
+  padding: 0;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  box-sizing: border-box;
+  box-shadow: none;
+  background-color: var(--lunia-navy);
+  color: #f1f5f9;
+  transition: box-shadow 0.16s ease;
+}
+
+#modal-examen .gen-modal-examen-grupos-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: auto;
+}
+
+#modal-examen .pdf-vista.gen-modal-examen-pdf-panel {
   flex-grow: 1;
-  min-width: 0; /* clave para que flex permita encoger sin overflow */
+  min-width: 0;
+  min-height: 0;
+  padding: 0.65rem 0.5rem;
+  border-radius: 12px 12px 0 0;
+  border: 1px solid rgba(26, 45, 69, 0.1);
+  background: var(--lunia-white);
+  box-shadow: 0 2px 12px rgba(15, 23, 41, 0.05);
+  gap: 0.65rem;
 }
 
-/* Opcional: un poco más de alto a la “vista PDF” */
-#modal-examen .pdf-placeholder {
-  min-height: 420px;
+#modal-examen #banner-estado.gen-modal-examen-alert,
+#modal-examen #gen-examen-seleccion-hint.gen-modal-examen-alert {
+  flex-shrink: 0;
+  margin-bottom: 0;
+  max-height: 5.5rem;
+  overflow: hidden;
+  transition:
+    max-height 0.36s ease,
+    opacity 0.32s ease,
+    padding-top 0.32s ease,
+    padding-bottom 0.32s ease,
+    margin-top 0.32s ease,
+    margin-bottom 0.32s ease,
+    border-width 0.32s ease;
 }
 
-/* --------- Responsive --------- */
-@media (max-width: 1200px) {
-  #modal-examen .grupo-lista {
-    width: 240px;
-  }
+#modal-examen #banner-estado.gen-modal-examen-alert.gen-modal-examen-alert--hiding,
+#modal-examen #gen-examen-seleccion-hint.gen-modal-examen-alert.gen-modal-examen-alert--hiding {
+  max-height: 0 !important;
+  opacity: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border-width: 0 !important;
+  pointer-events: none;
 }
-@media (max-width: 992px) {
-  #modal-examen .grupo-lista {
-    width: 220px;
-  }
+
+#modal-examen #visor-examen.gen-modal-examen-visor {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: min(52vh, 520px);
+  background: #fff;
+  border-radius: 10px 10px 0 0;
+  border: 1px solid rgba(26, 45, 69, 0.08);
+  border-bottom: none;
+  overflow: hidden;
 }
-@media (max-width: 768px) {
-  #modal-examen .modal-content-custom .d-flex {
-    flex-direction: column;
-  }
-  #modal-examen .grupo-lista {
-    width: 100%;
-    margin-bottom: 1rem;
-  }
+
+#modal-examen #pdf-host {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: min(46vh, 480px);
+  border: 0;
+  background: #f8fafc;
+}
+
+#modal-examen #pdf-host embed {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: min(46vh, 480px);
+}
+
+/* —— Toolbar unificado (sidebar + bajo PDF): misma forma y altura —— */
+#modal-examen .gen-examen-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.85rem;
+  margin-top: 0.35rem;
+  border-top: 1px solid rgba(26, 45, 69, 0.1);
+}
+
+#modal-examen .gen-examen-toolbar--sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+#modal-examen .gen-examen-toolbar--sidebar .gen-examen-btn {
+  width: 100%;
+  min-width: 0;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  padding: 0 0.75rem;
+}
+
+#modal-examen .gen-examen-toolbar--preview {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+#modal-examen .gen-examen-toolbar-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#modal-examen .gen-examen-toolbar-links:empty {
+  display: none;
+}
+
+#modal-examen .gen-examen-toolbar-save {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+#modal-examen a.gen-examen-btn {
+  text-decoration: none;
+}
+
+#modal-examen a.gen-examen-btn.gen-examen-btn--outline-docx,
+#modal-examen a.gen-examen-btn--outline-docx {
+  background-color: #1e3a8a !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+#modal-examen a.gen-examen-btn.gen-examen-btn--outline-docx:hover,
+#modal-examen a.gen-examen-btn--outline-docx:hover {
+  filter: brightness(1.08);
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn {
+  --gen-examen-btn-h: 2.375rem;
+  min-height: var(--gen-examen-btn-h);
+  height: var(--gen-examen-btn-h);
+  padding: 0 0.95rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.15;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  box-sizing: border-box;
+  border: none;
+  box-shadow: none;
+  transition: filter 0.15s ease, background-color 0.15s ease;
+}
+
+#modal-examen .gen-examen-btn .bi {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+#modal-examen .gen-examen-btn--add {
+  background-color: #3d5a80;
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--add:hover {
+  filter: brightness(1.08);
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--generate {
+  background-color: #0f766e;
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--generate:hover {
+  filter: brightness(1.08);
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--docx {
+  background-color: #1a56b8;
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--docx:hover {
+  filter: brightness(1.08);
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--pdf {
+  background-color: #b91c1c;
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--pdf:hover {
+  filter: brightness(1.08);
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--save {
+  background-color: #64748b;
+  color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn--save:hover {
+  filter: brightness(1.06);
+  color: #fff !important;
+}
+
+/* —— Filas de grupos (expandido: clave + nombre + conteo + acciones) —— */
+#modal-examen #lista-grupos .gen-examen-grupo-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.85rem;
+  height: 2.125rem;
+  padding: 0 0.5rem;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-pill--clave {
+  background-color: var(--lunia-navy);
+  color: #f1f5f9;
+  border: none;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-pill--count {
+  margin-left: auto;
+  margin-right: 0.35rem;
+  background-color: rgba(61, 90, 128, 0.2);
+  color: var(--lunia-navy);
+  border: none;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-act {
+  width: 2.125rem;
+  min-width: 2.125rem;
+  height: 2.125rem;
+  padding: 0;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  line-height: 1;
+  box-shadow: none;
+  transition: filter 0.15s ease;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-act .bi {
+  font-size: 1rem;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-act--config {
+  background-color: #64748b;
+  color: #fff;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-act--config:hover {
+  filter: brightness(1.08);
+  color: #fff;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-act--delete {
+  background-color: #b91c1c;
+  color: #fff;
+}
+
+#modal-examen #lista-grupos .gen-examen-grupo-act--delete:hover {
+  filter: brightness(1.08);
+  color: #fff;
+}
+
+#modal-examen #lista-grupos li.selected {
+  border: 2px solid var(--lunia-steel);
+  background: rgba(61, 90, 128, 0.14);
+  box-shadow: none;
+}
+
+#modal-examen .gen-modal-examen-alert {
+  border: none;
+  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+}
+
+#modal-examen .gen-modal-examen-alert__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+#modal-examen .gen-modal-examen-alert__icon {
+  flex-shrink: 0;
+  font-size: 1.1rem;
+  opacity: 0.92;
+  line-height: 1;
+}
+
+#modal-examen .gen-modal-examen-alert__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.4;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+#modal-examen .gen-modal-examen-alert.alert-success {
+  background-color: #bbf7d0;
+  color: #14532d;
+  border: none;
+}
+
+#modal-examen .gen-modal-examen-alert.alert-danger {
+  background: linear-gradient(180deg, rgba(254, 226, 226, 0.95), rgba(254, 202, 202, 0.88));
+  color: #7f1d1d;
+  border: 1px solid rgba(185, 28, 28, 0.22);
+}
+
+#modal-examen .gen-modal-examen-alert.alert-warning {
+  background: linear-gradient(180deg, rgba(254, 249, 195, 0.95), rgba(253, 230, 138, 0.88));
+  color: #713f12;
+  border: 1px solid rgba(180, 83, 9, 0.22);
+}
+
+#modal-examen .gen-modal-examen-alert.alert-info {
+  background: linear-gradient(180deg, rgba(224, 242, 254, 0.95), rgba(186, 230, 253, 0.88));
+  color: #0c4a6e;
+  border: 1px solid rgba(2, 132, 199, 0.22);
 }
 
 /* ==== Banco de preguntas / Exámenes (página principal) ==== */
@@ -5042,43 +5468,6 @@ body.modal-open:has(.modal.show ~ .modal.show)
 .evalunia-dialog-modal.modal .modal-header .btn-close:hover {
   background-color: rgba(255, 255, 255, 0.26) !important;
   opacity: 1 !important;
-}
-
-/* Acciones en la tabla de grupos: separar botones */
-#tabla-grupos tbody td .btn-group.btn-group-sm[role="group"] {
-  display: flex; /* en lugar del inline-flex de Bootstrap */
-  gap: 8px; /* <-- espacio entre botones */
-  align-items: center;
-  justify-content: flex-start;
-  flex-wrap: nowrap; /* o 'wrap' si quieres que bajen en pantallas chicas */
-}
-
-/* Deshacer el “pegado” de Bootstrap */
-#tabla-grupos .btn-group.btn-group-sm > .btn + .btn {
-  margin-left: 0 !important; /* Bootstrap pone -1px */
-  border-left-width: 1px !important; /* evita que se fusionen los bordes */
-}
-
-/* Bordes redondeados normales (no “píldora” unida) */
-#tabla-grupos .btn-group.btn-group-sm > .btn {
-  border-radius: 0.375rem !important; /* ~6px */
-}
-
-/* (Opcional) mismas anchuras visuales */
-#tabla-grupos .btn-editar-grupo,
-#tabla-grupos .btn-toggle-grupo,
-#tabla-grupos .btn-eliminar-grupo {
-  min-width: 70px; /* ajusta a gusto (96–110px) */
-  text-align: center;
-  padding-left: 10px;
-  padding-right: 10px;
-}
-
-/* (Opcional) en pantallas muy estrechas, reduce el gap */
-@media (max-width: 480px) {
-  #tabla-grupos tbody td .btn-group.btn-group-sm[role="group"] {
-    gap: 6px;
-  }
 }
 
 /* === Separar botones en tabla de TEMAS del modal (igual que en GRUPOS) === */
