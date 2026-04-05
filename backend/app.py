@@ -165,6 +165,8 @@ NS = {
     "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
      "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
     "a14": "http://schemas.microsoft.com/office/drawing/2010/main",
+    "w10": "urn:schemas-microsoft-com:office:word",
+    "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
 }
 for p, u in NS.items():
     ET.register_namespace(p, u)
