@@ -26,11 +26,14 @@ function cerrarModalExamen() {
     .classList.replace("mostrar-flex", "oculto");
 }
 
-function repararEstadoModales() {
-  const visibles = [...document.querySelectorAll(".modal.show")];
-  const backdrops = [...document.querySelectorAll(".modal-backdrop")];
+/** Misma lógica que cuadernillos.js: apilado z-index y sombras de backdrop con varios modales abiertos. */
+const EVALUNIA_DIALOG_MODAL_ID = "evaluniaDialogModal";
 
-  if (!visibles.length) {
+function repararEstadoModales() {
+  const allShown = [...document.querySelectorAll(".modal.show")];
+  let backdrops = [...document.querySelectorAll(".modal-backdrop")];
+
+  if (!allShown.length) {
     backdrops.forEach((b) => b.remove());
     document.body.classList.remove("modal-open");
     document.body.style.removeProperty("padding-right");
@@ -40,33 +43,93 @@ function repararEstadoModales() {
   document.body.classList.add("modal-open");
   document.body.style.removeProperty("padding-right");
 
-  visibles.forEach((m, i) => {
-    m.style.display = "block";
+  allShown.forEach((m) => {
     m.removeAttribute("aria-hidden");
     m.setAttribute("aria-modal", "true");
-    m.style.zIndex = String(1055 + i * 20);
   });
 
-  // dejar solo los backdrops necesarios
-  while (backdrops.length > visibles.length) {
+  while (backdrops.length > allShown.length) {
     const b = backdrops.shift();
     b?.remove();
   }
 
-  const backdropsFinal = [...document.querySelectorAll(".modal-backdrop")];
-  backdropsFinal.forEach((b, i) => {
-    b.style.zIndex = String(1050 + i * 20);
-    b.style.pointerEvents = i === backdropsFinal.length - 1 ? "auto" : "none";
-  });
+  backdrops = [...document.querySelectorAll(".modal-backdrop")];
 
-  const top = visibles[visibles.length - 1];
+  let focusTarget = allShown[allShown.length - 1];
+
+  if (allShown.length === 1) {
+    allShown[0].style.removeProperty("z-index");
+    backdrops.forEach((b) => {
+      b.style.removeProperty("z-index");
+      b.style.pointerEvents = "auto";
+    });
+  } else {
+    const cuadStack = allShown.filter((m) => m.id !== EVALUNIA_DIALOG_MODAL_ID);
+    cuadStack.sort((a, b) => {
+      const ta = parseInt(a.dataset.cuadZStackTs || "0", 10);
+      const tb = parseInt(b.dataset.cuadZStackTs || "0", 10);
+      if (ta !== tb) return ta - tb;
+      const bit = a.compareDocumentPosition(b);
+      if (bit & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (bit & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      return 0;
+    });
+
+    allShown.forEach((m) => m.style.removeProperty("z-index"));
+    backdrops.forEach((b) => b.style.removeProperty("z-index"));
+
+    /* Paridad con cuadernillos.js + index.css (escalera z-index paso 10) */
+    cuadStack.forEach((m, i) => {
+      m.style.zIndex = String(1055 + i * 10);
+    });
+    backdrops.forEach((b, i) => {
+      b.style.zIndex = String(1050 + i * 10);
+    });
+
+    const evaluniaEl = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
+    if (evaluniaEl && evaluniaEl.classList.contains("show")) {
+      const shown = allShown.length;
+      const base = 1055 + shown * 30;
+      evaluniaEl.style.zIndex = String(base + 25);
+      const lastBd = backdrops[backdrops.length - 1];
+      if (lastBd) lastBd.style.zIndex = String(base + 15);
+    }
+
+    backdrops.forEach((b, i) => {
+      b.style.pointerEvents = i === backdrops.length - 1 ? "auto" : "none";
+    });
+
+    const evaluniaOpen =
+      document.getElementById(EVALUNIA_DIALOG_MODAL_ID)?.classList.contains("show");
+    if (evaluniaOpen) {
+      focusTarget = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
+    } else if (cuadStack.length) {
+      focusTarget = cuadStack[cuadStack.length - 1];
+    }
+  }
+
   setTimeout(() => {
-    top
+    focusTarget
       ?.querySelector(
         'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
       )
       ?.focus();
   }, 0);
+}
+
+if (!window.__evaluniaBsModalStackListeners) {
+  window.__evaluniaBsModalStackListeners = true;
+  document.addEventListener("shown.bs.modal", (ev) => {
+    const el = ev.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+    el.dataset.cuadZStackTs = String(Date.now());
+    requestAnimationFrame(() => repararEstadoModales());
+  });
+  document.addEventListener("hidden.bs.modal", (ev) => {
+    const el = ev.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+    requestAnimationFrame(() => repararEstadoModales());
+  });
 }
 
 function uiAlert(msg, opts) {
@@ -950,6 +1013,94 @@ if (typeof window.examenActual === "undefined") window.examenActual = null;
 if (typeof window.dtBuscarTemas === "undefined") window.dtBuscarTemas = null;
 if (typeof window.dtBuscarPregs === "undefined") window.dtBuscarPregs = null;
 
+const GEN_CURSOS_TITULO_LISTA = "Cursos";
+
+function getModalBuscarEl() {
+  const els = [...document.querySelectorAll("#modalBuscar")];
+  const enContenido = els.find((el) =>
+    document.getElementById("contenido")?.contains(el)
+  );
+  return enContenido || els[els.length - 1] || null;
+}
+
+function mostrarVistaGenCursos(vista) {
+  const modal = getModalBuscarEl();
+  if (!modal) return;
+
+  modal.dataset.genCursosVista = vista;
+
+  const vLista = modal.querySelector("#gen-cursos-vista-lista");
+  const vDet = modal.querySelector("#gen-cursos-vista-detalle");
+  const footDet = modal.querySelector("#gen-cursos-footer-detalle");
+  const icon = modal.querySelector("#genCursosHeaderIcon");
+  const titulo = modal.querySelector("#genCursosTituloTexto");
+  const closeBtn = modal.querySelector(".gen-cursos-header-close");
+
+  if (closeBtn) {
+    closeBtn.setAttribute(
+      "aria-label",
+      vista === "detalle" ? "Volver al listado de cursos" : "Cerrar"
+    );
+  }
+
+  if (vista === "lista") {
+    vLista?.classList.add("gen-cursos-view--active");
+    vDet?.classList.remove("gen-cursos-view--active");
+    footDet?.classList.add("d-none");
+    if (icon) {
+      icon.className = "bi bi-journal-bookmark gen-modal-cursos-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+    if (titulo) titulo.textContent = GEN_CURSOS_TITULO_LISTA;
+    requestAnimationFrame(() => {
+      try {
+        if (window.dtBuscarTemas) dtBuscarTemas.columns.adjust();
+      } catch (e) {}
+    });
+  } else {
+    vLista?.classList.remove("gen-cursos-view--active");
+    vDet?.classList.add("gen-cursos-view--active");
+    footDet?.classList.remove("d-none");
+    if (icon) {
+      icon.className = "bi bi-list-ul gen-modal-cursos-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+  }
+}
+
+if (!window.__GEN_CURSOS_HEADER_CLOSE_DELEGATED__) {
+  window.__GEN_CURSOS_HEADER_CLOSE_DELEGATED__ = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest(".gen-cursos-header-close");
+      if (!btn) return;
+      const modalRoot = btn.closest("#modalBuscar");
+      if (!modalRoot || !modalRoot.classList.contains("show")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (modalRoot.dataset.genCursosVista === "detalle") {
+        mostrarVistaGenCursos("lista");
+      } else {
+        const inst =
+          bootstrap.Modal.getInstance(modalRoot) ||
+          bootstrap.Modal.getOrCreateInstance(modalRoot);
+        inst.hide();
+      }
+    },
+    true
+  );
+}
+
+$(document).on("click", "#btnGenCursosVolver", (e) => {
+  e.preventDefault();
+  mostrarVistaGenCursos("lista");
+});
+
+$(document).on("hidden.bs.modal", "#modalBuscar", () => {
+  mostrarVistaGenCursos("lista");
+});
+
 // Click en "Buscar" de un examen
 // Click en "Buscar"
 $(document).on("click", ".btn-buscar", async function () {
@@ -984,15 +1135,17 @@ $(document).on("click", ".btn-buscar", async function () {
 
     await cargarTemasDelExamen(id);
 
-    const modalEl = document.getElementById("modalBuscar");
+    const modalEl = getModalBuscarEl();
     if (modalEl && modalEl.parentElement !== document.body) {
       document.body.appendChild(modalEl);
     }
 
+    mostrarVistaGenCursos("lista");
+
     bootstrap.Modal.getOrCreateInstance(modalEl, {
       backdrop: "static",
       focus: true,
-      keyboard: true,
+      keyboard: false,
     }).show();
   } catch (e) {
     console.error(e);
@@ -1025,10 +1178,19 @@ async function cargarTemasDelExamen(id) {
         {
           data: null,
           orderable: false,
-          render: (row) =>
-            `<button class="btn btn-primary btn-ver-tema" 
-                      data-tema="${row.id}" 
-                      data-nombre="${row.nombre}">Descargar</button>`,
+          render: (row) => {
+            const nom = String(row.nombre ?? "")
+              .replace(/&/g, "&amp;")
+              .replace(/"/g, "&quot;")
+              .replace(/</g, "&lt;");
+            return `<button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1 btn-ver-tema"
+                      data-tema="${row.id}"
+                      data-nombre="${nom}"
+                      aria-label="Ver detalles del curso">
+                <i class="bi bi-list-ul" aria-hidden="true"></i>
+                <span>Detalles</span>
+              </button>`;
+          },
         },
       ],
       language: DT_ES,
@@ -1044,8 +1206,9 @@ $(document).on("click", ".btn-ver-tema", async function () {
   const temaId = Number(this.dataset.tema);
   const temaNombre = this.dataset.nombre || "";
 
-  // Título del modal preguntas
-  $("#tituloTemaPregs").text(temaNombre);
+  const modalBuscar = getModalBuscarEl();
+  const tituloEl = modalBuscar?.querySelector("#genCursosTituloTexto");
+  if (tituloEl) tituloEl.textContent = `Preguntas — ${temaNombre}`;
 
   try {
     const r = await fetch(
@@ -1071,7 +1234,7 @@ $(document).on("click", ".btn-ver-tema", async function () {
             render: (row) => {
               const ruta = (row.archivo_ruta || "").replace(/\\/g, "/");
               const href = "file:///" + encodeURI(ruta);
-              return `<a class="btn btn-sm btn-secondary" href="${href}" target="_blank">Abrir</a>`;
+              return `<a class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 gen-pregunta-abrir-btn" href="${href}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Abrir</span></a>`;
             },
           },
         ],
@@ -1081,13 +1244,12 @@ $(document).on("click", ".btn-ver-tema", async function () {
       dtPregsTema.clear().rows.add(pregs).draw(false);
     }
 
-    // Mostrar modal de preguntas
-       const modalPreguntasEl = document.getElementById("modalPreguntas");
-    if (modalPreguntasEl && modalPreguntasEl.parentElement !== document.body) {
-      document.body.appendChild(modalPreguntasEl);
-    }
-
-    abrirModalSobre("modalBuscar", "modalPreguntas");
+    mostrarVistaGenCursos("detalle");
+    requestAnimationFrame(() => {
+      try {
+        if (window.dtPregsTema) dtPregsTema.columns.adjust();
+      } catch (e) {}
+    });
   } catch (e) {
     console.error(e);
     await uiAlert("No se pudieron cargar las preguntas.");
@@ -1831,15 +1993,10 @@ function getVisibleById(id) {
   );
 }
 
-function abrirModalSobre(parentId, childId) {
+/** Oculta parent y al cerrar child vuelve a mostrar parent (grupos, banco, etc.). */
+function abrirModalSobre(parentId, childId, opts) {
   const parentEl = getVisibleById(parentId);
   const childEl = getLastById(childId);
-
-  console.log("[MODAL] abrirModalSobre");
-  console.log("[MODAL] parentId =", parentId, "count =", document.querySelectorAll(`#${parentId}`).length);
-  console.log("[MODAL] childId =", childId, "count =", document.querySelectorAll(`#${childId}`).length);
-  console.log("[MODAL] parentEl =", parentEl);
-  console.log("[MODAL] childEl =", childEl);
 
   if (!parentEl || !childEl) {
     console.error("[MODAL] Falta parent o child", { parentId, childId });
@@ -1850,27 +2007,25 @@ function abrirModalSobre(parentId, childId) {
     document.body.appendChild(childEl);
   }
 
-  const parent = bootstrap.Modal.getOrCreateInstance(parentEl);
   const child = bootstrap.Modal.getOrCreateInstance(childEl, {
     backdrop: "static",
     focus: true,
     keyboard: true,
   });
 
+  const parent = bootstrap.Modal.getOrCreateInstance(parentEl);
+
   const onParentHidden = () => {
-    console.log("[MODAL] parent oculto, ahora se abre child:", childId);
     child.show();
   };
 
   const onChildHidden = () => {
-    console.log("[MODAL] child cerrado, reabriendo parent:", parentId);
     bootstrap.Modal.getOrCreateInstance(parentEl).show();
   };
 
   parentEl.addEventListener("hidden.bs.modal", onParentHidden, { once: true });
   childEl.addEventListener("hidden.bs.modal", onChildHidden, { once: true });
 
-  console.log("[MODAL] ocultando parent:", parentId, "para abrir child:", childId);
   parent.hide();
 }
 
@@ -3111,29 +3266,3 @@ async function volverABancoResumen() {
   }
 })();
 
-(function () {
-  function limpiarBackdropsHuerfanos() {
-    const abiertos = document.querySelectorAll(".modal.show").length;
-
-    if (abiertos === 0) {
-      document.body.classList.remove("modal-open");
-      document.body.style.removeProperty("padding-right");
-
-      document
-        .querySelectorAll(".modal-backdrop")
-        .forEach((el) => el.remove());
-    }
-  }
-
-  document.addEventListener("hidden.bs.modal", () => {
-    setTimeout(limpiarBackdropsHuerfanos, 50);
-  });
-
-  document.addEventListener("shown.bs.modal", () => {
-    const abiertos = document.querySelectorAll(".modal.show").length;
-    if (abiertos > 0) {
-      document.body.classList.add("modal-open");
-    }
-  });
-  
-})();

@@ -201,7 +201,7 @@
 <!-- =================== MODAL PRINCIPAL: TEMAS =================== -->
 
 <div
-  class="modal fade gen-modal-temas cuad-modal-temas"
+  class="modal fade modal-cuad-root gen-modal-temas cuad-modal-temas"
   id="modalTemas"
   tabindex="-1"
   aria-hidden="true"
@@ -328,82 +328,77 @@
   </div>
 </div>
 
-<!-- Modal Buscar en Examen -->
-<div class="modal fade" id="modalBuscar" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+<!-- Modal Cursos: listado de temas + detalle de archivos en el mismo modal (#modalBancoPreguntasCuad) -->
+<div class="modal fade modal-cuad-root" id="modalBuscar" tabindex="-1" aria-hidden="true" data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div
-    class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable"
-    style="--bs-modal-width: 1200px"
+    class="modal-dialog modal-dialog-centered modal-dialog-scrollable gen-modal-cursos-dialog"
   >
     <div class="modal-content modal-evalunia">
       <div class="modal-header">
-        <h5 class="modal-title">Cursos</h5>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
-          aria-label="Cerrar"
-        ></button>
+        <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
+          <h5 class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1 min-w-0">
+            <i class="bi bi-journal-bookmark gen-modal-cursos-header-icon" id="genCursosHeaderIcon" aria-hidden="true"></i>
+            <span class="text-truncate" id="genCursosTituloTexto">Cursos</span>
+          </h5>
+        </div>
+        <button type="button" class="btn-close gen-cursos-header-close" aria-label="Cerrar"></button>
       </div>
       <div class="modal-body">
-        <table
-          id="tabla-buscar-temas"
-          class="table table-striped table-bordered w-100"
-        >
-          <thead class="table-dark">
-            <tr>
-              <th>ID</th>
-              <th>Nombre</th>
-              <th>Preguntas</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+        <div class="gen-cursos-views-stage">
+          <div id="gen-cursos-vista-lista" class="gen-cursos-view gen-cursos-view--active">
+            <div class="gen-modal-cursos-table-panel">
+              <div class="cursos-modal-table-wrap table-responsive">
+                <table
+                  id="tabla-buscar-temas"
+                  class="table table-sm table-striped table-hover align-middle mb-0 w-100 gen-modal-cursos-table"
+                >
+                  <thead class="table-dark">
+                    <tr>
+                      <th>ID</th>
+                      <th>Nombre</th>
+                      <th>Preguntas</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div id="gen-cursos-vista-detalle" class="gen-cursos-view">
+            <div class="gen-modal-preguntas-table-panel">
+              <div class="preguntas-modal-table-wrap table-responsive">
+                <table
+                  id="tabla-preguntas-tema"
+                  class="table table-sm table-striped table-hover align-middle mb-0 w-100 gen-modal-preguntas-table"
+                >
+                  <thead class="table-dark">
+                    <tr>
+                      <th>#</th>
+                      <th>Archivo</th>
+                      <th>Abrir</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    
-    </div>
-  </div>
-</div>
-
-<!-- Modal ver en preguntas -->
-<div class="modal fade" id="modalPreguntas" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
-  data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-    <div class="modal-content modal-evalunia">
-      <div class="modal-header">
-        <h5 class="modal-title">
-          Preguntas — <span id="tituloTemaPregs"></span>
-        </h5>
-        <button
-          type="button"
-          class="btn-close"
-          data-bs-dismiss="modal"
-          aria-label="Cerrar"
-        ></button>
+      <div class="modal-footer d-none border-top justify-content-start" id="gen-cursos-footer-detalle">
+        <button type="button" class="btn btn-outline-secondary" id="btnGenCursosVolver">
+          <i class="bi bi-arrow-left" aria-hidden="true"></i>
+          Volver
+        </button>
       </div>
-      <div class="modal-body">
-        <table
-          id="tabla-preguntas-tema"
-          class="table table-striped table-bordered w-100"
-        >
-          <thead class="table-dark">
-            <tr>
-              <th>#</th>
-              <th>Archivo</th>
-              <th>Abrir</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-   
     </div>
   </div>
 </div>
 
 <!-- =================== MODAL: GRUPOS =================== -->
-<div class="modal fade" id="modalGrupos" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+<div class="modal fade modal-cuad-root" id="modalGrupos" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content modal-evalunia">
@@ -463,7 +458,7 @@
 </div>
 
 <!-- ========== Modal CREAR GRUPO ========== -->
-<div class="modal fade" id="modalGrupoCrear" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+<div class="modal fade modal-cuad-root" id="modalGrupoCrear" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">
     <form class="modal-content modal-evalunia" id="formGrupoCrear">
@@ -534,7 +529,7 @@
 </div>
 
 <!-- ========== Modal EDITAR GRUPO (con cuotas) ========== -->
-<div class="modal fade" id="modalGrupoEditar" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
+<div class="modal fade modal-cuad-root" id="modalGrupoEditar" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
   data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered">
     <form class="modal-content modal-evalunia" id="formGrupoEditar">
@@ -609,7 +604,7 @@
 <!-- =================== MODAL: BANCO DE PREGUNTAS =================== -->
 <!-- =================== MODAL: BANCO DE PREGUNTAS =================== -->
 <div
-  class="modal fade"
+  class="modal fade modal-cuad-root"
   id="modalBancoPreguntas"
   tabindex="-1"
   aria-hidden="true"
@@ -725,7 +720,7 @@
 
 <!-- ========== Modal IMPORTAR TEMA + DOCX ========== -->
 <div
-  class="modal fade"
+  class="modal fade modal-cuad-root"
   id="modalBancoImportar"
   tabindex="-1"
   aria-hidden="true"
@@ -768,7 +763,7 @@
 
 <!-- ========== Modal AGREGAR SOLUCIONARIO ========== -->
 <div
-  class="modal fade"
+  class="modal fade modal-cuad-root"
   id="modalBancoSolucionario"
   tabindex="-1"
   aria-hidden="true"
@@ -808,7 +803,7 @@
 </div>
 
 <!-- ========== Modal EDITAR REGISTRO BANCO ========== -->
-<div class="modal fade" id="modalBancoEditar" tabindex="-1" aria-hidden="true">
+<div class="modal fade modal-cuad-root" id="modalBancoEditar" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content modal-evalunia">
       <div class="modal-header">

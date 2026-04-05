@@ -2631,6 +2631,11 @@ main {
   z-index: 1075;
 }
 
+/* Generación — Cursos (un solo modal, dos vistas) */
+#modalBuscar.modal.show {
+  z-index: 1055;
+}
+
 #modalTiposTema .cuad-modal-tipos-tema-dialog.modal-dialog {
   max-width: min(94vw, 520px);
 }
@@ -4320,12 +4325,21 @@ main {
   border-left: 3px solid var(--lunia-steel);
 }
 
-/* Todos los modales Bootstrap: capa compuesta propia para que box-shadow se pinte de
-   forma estable (repaint al cambiar de ventana / capturas / Electron–Chromium). */
+/*
+  Sombra en .modal-dialog (no en .modal-content): el content lleva overflow:hidden y
+  recortaba el box-shadow. Sin isolation/backface en el dialog: en Chromium/Electron
+  aplanaban la sombra frente a modales apilados.
+*/
 .modal .modal-dialog {
-  isolation: isolate;
   transform: translateZ(0);
-  backface-visibility: hidden;
+}
+
+/* Modales sin .modal-cuad-root (p. ej. EvaluniaDialog): misma sombra de tarjeta en el dialog. */
+.modal:not(.modal-cuad-root) .modal-dialog:has(> .modal-content.modal-evalunia) {
+  border-radius: 12px;
+  box-shadow:
+    0 22px 54px rgba(8, 15, 28, 0.42),
+    0 10px 28px rgba(8, 15, 28, 0.18);
 }
 
 /* Modales cuadernillos (y formularios con .modal-content)
@@ -4341,9 +4355,7 @@ main {
   outline: none;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 16px 48px rgba(15, 23, 41, 0.22);
-  transform: translateZ(0);
-  isolation: isolate;
+  box-shadow: none;
   background: var(--lunia-navy-deep);
   /* Tope de altura: no sale de pantalla; el scroll va en .modal-body */
   max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
@@ -4369,7 +4381,7 @@ main {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--bs-modal-margin);
+  padding: calc(var(--bs-modal-margin) + 16px);
   min-height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
@@ -4381,7 +4393,9 @@ main {
   flex-shrink: 0;
   max-width: 100%;
   border-radius: 12px;
-  box-shadow: 0 20px 48px rgba(8, 15, 28, 0.3), 0 8px 22px rgba(8, 15, 28, 0.12);
+  box-shadow:
+    0 24px 56px rgba(8, 15, 28, 0.44),
+    0 11px 30px rgba(8, 15, 28, 0.2);
 }
 
 .modal.modal-cuad-root .modal-dialog.modal-dialog-centered {
@@ -4424,17 +4438,16 @@ main {
 
 body.modal-open:has(.modal.show ~ .modal.show) .modal.modal-cuad-root.show > .modal-dialog {
   box-shadow:
-    0 24px 56px rgba(8, 15, 28, 0.34),
-    0 10px 28px rgba(8, 15, 28, 0.14);
+    0 30px 72px rgba(8, 15, 28, 0.5),
+    0 14px 38px rgba(8, 15, 28, 0.24);
 }
 
 body.modal-open:has(.modal.show ~ .modal.show)
   .modal.show:not(.modal-cuad-root)
-  > .modal-dialog
-  > .modal-content.modal-evalunia {
+  > .modal-dialog:has(> .modal-content.modal-evalunia) {
   box-shadow:
-    0 20px 56px rgba(15, 23, 41, 0.3),
-    0 8px 26px rgba(15, 23, 41, 0.14);
+    0 28px 68px rgba(8, 15, 28, 0.48),
+    0 12px 34px rgba(8, 15, 28, 0.22);
 }
 
 /*
@@ -4459,6 +4472,10 @@ body.modal-open:has(.modal.show ~ .modal.show)
 /* ——— Diálogos globales EvaluniaDialog (alert / confirm) ——— */
 .evalunia-dialog-modal .modal-dialog {
   max-width: min(92vw, 440px);
+  border-radius: 12px;
+  box-shadow:
+    0 22px 54px rgba(8, 15, 28, 0.42),
+    0 10px 28px rgba(8, 15, 28, 0.18);
 }
 
 .evalunia-dialog-modal.evalunia-dialog-modal--choice .modal-dialog {
@@ -5633,4 +5650,314 @@ body.modal-open:has(.modal.show ~ .modal.show)
   font-size: 0.8rem;
   color: #6c757d;
   background: #fff;
+}
+
+/* ========== Generación: Cursos (lista + detalle en #modalBuscar, patrón #modalBancoPreguntasCuad) ========== */
+#modalBuscar.modal-cuad-root .modal-content.modal-evalunia {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  height: auto;
+  min-height: 0;
+}
+
+#modalBuscar.modal-cuad-root .modal-dialog.gen-modal-cursos-dialog {
+  width: min(96vw, 1040px) !important;
+  max-width: min(96vw, 1040px) !important;
+  flex: 0 0 auto;
+}
+
+#modalBuscar .gen-modal-cursos-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem);
+}
+
+#modalBuscar .modal-body {
+  min-height: 0;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  padding: 0.4rem 1rem 1.5rem !important;
+  overflow-y: auto;
+}
+
+@supports (scrollbar-gutter: stable both-edges) {
+  #modalBuscar .modal-body {
+    scrollbar-gutter: stable;
+  }
+}
+
+/* Dos vistas en un solo modal (misma idea que .cuad-banco-views-stage) */
+#modalBuscar .gen-cursos-views-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  position: relative;
+  min-width: 0;
+}
+
+#modalBuscar .gen-cursos-views-stage > .gen-cursos-view {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  transition:
+    opacity 0.32s ease,
+    transform 0.32s cubic-bezier(0.33, 1, 0.32, 1);
+}
+
+#modalBuscar .gen-cursos-view:not(.gen-cursos-view--active) {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 0;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(12px) scale(0.992);
+}
+
+#modalBuscar .gen-cursos-vista-lista:not(.gen-cursos-view--active) {
+  transform: translateX(-12px) scale(0.992);
+}
+
+#modalBuscar .gen-cursos-view--active {
+  position: relative;
+  z-index: 1;
+  max-height: none;
+  overflow: visible;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateX(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #modalBuscar .gen-cursos-views-stage > .gen-cursos-view {
+    transition: none;
+  }
+
+  #modalBuscar .gen-cursos-view:not(.gen-cursos-view--active),
+  #modalBuscar .gen-cursos-view--active {
+    transform: none;
+  }
+}
+
+#modalBuscar.modal-cuad-root #tabla-preguntas-tema td {
+  word-break: break-word;
+}
+
+#modalBuscar .preguntas-modal-table-wrap {
+  background: var(--lunia-white);
+}
+
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container {
+  margin-top: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container .row,
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-bootstrap5 > .row {
+  --bs-gutter-x: 0 !important;
+  --bs-gutter-y: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+}
+
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container .row > [class*="col-"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Primera fila = tabla: sin margen extra. Siguientes = info/paginación: respiro (no anular todo el mt-2) */
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container .dt-layout-row:first-child {
+  margin-top: 0 !important;
+}
+
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container .dt-layout-row:not(:first-child) {
+  margin-top: 0.85rem !important;
+  padding: 0.65rem 0.75rem 0.55rem;
+  border-top: 1px solid rgba(26, 45, 69, 0.1);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95) 0%, rgba(241, 245, 249, 0.88) 100%);
+  border-radius: 0 0 12px 12px;
+}
+
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container .pagination {
+  margin-bottom: 0;
+}
+
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container .dt-info,
+#modalBuscar.modal-cuad-root .preguntas-modal-table-wrap .dt-container .dt-paging {
+  padding-top: 0.1rem;
+  padding-bottom: 0.1rem;
+}
+
+#modalBuscar .gen-modal-preguntas-table.table thead tr:first-child th:first-child {
+  border-top-left-radius: 12px !important;
+}
+
+#modalBuscar .gen-modal-preguntas-table.table thead tr:first-child th:last-child {
+  border-top-right-radius: 12px !important;
+}
+
+/* Última fila del cuerpo: sin redondeo inferior (encaja con la franja de paginación) */
+#modalBuscar .gen-modal-preguntas-table.table tbody tr:last-child td:first-child,
+#modalBuscar .gen-modal-preguntas-table.table tbody tr:last-child td:last-child {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+#modalBuscar .preguntas-modal-table-wrap .gen-pregunta-abrir-btn {
+  font-weight: 600;
+  border-radius: 0.375rem;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+#modalBuscar .preguntas-modal-table-wrap .gen-pregunta-abrir-btn .bi {
+  font-size: 0.95rem;
+  opacity: 0.92;
+}
+
+#modalBuscar .preguntas-modal-table-wrap .gen-pregunta-abrir-btn:hover {
+  background-color: var(--bs-primary, #0d6efd);
+  border-color: var(--bs-primary, #0d6efd);
+  color: #fff;
+}
+
+#modalBuscar .modal-header .gen-modal-cursos-header-icon {
+  font-size: 1.2rem;
+  opacity: 0.92;
+}
+
+/* Tablas Cursos / Preguntas: mismo contenedor que #modalBancoPreguntasCuad .cuad-banco-table-panel */
+#modalBuscar .gen-modal-cursos-table-panel .cursos-modal-table-wrap,
+#modalBuscar .gen-modal-preguntas-table-panel .preguntas-modal-table-wrap {
+  margin-top: 0;
+  padding: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 3px 14px rgba(15, 23, 41, 0.08);
+  border: 1px solid rgba(26, 45, 69, 0.11);
+}
+
+#modalBuscar .gen-modal-cursos-table-panel .cursos-modal-table-wrap.table-responsive,
+#modalBuscar .gen-modal-preguntas-table-panel .preguntas-modal-table-wrap.table-responsive {
+  border-radius: 14px;
+}
+
+#modalBuscar .gen-modal-cursos-table-panel,
+#modalBuscar .gen-modal-preguntas-table-panel {
+  margin-bottom: 0;
+}
+
+/* DataTables fuerza --bs-table-bg en thead; mantener cabecera oscura (table-dark) */
+#modalBuscar #tabla-buscar-temas.table.dataTable thead > tr > th,
+#modalBuscar #tabla-preguntas-tema.table.dataTable thead > tr > th {
+  vertical-align: middle !important;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  background-color: var(--lunia-navy-deep) !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(207, 217, 230, 0.18) !important;
+  font-weight: 600;
+}
+
+#modalBuscar .cursos-modal-table-wrap .gen-modal-cursos-table.table > :not(caption) > * > *,
+#modalBuscar .preguntas-modal-table-wrap .gen-modal-preguntas-table.table > :not(caption) > * > * {
+  padding: 0.65rem 0.85rem;
+  vertical-align: middle;
+}
+
+#modalBuscar .cursos-modal-table-wrap .gen-modal-cursos-table.table thead th,
+#modalBuscar .preguntas-modal-table-wrap .gen-modal-preguntas-table.table thead th {
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+}
+
+/*
+  DataTables Bootstrap 5 pone en cada fila de layout: "row mt-2 justify-content-between".
+  Los márgenes negativos de .row y el mt-2 hacen que la tabla se salga del contenedor.
+*/
+#modalBuscar .cursos-modal-table-wrap {
+  background: var(--lunia-white);
+}
+
+#modalBuscar .cursos-modal-table-wrap .dt-container {
+  margin-top: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+#modalBuscar .cursos-modal-table-wrap .dt-container .row,
+#modalBuscar .cursos-modal-table-wrap .dt-bootstrap5 > .row {
+  --bs-gutter-x: 0 !important;
+  --bs-gutter-y: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+}
+
+#modalBuscar .cursos-modal-table-wrap .dt-container .row > [class*="col-"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+#modalBuscar .modal-body > .dt-container {
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(26, 45, 69, 0.12) !important;
+}
+
+#modalBuscar .modal-body .dt-layout-table {
+  margin-top: 0 !important;
+}
+
+/* Por si mt-2 u otros márgenes vienen en la misma fila que .row */
+#modalBuscar .cursos-modal-table-wrap .dt-container .dt-layout-row {
+  margin-top: 0 !important;
+}
+
+/* Esquinas visibles (mismo radio que #modalBancoPreguntasCuad .cuad-banco-table) */
+#modalBuscar .gen-modal-cursos-table.table thead tr:first-child th:first-child {
+  border-top-left-radius: 12px !important;
+}
+
+#modalBuscar .gen-modal-cursos-table.table thead tr:first-child th:last-child {
+  border-top-right-radius: 12px !important;
+}
+
+#modalBuscar .gen-modal-cursos-table.table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 12px !important;
+}
+
+#modalBuscar .gen-modal-cursos-table.table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 12px !important;
+}
+
+#modalBuscar #tabla-buscar-temas.table.dataTable .btn.btn-primary,
+#modalBuscar .btn-ver-tema.btn-primary {
+  border-radius: 0.375rem !important;
+  background-color: var(--bs-primary, #0d6efd) !important;
+  border-color: var(--bs-primary, #0d6efd) !important;
+  color: #fff !important;
+  padding: 0.4rem 0.85rem !important;
+  font-size: 0.9rem !important;
+  line-height: 1.35 !important;
+}
+
+#modalBuscar #tabla-buscar-temas.table.dataTable .btn.btn-primary:hover,
+#modalBuscar .btn-ver-tema.btn-primary:hover {
+  background-color: #0b5ed7 !important;
+  border-color: #0a58ca !important;
+  color: #fff !important;
 }
