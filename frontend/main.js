@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, session } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, session, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const fetch = require("node-fetch");
@@ -202,6 +202,7 @@ function crearVentana() {
   win = new BrowserWindow({
     width: 1000,
     height: 700,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -210,11 +211,15 @@ function crearVentana() {
     },
   });
 
+  // App desktop: ocultamos menu nativo y abrimos maximizada por defecto.
+  win.setMenuBarVisibility(false);
+  win.maximize();
   logMain("cargando index.html =", path.join(__dirname, "index.html"));
   win.loadFile(path.join(__dirname, "index.html"));
 }
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null);
   await startBackend();
   crearVentana();
 });
