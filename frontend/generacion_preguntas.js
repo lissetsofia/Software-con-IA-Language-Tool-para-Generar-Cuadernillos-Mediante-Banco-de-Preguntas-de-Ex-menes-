@@ -50,9 +50,71 @@ function applyGenExamenBanner(el, kind, msg) {
   el.innerHTML = genExamenBannerHtml(kind, msg);
 }
 
+const GEN_EXAMEN_IDLE_ICON_BY_KIND = {
+  info: "bi-info-circle-fill",
+  success: "bi-check-circle-fill",
+  warning: "bi-exclamation-triangle-fill",
+  danger: "bi-exclamation-octagon-fill",
+};
+
+function setGenExamenIdleHeroAlertState(kind) {
+  const hero = document.querySelector("#gen-examen-visor-idle .gen-examen-visor-idle-hero");
+  const badge = document.getElementById("gen-examen-visor-idle-hero-badge");
+  const badgeIc = document.getElementById("gen-examen-visor-idle-hero-badge-ic");
+  if (!hero || !badge || !badgeIc) return;
+  const currentKind = hero.getAttribute("data-gen-examen-idle-kind") || "";
+  const sameKind = !!kind && currentKind === kind && !badge.classList.contains("d-none");
+  hero.classList.remove(
+    "gen-examen-visor-idle-hero--info",
+    "gen-examen-visor-idle-hero--success",
+    "gen-examen-visor-idle-hero--warning",
+    "gen-examen-visor-idle-hero--danger"
+  );
+  badge.classList.remove("gen-examen-visor-idle-hero-badge--enter");
+  const bi = kind && GEN_EXAMEN_IDLE_ICON_BY_KIND[kind];
+  if (!bi) {
+    badge.classList.remove("gen-examen-visor-idle-hero-badge--enter");
+    badge.classList.add("d-none");
+    badgeIc.className = "bi gen-examen-visor-idle-hero-badge-ic";
+    hero.removeAttribute("data-gen-examen-idle-kind");
+    return;
+  }
+  hero.classList.add(`gen-examen-visor-idle-hero--${kind}`);
+  hero.setAttribute("data-gen-examen-idle-kind", kind);
+  badgeIc.className = `bi ${bi} gen-examen-visor-idle-hero-badge-ic`;
+  badge.classList.remove("d-none");
+  if (sameKind) return;
+  requestAnimationFrame(() => {
+    void badge.offsetWidth;
+    badge.classList.add("gen-examen-visor-idle-hero-badge--enter");
+  });
+}
+
+function applyGenExamenIdleMsg(el, kind, msgHtml) {
+  const k = kind && GEN_EXAMEN_IDLE_ICON_BY_KIND[kind] ? kind : "info";
+  const currentKind = el.dataset.kind || "";
+  const sameKind = currentKind === k && !el.classList.contains("d-none");
+  const prevKind = el.dataset.kind || "";
+  const prevMsg = el.dataset.msgHtml || "";
+  const samePayload = prevKind === k && prevMsg === String(msgHtml);
+
+  el.dataset.kind = k;
+  el.dataset.msgHtml = String(msgHtml);
+  el.classList.remove("gen-examen-visor-idle-msg--enter");
+  el.className = `gen-examen-visor-idle-msg gen-examen-visor-idle-msg--${k}`;
+  el.innerHTML = `<span class="gen-examen-visor-idle-msg__txt">${msgHtml}</span>`;
+  setGenExamenIdleHeroAlertState(k);
+  if (samePayload || sameKind) return;
+  requestAnimationFrame(() => {
+    void el.offsetWidth;
+    el.classList.add("gen-examen-visor-idle-msg--enter");
+  });
+}
+
 const GEN_EXAMEN_HINT_SELECCION_VISTO_KEY = "evalunia_genExamen_seleccionHint_visto";
 const GEN_EXAMEN_MSG_SUCCESS_MS = 2800;
 const GEN_EXAMEN_MSG_COLLAPSE_MS = 380;
+const GEN_EXAMEN_SUCCESS_BEFORE_PDF_MS = 1100;
 const genExamenAvisoTimers = { successHide: null, successCollapse: null };
 
 function getGenExamenMensajeEl() {
@@ -74,19 +136,18 @@ function setGenExamenMensajeModal(msg, kind = "info") {
   const el = getGenExamenMensajeEl();
   if (!el) return;
   clearGenExamenAvisoTimers();
-  el.classList.remove("d-none", "gen-modal-examen-alert--hiding");
-  applyGenExamenBanner(el, kind, msg);
-  el.classList.add("flex-shrink-0");
+  el.classList.remove("d-none", "gen-examen-visor-idle-msg--hiding");
+  applyGenExamenIdleMsg(el, kind, msg);
   const live = kind === "danger" || kind === "warning" ? "assertive" : "polite";
   el.setAttribute("aria-live", live);
   el.setAttribute("role", kind === "danger" || kind === "warning" ? "alert" : "status");
 
   if (kind === "success") {
     genExamenAvisoTimers.successHide = setTimeout(() => {
-      el.classList.add("gen-modal-examen-alert--hiding");
+      el.classList.add("gen-examen-visor-idle-msg--hiding");
       genExamenAvisoTimers.successHide = null;
       genExamenAvisoTimers.successCollapse = setTimeout(() => {
-        el.classList.remove("gen-modal-examen-alert--hiding");
+        el.classList.remove("gen-examen-visor-idle-msg--hiding");
         el.classList.add("d-none");
         genExamenAvisoTimers.successCollapse = null;
         actualizarGenExamenHintSeleccionGrupo();
@@ -106,25 +167,34 @@ function escapeHtmlGenExamen(s) {
 function actualizarGenExamenHintSeleccionGrupo() {
   const modal = document.getElementById("modal-examen");
   const hint = getGenExamenMensajeEl();
+  const visor = document.getElementById("visor-examen");
   if (!hint) return;
 
   if (!modal?.classList.contains("show")) {
     hint.classList.add("d-none");
+    setGenExamenIdleHeroAlertState(null);
+    return;
+  }
+
+  if (visor?.classList.contains("cargado")) {
+    clearGenExamenAvisoTimers();
+    hint.classList.remove("gen-examen-visor-idle-msg--hiding");
+    hint.classList.add("d-none");
+    setGenExamenIdleHeroAlertState(null);
     return;
   }
 
   clearGenExamenAvisoTimers();
-  hint.classList.remove("gen-modal-examen-alert--hiding");
+  hint.classList.remove("gen-examen-visor-idle-msg--hiding");
 
   const sel = window.grupoSeleccionado;
   if (sel?.id) {
     const clave = escapeHtmlGenExamen(sel.clave);
-    applyGenExamenBanner(
+    applyGenExamenIdleMsg(
       hint,
       "success",
       `Grupo <b>${clave}</b> seleccionado. Pulsa <b>Generar</b> para crear el examen.`
     );
-    hint.classList.add("flex-shrink-0");
     hint.setAttribute("role", "status");
     hint.setAttribute("aria-live", "polite");
     hint.classList.remove("d-none");
@@ -133,15 +203,15 @@ function actualizarGenExamenHintSeleccionGrupo() {
 
   if (sessionStorage.getItem(GEN_EXAMEN_HINT_SELECCION_VISTO_KEY) === "1") {
     hint.classList.add("d-none");
+    setGenExamenIdleHeroAlertState(null);
     return;
   }
 
-  applyGenExamenBanner(
+  applyGenExamenIdleMsg(
     hint,
     "info",
-    "Selecciona un grupo en el panel izquierdo para poder generar el examen."
+    "Selecciona un grupo en el listado de la izquierda para poder generar el examen."
   );
-  hint.classList.add("flex-shrink-0");
   hint.setAttribute("role", "status");
   hint.setAttribute("aria-live", "polite");
   hint.classList.remove("d-none");
@@ -153,17 +223,31 @@ document.getElementById("modal-examen")?.addEventListener("shown.bs.modal", () =
 
 function resetFlujoAvisosModalExamen() {
   clearGenExamenAvisoTimers();
+  if (typeof window.resetGenExamenGeneratingUi === "function") {
+    window.resetGenExamenGeneratingUi();
+  }
+  window.__ultimoGenerado = {
+    docxUrl: null,
+    pdfUrl: null,
+    docxName: null,
+    pdfName: null,
+  };
   window.grupoSeleccionado = null;
   sessionStorage.removeItem(GEN_EXAMEN_HINT_SELECCION_VISTO_KEY);
+  const visor = document.getElementById("visor-examen");
+  const host = document.getElementById("pdf-host");
+  if (visor) visor.classList.remove("cargado");
+  if (host) host.innerHTML = "";
+  if (typeof mostrarAccionesDescarga === "function") {
+    mostrarAccionesDescarga(false);
+  }
   const hint = getGenExamenMensajeEl();
   if (hint) {
-    hint.classList.remove("gen-modal-examen-alert--hiding");
+    hint.classList.remove("gen-examen-visor-idle-msg--hiding");
     hint.classList.add("d-none");
   }
+  setGenExamenIdleHeroAlertState(null);
   document.querySelector("#modal-examen #banner-estado")?.remove();
-  if (typeof renderGruposLeftPanel === "function") {
-    void renderGruposLeftPanel();
-  }
 }
 
 /** Z-index y backdrops con varios modales (alineado con cuadernillos.js). */
@@ -1641,7 +1725,17 @@ async function renderGruposLeftPanel() {
         [...ul.children].forEach((n) => n.classList.remove("selected"));
         li.classList.add("selected");
 
+        const prevId = window.grupoSeleccionado?.id;
         window.grupoSeleccionado = { id: g.idgrupo, clave: g.clave };
+        if (prevId !== g.idgrupo) {
+          const vis = document.getElementById("visor-examen");
+          const host = document.getElementById("pdf-host");
+          if (vis) vis.classList.remove("cargado");
+          if (host) host.innerHTML = "";
+          if (typeof mostrarAccionesDescarga === "function") {
+            mostrarAccionesDescarga(false);
+          }
+        }
         console.log("Grupo seleccionado:", window.grupoSeleccionado);
         actualizarGenExamenHintSeleccionGrupo();
       };
@@ -2002,55 +2096,235 @@ function abrirModalSobre(parentId, childId, opts) {
   const BASE = "http://localhost:5050";
   let blobUrlActual = null;
 
-  async function generarExamenGrupo(formato = "word") {
+  const GEN_DOC_POLL_MS = 280;
+  const GEN_DOC_JOB_TIMEOUT_MS = 15 * 60 * 1000;
+
+  let __genExamenClaveProgresoRaw = "";
+
+  function resetGenExamenGenerarOverlayVisual() {
+    const ov = document.getElementById("gen-examen-generar-progress");
+    ov?.classList.remove(
+      "gen-examen-generar-overlay--success",
+      "gen-examen-generar-overlay--success-pop"
+    );
+    const bar = document.getElementById("gen-examen-generar-progress-bar");
+    if (bar) {
+      bar.style.removeProperty("width");
+      bar.classList.add("progress-bar-striped", "progress-bar-animated", "bg-primary");
+      bar.classList.remove("bg-success");
+    }
+    const lblText = document.getElementById("gen-examen-generar-progress-label-text");
+    if (lblText) lblText.textContent = "";
+    const pctEl = document.getElementById("gen-examen-generar-progress-pct");
+    if (pctEl) pctEl.textContent = "0%";
+  }
+
+  function setGenExamenGenerarProgressVisible(visible) {
+    const el = document.getElementById("gen-examen-generar-progress");
+    el?.classList.toggle("d-none", !visible);
+    resetGenExamenGenerarOverlayVisual();
+  }
+
+  function setGenExamenModalInteractionLocked(locked) {
+    const modal = document.getElementById("modal-examen");
+    if (!modal) return;
+    modal.classList.toggle("gen-modal-examen--generating", !!locked);
+    window.__genExamenGenerando = !!locked;
+
+    const closeBtn = modal.querySelector(".modal-header .btn-close");
+    if (closeBtn) {
+      closeBtn.toggleAttribute("disabled", !!locked);
+      if (locked) closeBtn.setAttribute("aria-disabled", "true");
+      else closeBtn.removeAttribute("aria-disabled");
+    }
+
+    const aside = document.getElementById("genExamenGruposAside");
+    if (aside) aside.toggleAttribute("inert", !!locked);
+
+    const layout = document.getElementById("genExamenLayout");
+    if (!layout) return;
+
+    if (locked) {
+      layout.querySelectorAll("button").forEach((b) => {
+        if (b.dataset.genExamenLockApplied) return;
+        b.dataset.genExamenWasDisabled = b.disabled ? "1" : "";
+        b.disabled = true;
+        b.dataset.genExamenLockApplied = "1";
+      });
+      layout.querySelectorAll("a.btn").forEach((a) => {
+        if (a.dataset.genExamenLockApplied) return;
+        const href = a.getAttribute("href");
+        if (href) a.dataset.genExamenLockHref = href;
+        a.removeAttribute("href");
+        a.setAttribute("aria-disabled", "true");
+        a.classList.add("disabled");
+        a.dataset.genExamenLockApplied = "1";
+      });
+      return;
+    }
+
+    layout.querySelectorAll("[data-gen-examen-lock-applied]").forEach((el) => {
+      if (el instanceof HTMLButtonElement) {
+        el.disabled = el.dataset.genExamenWasDisabled === "1";
+        delete el.dataset.genExamenWasDisabled;
+      } else if (el instanceof HTMLAnchorElement) {
+        const h = el.dataset.genExamenLockHref;
+        if (h) el.setAttribute("href", h);
+        delete el.dataset.genExamenLockHref;
+        el.removeAttribute("aria-disabled");
+        el.classList.remove("disabled");
+      }
+      delete el.dataset.genExamenLockApplied;
+    });
+
+    const toolbarEnabled =
+      document.getElementById("accionesDescarga")?.dataset.enabled === "1";
+    if (typeof mostrarAccionesDescarga === "function") {
+      mostrarAccionesDescarga(toolbarEnabled);
+    }
+  }
+
+  window.resetGenExamenGeneratingUi = function resetGenExamenGeneratingUi() {
+    setGenExamenModalInteractionLocked(false);
+    resetGenExamenGenerarOverlayVisual();
+    setGenExamenGenerarProgressVisible(false);
+  };
+
+  document.getElementById("modal-examen")?.addEventListener("hide.bs.modal", (ev) => {
+    if (window.__genExamenGenerando) {
+      ev.preventDefault();
+    }
+  });
+
+  function mapGenExamenProgressLabel(serverMessage) {
+    const g = __genExamenClaveProgresoRaw || "";
+    const s = String(serverMessage || "").trim().toLowerCase();
+    const pdfPhase =
+      s === "pdf" ||
+      s.includes("pdf") ||
+      s.includes("vista previa") ||
+      s.includes("generando vista");
+    if (pdfPhase) {
+      return g
+        ? `Generando la vista previa PDF del grupo ${g}`
+        : "Generando la vista previa PDF";
+    }
+    return g
+      ? `Preparando el examen del grupo ${g}`
+      : "Preparando el examen";
+  }
+
+  function updateGenExamenGenerarProgress(done, total, message) {
+    const bar = document.getElementById("gen-examen-generar-progress-bar");
+    const lblText = document.getElementById("gen-examen-generar-progress-label-text");
+    const pctEl = document.getElementById("gen-examen-generar-progress-pct");
+    if (!bar || !lblText || !pctEl) return;
+    const t = Math.max(1, Number(total) || 1);
+    const d = Math.min(Math.max(0, Number(done) || 0), t);
+    const pct = Math.min(100, Math.round((100 * d) / t));
+    bar.style.width = `${pct}%`;
+    bar.setAttribute("aria-valuenow", String(pct));
+    bar.setAttribute("aria-valuemax", "100");
+    pctEl.textContent = `${pct}%`;
+    bar.classList.toggle("gen-examen-pct-outside", pct < 14);
+    lblText.textContent = mapGenExamenProgressLabel(message);
+  }
+
+  function parseGenExamenStatusPayload(raw, statusCode, sourceLabel) {
+    let st;
     try {
-      const sel = window.grupoSeleccionado;
-      if (!sel?.id) {
-        setGenExamenMensajeModal(
-          "Selecciona un grupo en la lista de la izquierda.",
-          "warning"
-        );
-        return;
+      st = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (e) {
+      throw new Error(`Estado del trabajo no JSON (${sourceLabel} HTTP ${statusCode}).`);
+    }
+    if (!st || typeof st !== "object") {
+      throw new Error(`Estado del trabajo inválido (${sourceLabel} HTTP ${statusCode}).`);
+    }
+    return st;
+  }
+
+  async function waitGenExamenJobByPolling(statusUrl, deadlineMs) {
+    while (Date.now() < deadlineMs) {
+      await new Promise((r) => setTimeout(r, GEN_DOC_POLL_MS));
+      const stRes = await fetch(statusUrl);
+      const stRaw = await stRes.text();
+      const st = parseGenExamenStatusPayload(stRaw, stRes.status, "poll");
+      if (!stRes.ok) {
+        throw new Error(st?.error || `HTTP ${stRes.status}`);
       }
-
-      const endpoint = `http://localhost:5050/api/grupos/${
-        sel.id
-      }/generar_doc?formato=${encodeURIComponent(formato)}&numerar=1`;
-      setGenExamenMensajeModal(`Generando examen para el grupo <b>${sel.clave}</b>…`, "info");
-
-      const res = await fetch(endpoint, { method: "POST" });
-      const raw = await res.text();
-
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch (e) {
-        console.error("HTML devuelto por el backend:\n", raw);
-        throw new Error(`Respuesta no JSON (HTTP ${res.status}).`);
+      updateGenExamenGenerarProgress(st.done, st.total, st.message || "");
+      if (st.status === "done" || st.status === "error") {
+        return st;
       }
+    }
+    throw new Error("timeout");
+  }
 
-      if (!res.ok || !data?.ok) {
-        const msg = data?.error || `Error ${res.status}`;
+  async function waitGenExamenJobBySse(jobId, deadlineMs) {
+    return await new Promise((resolve, reject) => {
+      const remainMs = Math.max(1000, deadlineMs - Date.now());
+      const sseUrl = `http://localhost:5050/api/grupos/generar_doc/jobs/${jobId}/events`;
+      const es = new EventSource(sseUrl);
+      let settled = false;
+      const finish = (fn, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        try { es.close(); } catch {}
+        fn(value);
+      };
 
-        console.group("[GENERAR_EXAMEN][ERROR_BACKEND]");
-        console.log("status =", res.status);
-        console.log("error =", msg);
-        console.log("payload completo =", data);
+      const timeoutId = setTimeout(() => {
+        finish(reject, new Error("timeout"));
+      }, remainMs);
 
-        if (Array.isArray(data?.detalles)) {
-          console.log("detalles:");
-          data.detalles.forEach((d, i) => {
-            console.log(`  [${i + 1}] path=${d.path || "-"} motivo=${d.motivo || d.tema || "-"}`);
-          });
+      const onProgressEvent = (ev) => {
+        const st = parseGenExamenStatusPayload(ev.data, 200, "sse");
+        updateGenExamenGenerarProgress(st.done, st.total, st.message || "");
+        if (st.status === "done" || st.status === "error") {
+          finish(resolve, st);
         }
+      };
+      es.onmessage = onProgressEvent;
+      es.addEventListener("progress", onProgressEvent);
 
-        console.groupEnd();
+      es.onerror = () => {
+        finish(reject, new Error("sse_unavailable"));
+      };
+    });
+  }
 
-        setGenExamenMensajeModal(msg, "danger");
-        mostrarAccionesDescarga(false);
-        return;
-      }
+  function showGenExamenGenerarDone() {
+    const ov = document.getElementById("gen-examen-generar-progress");
+    const bar = document.getElementById("gen-examen-generar-progress-bar");
+    const lblText = document.getElementById("gen-examen-generar-progress-label-text");
+    const pctEl = document.getElementById("gen-examen-generar-progress-pct");
+    if (!ov || !bar || !lblText) return;
+    const cv = window.grupoSeleccionado?.clave
+      ? String(window.grupoSeleccionado.clave)
+      : "";
+    bar.style.width = "100%";
+    bar.setAttribute("aria-valuenow", "100");
+    if (pctEl) pctEl.textContent = "100%";
+    bar.classList.remove("gen-examen-pct-outside");
+    lblText.textContent = cv
+      ? `Examen del grupo ${cv} generado correctamente.`
+      : "Examen generado correctamente.";
+    bar.classList.remove(
+      "progress-bar-striped",
+      "progress-bar-animated",
+      "bg-primary"
+    );
+    ov.classList.remove("gen-examen-generar-overlay--success-pop");
+    void ov.offsetWidth;
+    ov.classList.add("gen-examen-generar-overlay--success");
+    ov.classList.add("gen-examen-generar-overlay--success-pop");
+    setTimeout(() => {
+      ov.classList.remove("gen-examen-generar-overlay--success-pop");
+    }, 650);
+  }
 
+  async function aplicarExamenGeneradoOk(data) {
       const toAbs = (p) =>
         p ? `http://127.0.0.1:5050${p.startsWith("/") ? "" : "/"}${p}` : null;
 
@@ -2096,8 +2370,16 @@ function abrirModalSobre(parentId, childId, opts) {
       ensureViewer();
 
       if (data.preview_kind === "pdf" && previewAbs) {
+        showGenExamenGenerarDone();
+        await new Promise((r) =>
+          setTimeout(r, GEN_EXAMEN_SUCCESS_BEFORE_PDF_MS)
+        );
         cargarIframe(previewAbs);
       } else if (window.__ultimoGenerado.pdfUrl) {
+        showGenExamenGenerarDone();
+        await new Promise((r) =>
+          setTimeout(r, GEN_EXAMEN_SUCCESS_BEFORE_PDF_MS)
+        );
         cargarIframe(
           window.__ultimoGenerado.pdfUrl.replace(
             "http://127.0.0.1:5050/api/",
@@ -2105,18 +2387,134 @@ function abrirModalSobre(parentId, childId, opts) {
           )
         );
       } else {
-        setGenExamenMensajeModal("No se pudo generar la vista PDF del examen.", "danger");
+        setGenExamenMensajeModal(
+          "No se pudo generar la vista PDF del examen.",
+          "danger"
+        );
         mostrarAccionesDescarga(false);
         return;
       }
 
-      ponerLinksVista(docxUrlApi, pdfUrlApi);
+      ponerLinksVista(window.__ultimoGenerado.docxUrl, window.__ultimoGenerado.pdfUrl);
       mostrarAccionesDescarga(true);
-      setGenExamenMensajeModal("Tu examen está listo.", "success");
+  }
+
+  async function generarExamenGrupo(formato = "word") {
+    const sel = window.grupoSeleccionado;
+    if (!sel?.id) {
+      setGenExamenMensajeModal(
+        "Selecciona un grupo en la lista de la izquierda.",
+        "warning"
+      );
+      return;
+    }
+    if (window.__genExamenGenerando) return;
+
+    try {
+      const q = `formato=${encodeURIComponent(formato)}&numerar=1`;
+      const startUrl = `http://localhost:5050/api/grupos/${sel.id}/generar_doc_async?${q}`;
+
+      __genExamenClaveProgresoRaw = String(sel.clave ?? "");
+      getGenExamenMensajeEl()?.classList.add("d-none");
+      setGenExamenIdleHeroAlertState(null);
+      setGenExamenModalInteractionLocked(true);
+      {
+        const visGen = document.getElementById("visor-examen");
+        const hostGen = document.getElementById("pdf-host");
+        if (visGen) visGen.classList.remove("cargado");
+        if (hostGen) hostGen.innerHTML = "";
+        mostrarAccionesDescarga(false);
+      }
+      setGenExamenGenerarProgressVisible(true);
+      updateGenExamenGenerarProgress(0, 1, "prep");
+
+      const startRes = await fetch(startUrl, { method: "POST" });
+      const startRaw = await startRes.text();
+      let startJson;
+      try {
+        startJson = JSON.parse(startRaw);
+      } catch (e) {
+        console.error("generar_doc_async no JSON:\n", startRaw);
+        throw new Error(`Respuesta no JSON (HTTP ${startRes.status}).`);
+      }
+      if (!startRes.ok || !startJson?.ok || !startJson.job_id) {
+        const msg = startJson?.error || `Error ${startRes.status}`;
+        setGenExamenMensajeModal(msg, "danger");
+        mostrarAccionesDescarga(false);
+        return;
+      }
+
+      const jobId = startJson.job_id;
+      const statusUrl = `http://localhost:5050/api/grupos/generar_doc/jobs/${jobId}`;
+      const deadline = Date.now() + GEN_DOC_JOB_TIMEOUT_MS;
+      let st;
+      try {
+        st = await waitGenExamenJobBySse(jobId, deadline);
+      } catch (e) {
+        if (e?.message !== "sse_unavailable") {
+          throw e;
+        }
+        st = await waitGenExamenJobByPolling(statusUrl, deadline);
+      }
+
+      if (st.status === "done") {
+        const data = st.result;
+        if (!data?.ok) {
+          const msg = data?.error || "Error al generar el examen.";
+          console.group("[GENERAR_EXAMEN][ERROR_BACKEND]");
+          console.log("payload =", data);
+          if (Array.isArray(data?.detalles)) {
+            data.detalles.forEach((d, i) => {
+              console.log(
+                `  [${i + 1}] path=${d.path || "-"} motivo=${d.motivo || d.tema || "-"}`
+              );
+            });
+          }
+          console.groupEnd();
+          setGenExamenMensajeModal(msg, "danger");
+          mostrarAccionesDescarga(false);
+          return;
+        }
+        await aplicarExamenGeneradoOk(data);
+        return;
+      }
+
+      if (st.status === "error") {
+        const code = st.http_status || 500;
+        const body = st.error || {};
+        const msg = body.error || body.message || `Error ${code}`;
+        console.group("[GENERAR_EXAMEN][ERROR_BACKEND]");
+        console.log("http_status =", code);
+        console.log("error =", msg);
+        console.log("payload =", body);
+        if (Array.isArray(body?.detalles)) {
+          body.detalles.forEach((d, i) => {
+            console.log(
+              `  [${i + 1}] path=${d.path || "-"} motivo=${d.motivo || d.tema || "-"}`
+            );
+          });
+        }
+        console.groupEnd();
+        setGenExamenMensajeModal(msg, "danger");
+        mostrarAccionesDescarga(false);
+        return;
+      }
     } catch (e) {
       console.error(e);
+      if (e?.message === "timeout") {
+        setGenExamenMensajeModal(
+          "La generación tardó demasiado. Revisa el servidor e inténtalo de nuevo.",
+          "warning"
+        );
+        mostrarAccionesDescarga(false);
+        return;
+      }
       setGenExamenMensajeModal("Error de red al generar el examen.", "danger");
       mostrarAccionesDescarga(false);
+    } finally {
+      __genExamenClaveProgresoRaw = "";
+      setGenExamenModalInteractionLocked(false);
+      setGenExamenGenerarProgressVisible(false);
     }
   }
 
@@ -2165,6 +2563,10 @@ async function guardarUltimoDeDescargasPdf() {
 
 document.addEventListener("click", async (ev) => {
   if (ev.target.closest("#btnGuardarDocx")) {
+    if (!hasGenExamenPreviewReady()) {
+      ev.preventDefault();
+      return;
+    }
     try {
       if (window.examenSeleccionadoParaExportar) {
         console.log("[GUARDAR DOCX] Plan A: exportarExamenSeleccionado(docx)");
@@ -2197,6 +2599,10 @@ document.addEventListener("click", async (ev) => {
   }
 
   if (ev.target.closest("#btnGuardarPdf")) {
+    if (!hasGenExamenPreviewReady()) {
+      ev.preventDefault();
+      return;
+    }
     try {
       if (window.examenSeleccionadoParaExportar) {
         console.log("[GUARDAR PDF] Plan A: exportarExamenSeleccionado(pdf)");
@@ -2271,13 +2677,14 @@ function ensureViewer() {
   }
 
   if (!pdfHost) {
+    const stack = visor.querySelector(".gen-examen-visor-stack");
     const host = document.createElement("div");
     host.id = "pdf-host";
     host.style.width = "100%";
     host.style.height = "100%";
     host.style.border = "0";
     host.style.background = "#fff";
-    visor.appendChild(host);
+    (stack || visor).appendChild(host);
   }
 
   return true;
@@ -2397,31 +2804,63 @@ async function mostrarVistaDocx(nombreDocx) {
 }
 
 function mostrarAccionesDescarga(show) {
+  const enabled = !!show;
   const box = document.getElementById("accionesDescarga");
-  if (!box) return;
-  box.classList.toggle("d-none", !show);
-  if (!show) {
-    const links = document.getElementById("linksVista");
-    if (links) links.innerHTML = "";
+  const btnVerDocx = document.getElementById("btnVerDocx");
+  const btnVerPdf = document.getElementById("btnVerPdf");
+  const btnGuardarDocx = document.getElementById("btnGuardarDocx");
+  if (box) box.dataset.enabled = enabled ? "1" : "0";
+  [btnVerDocx, btnVerPdf, btnGuardarDocx].forEach((btn) => {
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.setAttribute("aria-disabled", enabled ? "false" : "true");
+  });
+  if (!enabled) {
+    if (btnVerDocx) btnVerDocx.dataset.url = "";
+    if (btnVerPdf) btnVerPdf.dataset.url = "";
   }
 }
 
 function ponerLinksVista(docxUrl, pdfUrl) {
-  const box = document.getElementById("linksVista");
-  if (!box) return;
-  const parts = [];
-  if (docxUrl) {
-    parts.push(
-      `<a href="${docxUrl}" target="_blank" rel="noopener" class="btn gen-examen-btn gen-examen-btn--outline-docx"><i class="bi bi-file-earmark-word" aria-hidden="true"></i>Ver DOCX</a>`
-    );
-  }
-  if (pdfUrl) {
-    parts.push(
-      `<a href="${pdfUrl}" target="_blank" rel="noopener" class="btn gen-examen-btn gen-examen-btn--pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>Ver PDF</a>`
-    );
-  }
-  box.innerHTML = parts.join("");
+  const btnVerDocx = document.getElementById("btnVerDocx");
+  const btnVerPdf = document.getElementById("btnVerPdf");
+  if (btnVerDocx) btnVerDocx.dataset.url = docxUrl || "";
+  if (btnVerPdf) btnVerPdf.dataset.url = pdfUrl || "";
+
+  const canOpen = !!(docxUrl || pdfUrl);
+  mostrarAccionesDescarga(canOpen);
 }
+
+function hasGenExamenPreviewReady() {
+  const box = document.getElementById("accionesDescarga");
+  if (box?.dataset.enabled !== "1") return false;
+  return !!(window.__ultimoGenerado?.docxUrl || window.__ultimoGenerado?.pdfUrl);
+}
+
+document.addEventListener("click", async (ev) => {
+  const btnDocx = ev.target.closest("#btnVerDocx");
+  if (btnDocx) {
+    ev.preventDefault();
+    if (!hasGenExamenPreviewReady()) return;
+    const docxUrl = btnDocx.dataset.url || window.__ultimoGenerado?.docxUrl;
+    if (!docxUrl) return;
+    const suggestedName = window.__ultimoGenerado?.docxName || "examen.docx";
+    const r = await window.api?.openDocxFromUrl?.(docxUrl, suggestedName);
+    if (!r?.ok && !r?.canceled) {
+      await uiAlert(r?.message || "No se pudo abrir el DOCX en Word.");
+    }
+    return;
+  }
+
+  const btnPdf = ev.target.closest("#btnVerPdf");
+  if (btnPdf) {
+    ev.preventDefault();
+    if (!hasGenExamenPreviewReady()) return;
+    const pdfUrl = btnPdf.dataset.url || window.__ultimoGenerado?.pdfUrl;
+    if (!pdfUrl) return;
+    window.open(pdfUrl, "_blank", "noopener");
+  }
+});
 
 (function initGenExamenGruposToggle() {
   const layout = document.getElementById("genExamenLayout");

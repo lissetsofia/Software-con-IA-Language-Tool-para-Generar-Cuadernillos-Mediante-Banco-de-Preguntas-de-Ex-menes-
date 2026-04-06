@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, redirect, url_for,send_from_directory,make_response,after_this_request
+from flask import Flask, request, jsonify, send_file, redirect, url_for,send_from_directory,make_response,after_this_request, Response, stream_with_context
 from db import get_connection
 import os, tempfile, time,base64 ,datetime as dt,hashlib, random, secrets
 import win32com.client as win32
@@ -18,7 +18,9 @@ from datetime import datetime
 from pathlib import Path
 # ↑ cerca de otros imports
 import json
+import threading
 import traceback
+import uuid
 import pythoncom
 import mammoth
 from docx import Document
@@ -3686,11 +3688,15 @@ def grupo_cuotas_put(idgrupo):
 # =======================
 # GENERAR DOC (WORD/PDF) SEGÚN GRUPO
 # =======================
-# --- Implementación común ---
-def _grupos_generar_doc_impl(idgrupo: int, formato: str):
+_generar_doc_jobs_lock = threading.Lock()
+_generar_doc_jobs: dict = {}
+
+# --- Implementación común (retorna ("ok", dict) | ("err", http_code, dict)) ---
+def _grupos_generar_doc_run(idgrupo: int, formato: str, req_args: dict, progress_cb):
+    req_args = req_args or {}
     formato = (formato or "word").lower()
     if formato not in ("word", "pdf"):
-        return jsonify({"error": "formato inválido (word|pdf)"}), 400
+        return ("err", 400, {"error": "formato inválido (word|pdf)"})
 
     try:
         conn = get_connection(); cur = conn.cursor()
@@ -3700,7 +3706,7 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
         g = cur.fetchone()
         if not g:
             cur.close(); conn.close()
-            return jsonify({"error":"Grupo no existe"}), 404
+            return ("err", 404, {"error": "Grupo no existe"})
         clave = g["clave"] or f"G{idgrupo}"
 
         # Cuotas
@@ -3714,17 +3720,17 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
         cuotas = cur.fetchall()
         if not cuotas:
             cur.close(); conn.close()
-            return jsonify({"error":"El grupo no tiene cuotas configuradas."}), 400
+            return ("err", 400, {"error": "El grupo no tiene cuotas configuradas."})
 
         total_requeridas = sum(max(0, int(c["cantidad"])) for c in cuotas)
         if total_requeridas <= 0:
             cur.close(); conn.close()
-            return jsonify({"error": "Todas las cuotas están en 0. Asigna cantidades > 0."}), 400
+            return ("err", 400, {"error": "Todas las cuotas están en 0. Asigna cantidades > 0."})
 
         tema_ids = [c["tema_id"] for c in cuotas if int(c["cantidad"]) > 0]
         if not tema_ids:
             cur.close(); conn.close()
-            return jsonify({"error":"No hay cuotas con cantidad > 0."}), 400
+            return ("err", 400, {"error": "No hay cuotas con cantidad > 0."})
 
         # Disponibilidad
         cur.execute(
@@ -3747,39 +3753,24 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
                 })
         if faltantes:
             cur.close(); conn.close()
-            return jsonify({"ok": False, "error": "No hay preguntas suficientes para crear este examen.", "faltantes": faltantes}), 409
+            return ("err", 409, {"ok": False, "error": "No hay preguntas suficientes para crear este examen.", "faltantes": faltantes})
 
         # Modo diagnóstico
-        if request.args.get("debug") == "1":
+        if req_args.get("debug") == "1":
             cur.close(); conn.close()
-            return jsonify({
+            return ("ok", {
                 "grupo_id": idgrupo,
-                "cuotas": cuotas,
+                "cuotas": [{k: c[k] for k in c.keys()} for c in cuotas],
                 "disponibilidad_por_tema": mapa_disp,
                 "total_requeridas": total_requeridas
             })
-
-        # Selección aleatoria
-        # --- Selección aleatoria agrupada por tema (respeta el orden de cuotas) ---
-                # =========================================================
-        # DEBUG PASO 1: construir selección agrupada por tema
-        # Aquí sabremos exactamente qué archivos entran al examen
-        # =========================================================
-        print("\n" + "=" * 80)
-        print(f"[GEN_EXAMEN] Inicio generación grupo id={idgrupo} clave={clave}")
-        print(f"[GEN_EXAMEN] formato={formato}")
-        print(f"[GEN_EXAMEN] total cuotas={len(cuotas)}")
-        print("=" * 80)
 
         grouped = []  # [(tema_nombre, [ruta_docx, ...]), ...]
         for c in cuotas:
             tema_nombre = c["tema"]
             cantidad = int(c["cantidad"])
             if cantidad <= 0:
-                print(f"[GEN_EXAMEN][SKIP] tema='{tema_nombre}' cantidad=0")
                 continue
-
-            print(f"[GEN_EXAMEN][DB] buscando preguntas tema='{tema_nombre}' cantidad={cantidad}")
 
             cur.execute("""
                 SELECT archivo_ruta
@@ -3790,36 +3781,21 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
             """, (c["tema_id"], cantidad))
             filas = cur.fetchall()
 
-            print(f"[GEN_EXAMEN][DB] tema='{tema_nombre}' encontradas={len(filas)}")
-
             if len(filas) < cantidad:
                 cur.close(); conn.close()
-                return jsonify({"ok": False, "error": "Stock insuficiente inesperado."}), 409
+                return ("err", 409, {"ok": False, "error": "Stock insuficiente inesperado."})
 
             paths = [os.path.abspath(f["archivo_ruta"]) for f in filas]
-
-            # DEBUG: listar cada archivo elegido
-            for k, p in enumerate(paths, start=1):
-                existe = os.path.exists(p)
-                tam = os.path.getsize(p) if existe else -1
-                print(f"[GEN_EXAMEN][PATH] tema='{tema_nombre}' idx={k}/{len(paths)} existe={existe} size={tam} path={p}")
-
             grouped.append((tema_nombre, paths))
 
-        # DEBUG: revisar si algún grupo quedó vacío
         vacios = [(t, len(fs)) for (t, fs) in grouped if not fs]
         if vacios:
-            print("[GEN_EXAMEN][ERROR] temas vacíos:", vacios)
-            return jsonify({
+            return ("err", 409, {
                 "ok": False,
                 "error": "No se encontraron preguntas para algunos temario",
                 "detalles": [{"tema": t, "encontradas": n} for t, n in vacios]
-            }), 409
+            })
 
-        # =========================================================
-        # DEBUG PASO 2: aplanar lista final de DOCX a unir
-        # Aquí vemos el ORDEN exacto en que se intentará insertar
-        # =========================================================
         ts = time.strftime("%Y-%m-%d %H-%M")
         friendly = f"Examen del grupo {clave} - {ts}"
         base_name = f"{friendly}.docx"
@@ -3830,201 +3806,110 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
             for f in files:
                 flat.append((os.path.abspath(f), False))
 
-        print(f"[GEN_EXAMEN][FLAT] total archivos a unir={len(flat)}")
-        for i, (p, _flag) in enumerate(flat, start=1):
-            existe = os.path.exists(p)
-            tam = os.path.getsize(p) if existe else -1
-            print(f"[GEN_EXAMEN][FLAT_ITEM] {i}/{len(flat)} existe={existe} size={tam} path={p}")
-
-        # DEBUG: validar si hay archivos faltantes antes del merge
         faltan_en_disco = [p for (p, _flag) in flat if not os.path.exists(p)]
         if faltan_en_disco:
-            print("[GEN_EXAMEN][ERROR] faltan archivos en disco:")
-            for p in faltan_en_disco:
-                print("   -", p)
-            return jsonify({
+            return ("err", 409, {
                 "ok": False,
                 "error": "Hay preguntas seleccionadas cuyo archivo no existe en disco.",
                 "detalles": [{"path": p, "motivo": "archivo no existe"} for p in faltan_en_disco]
-            }), 409
+            })
 
-        # =========================================================
-        # DEBUG PASO 3: probar apertura simple de cada DOCX antes del merge
-        # Si uno ya viene dañado, aquí lo detectamos antes de unir
-        # =========================================================
-        docx_invalidos = []
+        n_files = len(flat)
+        merge_ops = sum(1 + len(files) for _, files in grouped)
+        total_steps = 4 + n_files + merge_ops
+
+        def _rp(done, msg):
+            if progress_cb:
+                progress_cb(int(done), int(total_steps), msg)
+
+        def _merge_step(j, _msg):
+            _rp(1 + n_files + int(j), "merge")
+
+        _rp(1, "prep")
+
         docx_reparacion_fallida = []
 
         for i, (p, _flag) in enumerate(flat, start=1):
             try:
                 _ = DocxDocument(p)
-                print(f"[GEN_EXAMEN][DOCX_OK] {i}/{len(flat)} {p}")
-                # si abre bien con python-docx, NO lo fuerces a reparar
+                _rp(1 + i, "validate")
                 continue
-            except Exception as e:
-                print(f"[GEN_EXAMEN][DOCX_BAD] {i}/{len(flat)} path={p} error={repr(e)}")
+            except Exception:
+                pass
 
-            # solo si realmente falló, intenta reparación fuerte
             ok_fix, err_fix = reparar_docx_fuerte(p)
             if ok_fix:
-                print(f"[GEN_EXAMEN][PREMERGE_REPAIR_OK] {i}/{len(flat)} {p}")
                 try:
                     _ = DocxDocument(p)
-                    print(f"[GEN_EXAMEN][POST_REPAIR_OK] {i}/{len(flat)} {p}")
                 except Exception as e2:
-                    print(f"[GEN_EXAMEN][POST_REPAIR_BAD] {i}/{len(flat)} {p} -> {repr(e2)}")
                     docx_reparacion_fallida.append((p, f"Reparó pero sigue inválido: {e2}"))
             else:
-                print(f"[GEN_EXAMEN][PREMERGE_REPAIR_BAD] {i}/{len(flat)} {p} -> {err_fix}")
                 docx_reparacion_fallida.append((p, err_fix or "sin detalle"))
+            _rp(1 + i, "validate")
 
         if docx_reparacion_fallida:
-            return jsonify({
+            return ("err", 409, {
                 "ok": False,
                 "error": "Hay preguntas con DOCX realmente dañados antes del merge.",
                 "detalles": [{"path": p, "motivo": m} for (p, m) in docx_reparacion_fallida]
-            }), 409
+            })
 
-        # =========================================================
-        # DEBUG PASO 4: merge final
-        # =========================================================
         malos = []
-        print(f"[GEN_EXAMEN][MERGE] destino_docx={destino_docx}")
-        print(f"[GEN_EXAMEN][MERGE] _com_disponible()={_com_disponible()} Composer={Composer is not None}")
 
         if _com_disponible():
-            print("[GEN_EXAMEN][MERGE] usando _merge_grouped_with_headings_wordcom(grouped, destino_docx)")
-            destino_docx, _, malos = _merge_grouped_with_headings_wordcom(grouped, destino_docx)
+            destino_docx, _, malos = _merge_grouped_with_headings_wordcom(
+                grouped, destino_docx, merge_step_cb=_merge_step, merge_ops=merge_ops
+            )
         else:
-            print("[GEN_EXAMEN][MERGE] usando _merge_grouped_with_headings(grouped, destino_docx)")
-            destino_docx, _, malos = _merge_grouped_with_headings(grouped, destino_docx)
-       
+            destino_docx, _, malos = _merge_grouped_with_headings(
+                grouped, destino_docx, merge_step_cb=_merge_step, merge_ops=merge_ops
+            )
 
-        print(f"[GEN_EXAMEN][MERGE] terminado destino={destino_docx}")
-        print(f"[GEN_EXAMEN][MERGE] malos={malos}")
+        _rp(1 + n_files + merge_ops, "merge")
 
         if malos:
-            print("⚠️ Fallaron inserciones en merge:")
-            for p, m in malos:
-                print(f"   - path={p}")
-                print(f"     motivo={m}")
-            return jsonify({
+            return ("err", 409, {
                 "ok": False,
                 "error": "No se pudo armar el examen completo porque algunas preguntas no pudieron insertarse.",
                 "detalles": [{"path": p, "motivo": m} for (p, m) in malos]
-            }), 409
-
-        # =========================================================
-        # DEBUG PASO 5: verificar DOCX resultante
-        # =========================================================
-        existe_final = os.path.exists(destino_docx)
-        size_final = os.path.getsize(destino_docx) if existe_final else -1
-        print(f"[GEN_EXAMEN][FINAL_DOCX] existe={existe_final} size={size_final} path={destino_docx}")
+            })
 
         try:
             _ = DocxDocument(destino_docx)
-            print("[GEN_EXAMEN][FINAL_DOCX] DocxDocument abrió el resultado correctamente")
         except Exception as e:
-            print("[GEN_EXAMEN][FINAL_DOCX_BAD] el DOCX final ya salió dañado:", repr(e))
-            return jsonify({
+            return ("err", 500, {
                 "ok": False,
                 "error": f"El DOCX final quedó inválido después del merge. Detalle: {e}"
-            }), 500
+            })
 
-        # =========================================================
-        # DEBUG PASO 6: reparación con Word
-        # =========================================================
+        _rp(2 + n_files + merge_ops, "finalize")
+
         try:
-            print("[GEN_EXAMEN][REPAIR] intentando reparar_docx_inplace...")
             reparar_docx_inplace(destino_docx)
-            print("[GEN_EXAMEN][REPAIR] OK")
-        except Exception as e:
-            print("[GEN_EXAMEN][REPAIR] aviso:", repr(e))
+        except Exception:
+            pass
 
-        # Puedes forzar COM con ?com=1 (Windows). Por defecto usamos el camino Python (estable).
-        #usar_com = (request.args.get("com") == "1") and _com_disponible()
-        #if not usar_com and Composer is None and _com_disponible():
-         #   usar_com = True 
-        #malos = []
-        #if usar_com:
-            # COM (Word) + títulos
-        #    destino_docx, _, malos = _merge_grouped_with_headings_wordcom(grouped, destino_docx)
-        #else:
-            # Python (docxcompose) + títulos
-        #    destino_docx, _, malos = _merge_grouped_with_headings(grouped, destino_docx)
-            # Normaliza numeración decimal como en tu Colab
-        #    try:
-        #        _post_merge_fix_numbering(destino_docx)    # fuerza numId=1 ilvl=0 para 'decimal'
-        #    except Exception:
-        #        pass
-            # Secciones continuas y limpieza opcional
-        #    try:
-        #        _hacer_secciones_continuas(destino_docx)   # cambia nextPage->continuous y quita <w:br type="page"/>
-        #    except Exception:
-        #        pass
-        
-       # ... después de producir destino_docx (con COM o con python) ...
-        # Temporalmente desactivado para no alterar el DOCX final recién unido
-        # try:
-        #     bullets_to_numbers_docx(destino_docx)
-        # except Exception as _e:
-        #    print("bullet->decimal warning:", _e)
+        _rp(3 + n_files + merge_ops, "pdf")
 
-        # try:
-        #     reparar_docx_inplace(destino_docx)
-        # except Exception:
-        #     pass
+        advertencias = []
 
-        # === Vista previa HTML (Word -> Web Page, Filtered) ===
-      #  try:
-            # Carpeta única por examen dentro de /static/previews
-       #  ===   base_safe = re.sub(r'[^A-Za-z0-9_-]+', '_', os.path.splitext(base_name)[0])
-       #     out_dir = os.path.join(PREVIEWS_DIR, base_safe)
-        #    html_abs, html_rel = docx_a_html_filtrado(destino_docx, out_dir)  # <- tu función
-        #    preview_url = html_rel  # ej: /static/previews/Examen_A_2025-11-02_21-53/Examen_A_2025-11-02_21-53.html
-        #except Exception as _e:
-        #    print("[preview] fallo generando HTML:", _e)
-         #   preview_url = None
-     
-        # --- Guardar y devolver JSON (sin descargar) ---
-        # --- Guardar y devolver JSON (sin descargar) ---
-          # --- Guardar y devolver JSON (sin descargar) ---
-        advertencias = []  # o usa los “malos” que devuelven los merges
-
-        
-        # nombres finales en /descargas
-        pdf_name  = f"{friendly}.pdf"
+        pdf_name = f"{friendly}.pdf"
         pdf_final = os.path.join(app.config['DESCARGAS_FOLDER'], pdf_name)
 
-        # aseguramos la carpeta
         os.makedirs(app.config['DESCARGAS_FOLDER'], exist_ok=True)
 
-        ruta_rel_pdf  = None
-        ruta_pdf_dl   = None
+        ruta_rel_pdf = None
+        ruta_pdf_dl = None
         ruta_pdf_inline = None
-
-            # 🔧 Normaliza el DOCX con Word para evitar “archivo corrompido”
-      # try:
-    #     tmp_norm = os.path.join(app.config['DESCARGAS_FOLDER'], "_tmp_norm.docx")
-    #     resave_docx_formatted(destino_docx, tmp_norm)
-    #     shutil.move(tmp_norm, destino_docx)
-    # except Exception as _e:
-    #     print("[normalize] aviso:", _e)
-
-       # 1) convertir DOCX -> PDF directamente al destino final
-         #   pdf_error = None
+        pdf_error = None
 
         try:
-            pdf_generado = docx_a_pdf(destino_docx, pdf_final)
-            print("[PDF grupos] OK:", pdf_generado, "size=",
-                os.path.getsize(pdf_generado) if os.path.exists(pdf_generado) else 0)
-
-            ruta_rel_pdf    = f"/api/descargas/{pdf_name}"
-            ruta_pdf_dl     = ruta_rel_pdf
+            docx_a_pdf(destino_docx, pdf_final)
+            ruta_rel_pdf = f"/api/descargas/{pdf_name}"
+            ruta_pdf_dl = ruta_rel_pdf
             ruta_pdf_inline = f"/api/descargas/{pdf_name}"
         except Exception as e:
             pdf_error = str(e)
-            print("[PDF grupos] ERROR al convertir:", repr(e))
             traceback.print_exc()
             ruta_rel_pdf = ruta_pdf_dl = ruta_pdf_inline = None
 
@@ -4035,10 +3920,12 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
        
         # 3) decidir qué mostrar en el iframe
         if not ruta_pdf_inline:
-            return jsonify({
+            return ("err", 500, {
                 "ok": False,
                 "error": f"No se pudo generar el PDF del examen para la vista previa. Detalle: {pdf_error or 'sin detalle'}"
-            }), 500
+            })
+
+        _rp(total_steps, "done")
 
         preview_url = ruta_pdf_inline
         preview_kind = "pdf"
@@ -4059,7 +3946,7 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
         # ⛑️ PLAN B: aplanar numeración si ?flat=1
         # (convierte toda la numeración a texto y elimina numbering.xml)
         # =========================
-        if request.args.get("flat") == "1":
+        if req_args.get("flat") == "1":
             try:
                 aplanar_listas_a_texto(destino_docx)
                 reparar_docx_inplace(destino_docx)  # opcional
@@ -4074,20 +3961,189 @@ def _grupos_generar_doc_impl(idgrupo: int, formato: str):
                 # NO cambiar preview_url: ya apunta al PDF inline
             })
 
-
-        return jsonify(result)
-
-
+        return ("ok", result)
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
+        return ("err", 500, {"error": str(e)})
+
+
+def _grupos_generar_doc_impl(idgrupo: int, formato: str):
+    req_snap = {k: request.args.get(k) for k in request.args}
+    out = _grupos_generar_doc_run(idgrupo, formato, req_snap, None)
+    if out[0] == "ok":
+        return jsonify(out[1])
+    return jsonify(out[2]), out[1]
+
+
+def _grupos_generar_doc_async_worker(job_id: str, idgrupo: int, formato: str, req_snap: dict):
+    def progress_cb(done, total, msg):
+        with _generar_doc_jobs_lock:
+            j = _generar_doc_jobs.get(job_id)
+            if j:
+                j.update({
+                    "status": "running",
+                    "done": done,
+                    "total": max(1, total),
+                    "message": msg,
+                })
+
+    try:
+        out = _grupos_generar_doc_run(idgrupo, formato, req_snap, progress_cb)
+        with _generar_doc_jobs_lock:
+            j = _generar_doc_jobs.get(job_id)
+            if not j:
+                return
+            if out[0] == "ok":
+                tot = j.get("total") or 1
+                j.update({
+                    "status": "done",
+                    "done": tot,
+                    "total": tot,
+                    "message": "done",
+                    "result": out[1],
+                    "error": None,
+                    "http_status": None,
+                })
+            else:
+                _, code, body = out
+                j.update({
+                    "status": "error",
+                    "http_status": code,
+                    "error": body,
+                    "message": (body or {}).get("error", "Error"),
+                    "result": None,
+                })
+    except Exception as e:
+        traceback.print_exc()
+        with _generar_doc_jobs_lock:
+            j = _generar_doc_jobs.get(job_id)
+            if j:
+                j.update({
+                    "status": "error",
+                    "http_status": 500,
+                    "error": {"error": str(e)},
+                    "message": str(e),
+                    "result": None,
+                })
 
 
 # Acepta ID numérico y también GET para compatibilidad
 @app.route("/api/grupos/<int:idgrupo>/generar_doc", methods=["GET", "POST"])
 def grupos_generar_doc_por_id(idgrupo: int):
     return _grupos_generar_doc_impl(idgrupo, request.args.get("formato"))
+
+
+@app.post("/api/grupos/<int:idgrupo>/generar_doc_async")
+def grupos_generar_doc_async_start(idgrupo: int):
+    formato = request.args.get("formato")
+    req_snap = {k: request.args.get(k) for k in request.args}
+    job_id = uuid.uuid4().hex
+    with _generar_doc_jobs_lock:
+        _generar_doc_jobs[job_id] = {
+            "status": "queued",
+            "done": 0,
+            "total": 1,
+            "message": "En cola…",
+            "result": None,
+            "error": None,
+            "http_status": None,
+        }
+    t = threading.Thread(
+        target=_grupos_generar_doc_async_worker,
+        args=(job_id, idgrupo, formato, req_snap),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"ok": True, "job_id": job_id})
+
+
+@app.get("/api/grupos/generar_doc/jobs/<job_id>")
+def grupos_generar_doc_job_status(job_id: str):
+    with _generar_doc_jobs_lock:
+        j = _generar_doc_jobs.get(job_id)
+    if not j:
+        return jsonify({"ok": False, "error": "job no encontrado"}), 404
+    resp = {
+        "ok": True,
+        "status": j["status"],
+        "done": j["done"],
+        "total": j["total"],
+        "message": j.get("message", ""),
+    }
+    if j["status"] == "done":
+        resp["result"] = j.get("result")
+    elif j["status"] == "error":
+        resp["ok"] = False
+        resp["error"] = j.get("error") or {}
+        resp["http_status"] = j.get("http_status", 500)
+    return jsonify(resp)
+
+
+def _public_generar_doc_job_state(j: dict) -> dict:
+    resp = {
+        "ok": True,
+        "status": j["status"],
+        "done": j["done"],
+        "total": j["total"],
+        "message": j.get("message", ""),
+    }
+    if j["status"] == "done":
+        resp["result"] = j.get("result")
+    elif j["status"] == "error":
+        resp["ok"] = False
+        resp["error"] = j.get("error") or {}
+        resp["http_status"] = j.get("http_status", 500)
+    return resp
+
+
+@app.get("/api/grupos/generar_doc/jobs/<job_id>/events")
+def grupos_generar_doc_job_events(job_id: str):
+    with _generar_doc_jobs_lock:
+        exists = _generar_doc_jobs.get(job_id)
+    if not exists:
+        return jsonify({"ok": False, "error": "job no encontrado"}), 404
+
+    def event_stream():
+        last_payload = None
+        last_heartbeat = 0.0
+        while True:
+            with _generar_doc_jobs_lock:
+                j = _generar_doc_jobs.get(job_id)
+                payload = _public_generar_doc_job_state(j) if j else None
+
+            if payload is None:
+                yield "event: error\ndata: " + json.dumps(
+                    {"ok": False, "error": "job no encontrado"},
+                    ensure_ascii=False,
+                ) + "\n\n"
+                break
+
+            payload_json = json.dumps(payload, ensure_ascii=False)
+            if payload_json != last_payload:
+                last_payload = payload_json
+                yield f"event: progress\ndata: {payload_json}\n\n"
+
+            now = time.time()
+            if now - last_heartbeat >= 15:
+                last_heartbeat = now
+                yield ":\n\n"
+
+            if payload.get("status") in ("done", "error"):
+                break
+
+            time.sleep(0.25)
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Connection": "keep-alive",
+    }
+    return Response(
+        stream_with_context(event_stream()),
+        mimetype="text/event-stream",
+        headers=headers,
+    )
 
 # NUEVA: acepta clave tipo "A", "B", "ES" y también GET
 @app.route("/api/grupos/<clave>/generar_doc", methods=["GET", "POST"])
@@ -4533,12 +4589,14 @@ def _tmp_heading_doc(texto: str) -> str:
     return path
 
 
-def _merge_grouped_with_headings(grouped, out_path):
+def _merge_grouped_with_headings(grouped, out_path, merge_step_cb=None, merge_ops=None):
     """
     grouped: [(tema_nombre, [docx1, docx2, ...]), ...]
     Une metiendo un doc temporal con el título antes de cada bloque.
     """
-
+    if merge_ops is None:
+        merge_ops = sum(1 + len(fs) for _, fs in grouped)
+    step = 0
 
     # Documento maestro vacío
     maestro = DocxDocument()
@@ -4550,10 +4608,16 @@ def _merge_grouped_with_headings(grouped, out_path):
             # 1) insertar título como un pequeño DOCX
             tpath = _tmp_heading_doc(tema)
             tmp_titles.append(tpath)
+            step += 1
+            if merge_step_cb:
+                merge_step_cb(step, "merge")
             comp.append(DocxDocument(tpath))  # añade el título
 
             # 2) añadir todas las preguntas del tema
             for f in files:
+                step += 1
+                if merge_step_cb:
+                    merge_step_cb(step, "merge")
                 comp.append(DocxDocument(os.path.abspath(f)))
 
         comp.save(out_path)
@@ -4567,7 +4631,7 @@ def _merge_grouped_with_headings(grouped, out_path):
                 pass
 
 
-def _merge_grouped_with_headings_wordcom(grouped, out_path):
+def _merge_grouped_with_headings_wordcom(grouped, out_path, merge_step_cb=None, merge_ops=None):
     """
     grouped: [(tema, [paths_pregunta,...]), ...]
     - Crea un DOCX temporal de título por tema.
@@ -4583,12 +4647,14 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path):
         for f in files:
             flat.append((os.path.abspath(f), False))
 
+    if merge_ops is None:
+        merge_ops = len(flat)
+
     try:
-        out, _, malos = _merge_with_word(flat, out_path)  # usa COM con flags
+        out, _, malos = _merge_with_word(
+            flat, out_path, merge_step_cb=merge_step_cb, merge_ops_hint=merge_ops
+        )
         # Si TODO lo que no es título falló, verás solo títulos → devuélvelo en JSON
-        if malos:
-            print("⚠️ Archivos que Word no pudo insertar:", malos[:5], "… total:", len(malos))
-            print("⚠️ Fallaron inserciones en merge:", malos)
         return out, [], malos
     finally:
         for p in tmp_titles:
@@ -4596,7 +4662,7 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path):
             except: pass
 
 
-def _merge_with_word(marked_paths, out_path):
+def _merge_with_word(marked_paths, out_path, merge_step_cb=None, merge_ops_hint=None):
     import os, pythoncom
     import win32com.client as win32
 
@@ -4614,6 +4680,8 @@ def _merge_with_word(marked_paths, out_path):
         except Exception:
             continue
 
+    merge_ops = merge_ops_hint if merge_ops_hint is not None else len(cleaned)
+
     pythoncom.CoInitialize()
     word = win32.DispatchEx("Word.Application")
     word.Visible = False
@@ -4627,10 +4695,12 @@ def _merge_with_word(marked_paths, out_path):
             r.Collapse(wdCollapseEnd)
             return r
 
-        for p_abs, is_title in cleaned:
+        for idx, (p_abs, is_title) in enumerate(cleaned, start=1):
+            inserted = False
             try:
                 r = end_range()
                 r.InsertFile(p_abs)
+                inserted = True
             except Exception as e:
                 malos.append((p_abs, f"InsertFile: {e}"))
                 try:
@@ -4642,11 +4712,15 @@ def _merge_with_word(marked_paths, out_path):
                     try:
                         r = end_range()
                         r.FormattedText = doc_src.Range().FormattedText
+                        inserted = True
                     finally:
                         doc_src.Close(False)
                 except Exception as e2:
                     malos.append((p_abs, f"FormattedText: {e2}"))
                     continue
+
+            if inserted and merge_step_cb:
+                merge_step_cb(idx, "merge")
 
             # salto SOLO después de pregunta, nunca después del título
             

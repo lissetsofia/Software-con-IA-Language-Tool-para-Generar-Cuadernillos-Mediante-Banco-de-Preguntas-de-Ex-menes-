@@ -2759,6 +2759,16 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   background: linear-gradient(180deg, #eef2f8 0%, #e8ecf4 100%);
 }
 
+#modal-examen.gen-modal-examen--generating .modal-header .btn-close:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+#modal-examen.gen-modal-examen--generating #genExamenLayout .gen-examen-grupo-row {
+  pointer-events: none;
+  cursor: default;
+}
+
 #modal-examen .gen-modal-examen-layout {
   min-height: min(78vh, 680px);
 }
@@ -3003,11 +3013,13 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   gap: 0.65rem;
 }
 
-#modal-examen #banner-estado.gen-modal-examen-alert,
-#modal-examen #gen-examen-seleccion-hint.gen-modal-examen-alert {
+#modal-examen #banner-estado.gen-modal-examen-alert {
   flex-shrink: 0;
+  width: 100%;
+  max-width: min(100%, 520px);
   margin-bottom: 0;
-  max-height: 5.5rem;
+  margin-top: 0;
+  max-height: 10rem;
   overflow: hidden;
   transition:
     max-height 0.36s ease,
@@ -3019,8 +3031,7 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
     border-width 0.32s ease;
 }
 
-#modal-examen #banner-estado.gen-modal-examen-alert.gen-modal-examen-alert--hiding,
-#modal-examen #gen-examen-seleccion-hint.gen-modal-examen-alert.gen-modal-examen-alert--hiding {
+#modal-examen #banner-estado.gen-modal-examen-alert.gen-modal-examen-alert--hiding {
   max-height: 0 !important;
   opacity: 0;
   padding-top: 0 !important;
@@ -3031,6 +3042,29 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   pointer-events: none;
 }
 
+#modal-examen #gen-examen-seleccion-hint.gen-examen-visor-idle-msg {
+  width: 100%;
+  max-width: min(100%, 480px);
+  max-height: 8rem;
+  overflow: hidden;
+  transition:
+    max-height 0.36s ease,
+    opacity 0.32s ease,
+    padding 0.32s ease,
+    margin 0.32s ease;
+}
+
+#modal-examen
+  #gen-examen-seleccion-hint.gen-examen-visor-idle-msg.gen-examen-visor-idle-msg--hiding {
+  max-height: 0 !important;
+  opacity: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin: 0 !important;
+  pointer-events: none;
+  border-width: 0 !important;
+}
+
 #modal-examen #visor-examen.gen-modal-examen-visor {
   display: flex;
   flex-direction: column;
@@ -3038,10 +3072,517 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   min-width: 0;
   min-height: min(52vh, 520px);
   background: #fff;
-  border-radius: 10px 10px 0 0;
+  border-radius: 10px;
   border: 1px solid rgba(26, 45, 69, 0.08);
-  border-bottom: none;
   overflow: hidden;
+}
+
+#modal-examen #visor-examen.cargado .gen-examen-visor-idle {
+  display: none !important;
+}
+
+#modal-examen .gen-examen-visor-idle {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.15rem 1.25rem 1.35rem;
+  background:
+    radial-gradient(ellipse 92% 78% at 50% 32%, rgba(255, 255, 255, 0.55) 0%, transparent 58%),
+    linear-gradient(168deg, #f4f6fa 0%, #e9edf5 48%, #e1e7f0 100%);
+  pointer-events: none;
+}
+
+#modal-examen .gen-examen-visor-idle-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 500px);
+  max-width: 100%;
+  min-height: min(46vh, 400px);
+  max-height: calc(100% - 0.5rem);
+  padding: 0.35rem 0.25rem 0.15rem;
+  gap: 0.75rem;
+}
+
+#modal-examen .gen-examen-visor-idle-hero {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-height: 0;
+  padding: 1rem 0.75rem;
+  text-align: center;
+}
+
+#modal-examen .gen-examen-visor-idle-hero-mark {
+  position: relative;
+  display: inline-block;
+  font-size: clamp(2.75rem, 8vw, 3.5rem);
+  line-height: 1;
+}
+
+#modal-examen .gen-examen-visor-idle-hero-ic {
+  display: block;
+  font-size: 1em;
+  line-height: 1;
+  color: rgba(91, 108, 132, 0.62);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.95))
+    drop-shadow(0 0 0.35px rgba(255, 255, 255, 0.5));
+  transition: color 0.28s ease, filter 0.28s ease;
+}
+
+#modal-examen .gen-examen-visor-idle-hero--info .gen-examen-visor-idle-hero-ic {
+  color: rgba(29, 78, 216, 0.78);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.92));
+}
+
+#modal-examen .gen-examen-visor-idle-hero--success .gen-examen-visor-idle-hero-ic {
+  color: rgba(21, 128, 61, 0.8);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.92));
+}
+
+#modal-examen .gen-examen-visor-idle-hero--warning .gen-examen-visor-idle-hero-ic {
+  color: rgba(194, 65, 12, 0.82);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.92));
+}
+
+#modal-examen .gen-examen-visor-idle-hero--danger .gen-examen-visor-idle-hero-ic {
+  color: rgba(185, 28, 28, 0.82);
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.92));
+}
+
+#modal-examen .gen-examen-visor-idle-hero-badge {
+  position: absolute;
+  right: -0.05em;
+  bottom: -0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.5em;
+  height: 0.5em;
+  padding: 0;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #fff;
+  border: 1.5px solid rgba(15, 23, 42, 0.12);
+  box-shadow:
+    0 1px 4px rgba(15, 23, 42, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  transform-origin: 80% 90%;
+}
+
+#modal-examen .gen-examen-visor-idle-hero--info .gen-examen-visor-idle-hero-badge {
+  background: #dbeafe;
+  border-color: rgba(29, 78, 216, 0.35);
+}
+
+#modal-examen .gen-examen-visor-idle-hero--success .gen-examen-visor-idle-hero-badge {
+  background: #d1fae5;
+  border-color: rgba(21, 128, 61, 0.38);
+}
+
+#modal-examen .gen-examen-visor-idle-hero--warning .gen-examen-visor-idle-hero-badge {
+  background: #ffedd5;
+  border-color: rgba(194, 65, 12, 0.36);
+}
+
+#modal-examen .gen-examen-visor-idle-hero--danger .gen-examen-visor-idle-hero-badge {
+  background: #fee2e2;
+  border-color: rgba(185, 28, 28, 0.36);
+}
+
+#modal-examen .gen-examen-visor-idle-hero-badge-ic {
+  font-size: 0.34em;
+  line-height: 1;
+}
+
+#modal-examen .gen-examen-visor-idle-hero-badge--enter {
+  animation: gen-examen-idle-badge-in 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes gen-examen-idle-badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.65);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+#modal-examen .gen-examen-visor-idle-hero--info .gen-examen-visor-idle-hero-badge-ic {
+  color: #1d4ed8;
+}
+
+#modal-examen .gen-examen-visor-idle-hero--success .gen-examen-visor-idle-hero-badge-ic {
+  color: #15803d;
+}
+
+#modal-examen .gen-examen-visor-idle-hero--warning .gen-examen-visor-idle-hero-badge-ic {
+  color: #c2410c;
+}
+
+#modal-examen .gen-examen-visor-idle-hero--danger .gen-examen-visor-idle-hero-badge-ic {
+  color: #dc2626;
+}
+
+#modal-examen .gen-examen-visor-idle-hero-line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-height: 2.6rem;
+  justify-content: flex-start;
+}
+
+#modal-examen
+  .gen-examen-visor-idle-hero-line:has(#gen-examen-seleccion-hint:not(.d-none))
+  .gen-examen-visor-idle-hero-cap {
+  display: none;
+}
+
+#modal-examen .gen-examen-visor-idle-hero-cap {
+  display: block;
+  max-width: 16.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #4a556d;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+#modal-examen .gen-examen-visor-idle-msg {
+  display: block;
+  width: 100%;
+  max-width: 17.5rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  background: transparent;
+  box-shadow: none;
+  transition: color 0.28s ease;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+#modal-examen .gen-examen-visor-idle-msg--info {
+  color: #1e3a8a;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--success {
+  color: #14532d;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--warning {
+  color: #9a3412;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--danger {
+  color: #991b1b;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--enter {
+  animation: gen-examen-idle-msg-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes gen-examen-idle-msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#modal-examen .gen-examen-visor-idle-msg__txt {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  text-align: center;
+  text-wrap: balance;
+  color: inherit;
+}
+
+#modal-examen .gen-examen-visor-idle-msg__txt b {
+  font-weight: 700;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--info .gen-examen-visor-idle-msg__txt b {
+  color: #1d4ed8;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--success .gen-examen-visor-idle-msg__txt b {
+  color: #166534;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--warning .gen-examen-visor-idle-msg__txt b {
+  color: #ea580c;
+}
+
+#modal-examen .gen-examen-visor-idle-msg--danger .gen-examen-visor-idle-msg__txt b {
+  color: #dc2626;
+}
+
+#modal-examen .gen-examen-visor-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: min(46vh, 480px);
+}
+
+#modal-examen #gen-examen-generar-progress.gen-examen-generar-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.35rem 1.15rem 1.5rem;
+  overflow: hidden;
+}
+
+#modal-examen #gen-examen-generar-progress.gen-examen-generar-overlay:not(.d-none) {
+  display: flex;
+}
+
+#modal-examen .gen-examen-generar-overlay-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    118deg,
+    #d8e0ea 0%,
+    #e4e9f1 18%,
+    #dce3ed 36%,
+    #e8edf3 52%,
+    #d5dde8 68%,
+    #e2e8f0 84%,
+    #d8e0ea 100%
+  );
+  background-size: 240% 240%;
+  animation: gen-examen-overlay-skel 3.6s ease-in-out infinite;
+}
+
+@keyframes gen-examen-overlay-skel {
+  0% {
+    background-position: 90% 40%;
+  }
+  100% {
+    background-position: -90% 60%;
+  }
+}
+
+#modal-examen
+  .gen-examen-generar-overlay.gen-examen-generar-overlay--success
+  .gen-examen-generar-overlay-bg {
+  animation: none;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 45%, #ecfdf5 100%);
+  opacity: 0.97;
+}
+
+#modal-examen .gen-examen-generar-overlay-main {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  width: min(100%, 520px);
+  padding: 0 0.35rem;
+}
+
+#modal-examen .gen-examen-generar-overlay--success-pop .gen-examen-generar-progress-track {
+  animation: gen-examen-track-pop 0.55s ease-out 1;
+}
+
+@keyframes gen-examen-track-pop {
+  0% {
+    transform: scaleY(1);
+  }
+  40% {
+    transform: scaleY(1.12);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+#modal-examen .gen-examen-skel-line {
+  height: 0.55rem;
+  border-radius: 6px;
+  margin-bottom: 0.55rem;
+  background: linear-gradient(
+    90deg,
+    #e6e9ee 0%,
+    #f2f3f6 45%,
+    #e6e9ee 90%
+  );
+  background-size: 200% 100%;
+  animation: gen-examen-skel-shimmer 1.35s ease-in-out infinite;
+}
+
+#modal-examen .gen-examen-skel-line--title {
+  width: 72%;
+  height: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+
+#modal-examen .gen-examen-skel-line--short {
+  width: 48%;
+  margin-bottom: 0;
+}
+
+@keyframes gen-examen-skel-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+#modal-examen .gen-examen-generar-msg {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: 0.01em;
+  min-height: 0;
+  margin: 0 0 0.45rem;
+  text-align: center;
+  line-height: 1.35;
+  text-wrap: balance;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+#modal-examen .gen-examen-generar-msg-text {
+  display: inline;
+}
+
+#modal-examen .gen-examen-generar-msg-dots {
+  display: inline;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+#modal-examen .gen-examen-generar-msg-dot {
+  display: inline-block;
+  min-width: 0.22em;
+  text-align: center;
+  animation: gen-examen-msg-dot-wave 1.05s ease-in-out infinite;
+}
+
+#modal-examen .gen-examen-generar-msg-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+#modal-examen .gen-examen-generar-msg-dot:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+#modal-examen .gen-examen-generar-msg-dot:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes gen-examen-msg-dot-wave {
+  0%,
+  60%,
+  100% {
+    opacity: 0.28;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-0.12em);
+  }
+}
+
+#modal-examen
+  .gen-examen-generar-overlay.gen-examen-generar-overlay--success
+  .gen-examen-generar-msg-dots {
+  display: none;
+}
+
+#modal-examen
+  #gen-examen-generar-progress.gen-examen-generar-overlay.d-none
+  .gen-examen-generar-msg-dot {
+  animation: none;
+}
+
+#modal-examen
+  .gen-examen-generar-overlay.gen-examen-generar-overlay--success
+  .gen-examen-generar-msg {
+  color: #166534;
+  animation: none;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+#modal-examen .gen-examen-generar-progress-track {
+  height: 1.35rem;
+  border-radius: 999px;
+  background: rgba(26, 45, 69, 0.08);
+  overflow: visible !important;
+}
+
+#modal-examen .gen-examen-generar-progress-track .progress-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition:
+    width 0.22s ease-out,
+    background-color 0.45s ease,
+    box-shadow 0.45s ease;
+}
+
+#modal-examen
+  .gen-examen-generar-overlay.gen-examen-generar-overlay--success
+  .gen-examen-generar-progress-track
+  .progress-bar {
+  background-color: #16a34a !important;
+  background-image: none !important;
+  box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.35) inset;
+}
+
+#modal-examen .gen-examen-generar-pct {
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+#modal-examen .gen-examen-generar-progress-track .progress-bar.gen-examen-pct-outside {
+  justify-content: flex-end;
+  padding-right: 0.35rem;
+}
+
+#modal-examen .gen-examen-generar-progress-track .progress-bar.gen-examen-pct-outside .gen-examen-generar-pct {
+  position: absolute;
+  left: 100%;
+  margin-left: 0.5rem;
+  color: #1a2d45;
+  text-shadow: none;
+  font-weight: 700;
 }
 
 #modal-examen #pdf-host {
@@ -3049,7 +3590,7 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   width: 100%;
   min-height: min(46vh, 480px);
   border: 0;
-  background: #f8fafc;
+  background: #e8edf3;
 }
 
 #modal-examen #pdf-host embed {
@@ -3092,6 +3633,9 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
+  margin-top: 0;
+  padding-top: 0.5rem;
+  border-top: none;
 }
 
 #modal-examen .gen-examen-toolbar-links {
@@ -3114,15 +3658,15 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   text-decoration: none;
 }
 
-#modal-examen a.gen-examen-btn.gen-examen-btn--outline-docx,
-#modal-examen a.gen-examen-btn--outline-docx {
+#modal-examen .gen-examen-btn.gen-examen-btn--outline-docx,
+#modal-examen .gen-examen-btn--outline-docx {
   background-color: #1e3a8a !important;
   color: #fff !important;
   border: none !important;
 }
 
-#modal-examen a.gen-examen-btn.gen-examen-btn--outline-docx:hover,
-#modal-examen a.gen-examen-btn--outline-docx:hover {
+#modal-examen .gen-examen-btn.gen-examen-btn--outline-docx:hover,
+#modal-examen .gen-examen-btn--outline-docx:hover {
   filter: brightness(1.08);
   color: #fff !important;
 }
@@ -3200,6 +3744,14 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
 #modal-examen .gen-examen-btn--save:hover {
   filter: brightness(1.06);
   color: #fff !important;
+}
+
+#modal-examen .gen-examen-btn:disabled,
+#modal-examen .gen-examen-btn[aria-disabled="true"] {
+  opacity: 0.48;
+  filter: saturate(0.45);
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* —— Filas de grupos (expandido: clave + nombre + conteo + acciones) —— */
