@@ -2491,6 +2491,91 @@ main {
   z-index: 1080;
 }
 
+/*
+  Full-viewport dim for Agregar grupo only: BS backdrop can sit under the parent modal when stacked.
+  Modal uses backdrop:false; this layer sits between parent (1055) and #modalGrupoCrear (1065) in nested mode.
+*/
+body.modal-open.gen-modal-grupo-crear-scrim::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 1060;
+  background: rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+/* Elevación solo #modalGrupoCrear (no aplica a otros modales ni a #modalGrupoEditar) */
+#modalGrupoCrear .modal-content.modal-evalunia {
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 41, 0.07),
+    0 4px 6px -2px rgba(15, 23, 41, 0.12),
+    0 18px 38px -8px rgba(15, 23, 41, 0.38),
+    0 32px 64px -12px rgba(15, 23, 41, 0.32) !important;
+}
+
+/* Crear / editar grupo: width also set under .modal-cuad-root (flex-shrink override there). */
+.gen-modal-grupo .gen-modal-grupo-dialog {
+  width: min(96vw, 800px);
+  max-width: min(96vw, 800px);
+  min-width: min(96vw, 800px);
+}
+
+.gen-modal-grupo .gen-modal-grupo-dialog.modal-dialog-scrollable .modal-content.modal-evalunia {
+  max-height: calc(100vh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+  max-height: calc(100dvh - 2 * var(--bs-modal-margin) - 0.5rem + 3px);
+}
+
+.gen-modal-grupo .gen-modal-grupo-header-icon {
+  font-size: 1.15rem;
+  opacity: 0.92;
+  flex-shrink: 0;
+}
+
+.gen-modal-grupo .modal-body.gen-modal-grupo-body {
+  background: linear-gradient(180deg, #f4f7fb 0%, #eef2f8 100%);
+  min-height: 0;
+  overflow-x: hidden;
+  scrollbar-gutter: auto;
+}
+
+.gen-modal-grupo .modal-body .form-control,
+.gen-modal-grupo .modal-body .form-select {
+  background-color: #fff !important;
+  border: 1px solid rgba(26, 45, 69, 0.18);
+}
+
+.gen-modal-grupo .modal-body .form-control:focus,
+.gen-modal-grupo .modal-body .form-select:focus {
+  background-color: #fff !important;
+  border-color: rgba(13, 110, 253, 0.45);
+  box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12);
+}
+
+.gen-modal-grupo .gen-modal-grupo-cuotas-block {
+  padding: 0.75rem 0.85rem;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(26, 45, 69, 0.1);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.gen-modal-grupo .gen-modal-grupo-cuotas-list .gen-grupo-cuota-row:last-child {
+  margin-bottom: 0 !important;
+}
+
+.gen-modal-grupo .gen-grupo-cuota-remove {
+  min-width: 2.35rem;
+  padding-left: 0.4rem;
+  padding-right: 0.4rem;
+}
+
+.gen-modal-grupo .modal-footer.gen-modal-grupo-footer {
+  border-top: 1px solid rgba(26, 45, 69, 0.1);
+}
+
 #modalAleatorizacion.modal.show {
   z-index: 1055;
 }
@@ -4839,6 +4924,13 @@ main {
   box-shadow:
     0 24px 56px rgba(8, 15, 28, 0.44),
     0 11px 30px rgba(8, 15, 28, 0.2);
+}
+
+.modal.modal-cuad-root.gen-modal-grupo .gen-modal-grupo-dialog {
+  flex-shrink: 0;
+  width: min(96vw, 800px);
+  max-width: min(96vw, 800px);
+  min-width: min(96vw, 800px);
 }
 
 .modal.modal-cuad-root .modal-dialog.modal-dialog-centered {

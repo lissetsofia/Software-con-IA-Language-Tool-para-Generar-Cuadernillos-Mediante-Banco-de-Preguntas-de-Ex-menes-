@@ -203,10 +203,9 @@
             <div class="gen-examen-toolbar gen-examen-toolbar--sidebar">
               <button
                 type="button"
+                id="btnAbrirModalGrupoCrearGenExamen"
                 class="btn gen-examen-btn gen-examen-btn--add"
                 title="Agregar grupo"
-                data-bs-toggle="modal"
-                data-bs-target="#modalGrupoCrear"
               >
                 <i class="bi bi-plus-lg" aria-hidden="true"></i>
                 <span class="gen-examen-btn-label">Agregar grupo</span>
@@ -470,12 +469,30 @@
   </div>
 </div>
 
-<div class="modal fade modal-cuad-root" id="modalGrupoCrear" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
-  data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered">
+<div
+  class="modal fade modal-cuad-root gen-modal-grupo"
+  id="modalGrupoCrear"
+  tabindex="-1"
+  aria-labelledby="modalGrupoCrearTitulo"
+  aria-hidden="true"
+  data-bs-backdrop="false"
+  data-bs-keyboard="false"
+>
+  <div
+    class="modal-dialog modal-dialog-centered modal-dialog-scrollable gen-modal-grupo-dialog"
+  >
     <form class="modal-content modal-evalunia" id="formGrupoCrear">
       <div class="modal-header">
-        <h5 class="modal-title">Agregar grupo</h5>
+        <h5
+          class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1 min-w-0"
+          id="modalGrupoCrearTitulo"
+        >
+          <i
+            class="bi bi-folder-plus gen-modal-grupo-header-icon flex-shrink-0"
+            aria-hidden="true"
+          ></i>
+          <span>Agregar grupo</span>
+        </h5>
         <button
           type="button"
           class="btn-close"
@@ -484,10 +501,10 @@
         ></button>
       </div>
 
-      <div class="modal-body">
-        <div class="row g-2 mb-2">
-          <div class="col-4">
-            <label class="form-label">Clave</label>
+      <div class="modal-body gen-modal-grupo-body">
+        <div class="row g-3 mb-1">
+          <div class="col-sm-4">
+            <label class="form-label" for="grupoClaveCrear">Clave</label>
             <input
               type="text"
               class="form-control"
@@ -495,54 +512,95 @@
               maxlength="5"
               required
               placeholder="A/B/C/ES"
+              autocomplete="off"
             />
           </div>
-          <div class="col-8">
-            <label class="form-label">Nombre</label>
+          <div class="col-sm-8">
+            <label class="form-label" for="grupoNombreCrear">Nombre</label>
             <input
               type="text"
               class="form-control"
               id="grupoNombreCrear"
               maxlength="100"
               placeholder="Ingenierías"
+              autocomplete="off"
             />
           </div>
         </div>
 
-        <hr class="my-2" />
-
-        <div class="d-flex justify-content-between align-items-center">
-          <label class="form-label m-0"><strong>Cuotas por tema</strong></label>
-          <button
-            type="button"
-            class="btn btn-sm btn-success"
-            id="btnAgregarCuota"
+        <div class="gen-modal-grupo-cuotas-block mt-2">
+          <div
+            class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"
           >
-            + Agregar tema
-          </button>
-        </div>
+            <span
+              class="fw-semibold text-body m-0 d-inline-flex align-items-center gap-2"
+            >
+              <i class="bi bi-sliders2 text-primary" aria-hidden="true"></i>
+              Cuotas por tema
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-success d-inline-flex align-items-center gap-1"
+              id="btnAgregarCuota"
+            >
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              Agregar tema
+            </button>
+          </div>
 
-        <div id="cuotasContainer" class="mt-2"></div>
+          <div id="cuotasContainer" class="gen-modal-grupo-cuotas-list"></div>
 
-        <div class="mt-2 text-end small text-muted">
-          Total preguntas: <span id="totalCuotas" class="fw-bold">0</span>
+          <div
+            class="mt-2 pt-2 gen-modal-grupo-total text-end small text-muted border-top border-light"
+          >
+            <span class="d-inline-flex align-items-center justify-content-end gap-1">
+              <i class="bi bi-calculator" aria-hidden="true"></i>
+              <span>
+                Total preguntas:
+                <span id="totalCuotas" class="fw-bold text-body">0</span>
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
-      <div class="modal-footer">
-      
-        <button type="submit" class="btn btn-success">Guardar</button>
+      <div class="modal-footer gen-modal-grupo-footer justify-content-end">
+        <button
+          type="submit"
+          class="btn btn-success d-inline-flex align-items-center gap-2"
+        >
+          <i class="bi bi-check-lg" aria-hidden="true"></i>
+          Guardar
+        </button>
       </div>
     </form>
   </div>
 </div>
 
-<div class="modal fade modal-cuad-root" id="modalGrupoEditar" tabindex="-1" aria-hidden="true"  data-bs-backdrop="static"
-  data-bs-keyboard="false">
-  <div class="modal-dialog modal-dialog-centered">
+<div
+  class="modal fade modal-cuad-root gen-modal-grupo"
+  id="modalGrupoEditar"
+  tabindex="-1"
+  aria-labelledby="modalGrupoEditarTitulo"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div
+    class="modal-dialog modal-dialog-centered modal-dialog-scrollable gen-modal-grupo-dialog"
+  >
     <form class="modal-content modal-evalunia" id="formGrupoEditar">
       <div class="modal-header">
-        <h5 class="modal-title">Editar grupo</h5>
+        <h5
+          class="modal-title d-flex align-items-center gap-2 mb-0 flex-grow-1 min-w-0"
+          id="modalGrupoEditarTitulo"
+        >
+          <i
+            class="bi bi-pencil-square gen-modal-grupo-header-icon flex-shrink-0"
+            aria-hidden="true"
+          ></i>
+          <span>Editar grupo</span>
+        </h5>
         <button
           type="button"
           class="btn-close"
@@ -551,51 +609,76 @@
         ></button>
       </div>
 
-      <div class="modal-body">
-      <input type="hidden" id="grupoIdEditar" />
-      <div class="row g-2 mb-2">
-        <div class="col-4">
-          <label class="form-label">Clave</label>
-          <input
-            type="text"
-            class="form-control"
-            id="grupoClaveEditar"
-            maxlength="5"
-            required
-          />
+      <div class="modal-body gen-modal-grupo-body">
+        <input type="hidden" id="grupoIdEditar" />
+        <div class="row g-3 mb-1">
+          <div class="col-sm-4">
+            <label class="form-label" for="grupoClaveEditar">Clave</label>
+            <input
+              type="text"
+              class="form-control"
+              id="grupoClaveEditar"
+              maxlength="5"
+              required
+              autocomplete="off"
+            />
+          </div>
+          <div class="col-sm-8">
+            <label class="form-label" for="grupoNombreEditar">Nombre</label>
+            <input
+              type="text"
+              class="form-control"
+              id="grupoNombreEditar"
+              maxlength="100"
+              autocomplete="off"
+            />
+          </div>
         </div>
-        <div class="col-8">
-          <label class="form-label">Nombre</label>
-          <input
-            type="text"
-            class="form-control"
-            id="grupoNombreEditar"
-            maxlength="100"
-          />
+
+        <div class="gen-modal-grupo-cuotas-block mt-2">
+          <div
+            class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2"
+          >
+            <span
+              class="fw-semibold text-body m-0 d-inline-flex align-items-center gap-2"
+            >
+              <i class="bi bi-sliders2 text-primary" aria-hidden="true"></i>
+              Cuotas por tema
+            </span>
+            <button
+              type="button"
+              class="btn btn-sm btn-success d-inline-flex align-items-center gap-1"
+              id="btnAgregarCuotaEdit"
+            >
+              <i class="bi bi-plus-lg" aria-hidden="true"></i>
+              Agregar tema
+            </button>
+          </div>
+
+          <div id="cuotasContainerEdit" class="gen-modal-grupo-cuotas-list"></div>
+
+          <div
+            class="mt-2 pt-2 gen-modal-grupo-total text-end small text-muted border-top border-light"
+          >
+            <span class="d-inline-flex align-items-center justify-content-end gap-1">
+              <i class="bi bi-calculator" aria-hidden="true"></i>
+              <span>
+                Total preguntas:
+                <span id="totalCuotasEdit" class="fw-bold text-body">0</span>
+              </span>
+            </span>
+          </div>
         </div>
       </div>
 
-      <hr class="my-2" />
-      <div class="d-flex justify-content-between align-items-center">
-        <label class="form-label m-0"><strong>Cuotas por tema</strong></label>
+      <div class="modal-footer gen-modal-grupo-footer justify-content-end">
         <button
-          type="button"
-          class="btn btn-sm btn-success"
-          id="btnAgregarCuotaEdit"
+          type="submit"
+          class="btn btn-primary d-inline-flex align-items-center gap-2"
         >
-          + Agregar tema
+          <i class="bi bi-check-lg" aria-hidden="true"></i>
+          Actualizar
         </button>
-      </div>
-
-      <div id="cuotasContainerEdit" class="mt-2"></div>
-      <div class="mt-2 text-end small text-muted">
-        Total preguntas: <span id="totalCuotasEdit" class="fw-bold">0</span>
-      </div>
-    </div>
-
-      <div class="modal-footer">
-       
-        <button type="submit" class="btn btn-primary">Actualizar</button>
       </div>
     </form>
   </div>

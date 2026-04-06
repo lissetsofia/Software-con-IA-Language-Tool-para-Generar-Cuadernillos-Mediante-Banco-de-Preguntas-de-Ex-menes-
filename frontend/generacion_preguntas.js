@@ -1381,6 +1381,37 @@ if (typeof window.TEMAS_API_BASE === "undefined")
 
 window.grupoSeleccionado = null;
 
+$(document).on("click", "#btnAbrirModalGrupoCrearGenExamen", function (e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const el = document.getElementById("modalGrupoCrear");
+  if (!el) return;
+  if (el.parentElement !== document.body) {
+    document.body.appendChild(el);
+  }
+  bootstrap.Modal.getInstance(el)?.dispose();
+  const inst = new bootstrap.Modal(el, {
+    backdrop: false,
+    keyboard: false,
+  });
+  inst.show();
+  requestAnimationFrame(() => repararEstadoModales());
+});
+
+$(document).on("shown.bs.modal", "#modalGrupoCrear", () => {
+  document.body.classList.add("gen-modal-grupo-crear-scrim");
+});
+
+$(document).on("hidden.bs.modal", "#modalGrupoCrear, #modalGrupoEditar", function () {
+  if (this.id === "modalGrupoCrear") {
+    document.body.classList.remove("gen-modal-grupo-crear-scrim");
+    limpiarModalGrupoCrear();
+  } else if (this.id === "modalGrupoEditar") {
+    limpiarModalGrupoEditar();
+  }
+  requestAnimationFrame(() => repararEstadoModales());
+});
+
 if (typeof window.__temasCache === "undefined") window.__temasCache = null;
 async function cargarTemasActivos() {
   if (__temasCache) return __temasCache;
@@ -1415,8 +1446,8 @@ function filaCuotaHTML(temas, temaSel = "", cant = "") {
     )
     .join("");
   return `
-    <div class="row g-2 align-items-center cuota-row mb-2">
-      <div class="col-8">
+    <div class="row g-2 align-items-end align-items-sm-center cuota-row gen-grupo-cuota-row mb-2">
+      <div class="col-12 col-sm-7 col-md-8">
         <select class="form-select sel-tema" required>
           <option value="" disabled ${
             temaSel ? "" : "selected"
@@ -1424,11 +1455,13 @@ function filaCuotaHTML(temas, temaSel = "", cant = "") {
           ${opts}
         </select>
       </div>
-      <div class="col-3">
-        <input type="number" min="1" class="form-control inp-cant" placeholder="Cant." required value="${cant}">
+      <div class="col-8 col-sm-3 col-md-3">
+        <input type="number" min="1" class="form-control inp-cant" placeholder="Cantidad" required value="${cant}">
       </div>
-      <div class="col-1 text-end">
-        <button type="button" class="btn btn-sm btn-danger btnQuitarCuota">✕</button>
+      <div class="col-4 col-sm-2 col-md-1 text-end text-sm-end">
+        <button type="button" class="btn btn-sm btn-outline-danger gen-grupo-cuota-remove btnQuitarCuota" title="Quitar tema" aria-label="Quitar tema">
+          <i class="bi bi-trash3" aria-hidden="true"></i>
+        </button>
       </div>
     </div>`;
 }
@@ -1437,6 +1470,33 @@ function totalFrom(containerSel, totalSel) {
     .map((i) => parseInt(i.value, 10) || 0)
     .reduce((a, b) => a + b, 0);
   document.querySelector(totalSel).textContent = n;
+}
+
+function limpiarModalGrupoCrear() {
+  document.getElementById("formGrupoCrear")?.reset();
+  const cont = document.getElementById("cuotasContainer");
+  if (cont) {
+    cont.innerHTML = "";
+    cont.onclick = null;
+    cont.oninput = null;
+    cont.onchange = null;
+  }
+  const inpClave = document.getElementById("grupoClaveCrear");
+  if (inpClave) inpClave.oninput = null;
+  const btnAdd = document.getElementById("btnAgregarCuota");
+  if (btnAdd) btnAdd.onclick = null;
+  const totalEl = document.getElementById("totalCuotas");
+  if (totalEl) totalEl.textContent = "0";
+}
+
+function limpiarModalGrupoEditar() {
+  document.getElementById("formGrupoEditar")?.reset();
+  const cont = document.getElementById("cuotasContainerEdit");
+  if (cont) cont.innerHTML = "";
+  const btn = document.getElementById("btnAgregarCuotaEdit");
+  if (btn) btn.onclick = null;
+  const totalEl = document.getElementById("totalCuotasEdit");
+  if (totalEl) totalEl.textContent = "0";
 }
 
 async function fetchGrupos(includeInactive) {
@@ -1703,8 +1763,9 @@ $(document).on("show.bs.modal", "#modalGrupoCrear", async function () {
   };
 
   cont.onclick = (e) => {
-    if (e.target.classList.contains("btnQuitarCuota")) {
-      e.target.closest(".cuota-row")?.remove();
+    const q = e.target.closest(".btnQuitarCuota");
+    if (q) {
+      q.closest(".cuota-row")?.remove();
       totalFrom("#cuotasContainer", "#totalCuotas");
     }
   };
@@ -1720,6 +1781,8 @@ $(document).on("show.bs.modal", "#modalGrupoCrear", async function () {
       totalFrom("#cuotasContainer", "#totalCuotas");
     }
   };
+
+  requestAnimationFrame(() => repararEstadoModales());
 });
 
 $(document).on("submit", "#formGrupoCrear", async function (e) {
@@ -1824,6 +1887,7 @@ async function abrirModalEditarGrupo(g) {
   });
 
   inst.show();
+  requestAnimationFrame(() => repararEstadoModales());
 }
 
 $(document).off("click", "#cuotasContainerEdit .btnQuitarCuota");
