@@ -157,6 +157,7 @@ NS = {
     "pic":"http://schemas.openxmlformats.org/drawingml/2006/picture",
     "v":  "urn:schemas-microsoft-com:vml",
     "o":  "urn:schemas-microsoft-com:office:office",
+
     "mc": "http://schemas.openxmlformats.org/markup-compatibility/2006",
     "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
     "w15": "http://schemas.microsoft.com/office/word/2012/wordml",
@@ -165,6 +166,9 @@ NS = {
     "wp14": "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing",
      "wps": "http://schemas.microsoft.com/office/word/2010/wordprocessingShape",
     "a14": "http://schemas.microsoft.com/office/drawing/2010/main",
+    "w10": "urn:schemas-microsoft-com:office:word",
+    "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
+
 }
 for p, u in NS.items():
     ET.register_namespace(p, u)
@@ -1862,7 +1866,7 @@ def detectar_indices_alternativas_por_numid(doc: Document, active_q_numId: str |
 #--------------------------------
 #GENERACION DE CUADERNILLOS MEDUANTE BANCO DE PREGUNTAS
 #---------------------------------
-
+                  
 @app.route("/api/examenes")
 def obtener_examenes():
     try:
