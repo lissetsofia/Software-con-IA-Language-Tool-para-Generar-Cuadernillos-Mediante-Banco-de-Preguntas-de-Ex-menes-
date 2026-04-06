@@ -1217,6 +1217,7 @@ if (typeof window.dtBuscarTemas === "undefined") window.dtBuscarTemas = null;
 if (typeof window.dtBuscarPregs === "undefined") window.dtBuscarPregs = null;
 
 const GEN_CURSOS_TITULO_LISTA = "Cursos";
+const GEN_CURSOS_JOB_TIMEOUT_MS = 15 * 60 * 1000;
 
 function getModalBuscarEl() {
   const els = [...document.querySelectorAll("#modalBuscar")];
@@ -1249,6 +1250,7 @@ function mostrarVistaGenCursos(vista) {
   if (vista === "lista") {
     vLista?.classList.add("gen-cursos-view--active");
     vDet?.classList.remove("gen-cursos-view--active");
+    modal.querySelector("#gen-cursos-vista-progreso")?.classList.remove("gen-cursos-view--active");
     footDet?.classList.add("d-none");
     if (icon) {
       icon.className = "bi bi-journal-bookmark gen-modal-cursos-header-icon";
@@ -1260,14 +1262,131 @@ function mostrarVistaGenCursos(vista) {
         if (window.dtBuscarTemas) dtBuscarTemas.columns.adjust();
       } catch (e) {}
     });
-  } else {
+  } else if (vista === "detalle") {
     vLista?.classList.remove("gen-cursos-view--active");
     vDet?.classList.add("gen-cursos-view--active");
+    modal.querySelector("#gen-cursos-vista-progreso")?.classList.remove("gen-cursos-view--active");
     footDet?.classList.remove("d-none");
     if (icon) {
       icon.className = "bi bi-list-ul gen-modal-cursos-header-icon";
       icon.setAttribute("aria-hidden", "true");
     }
+  } else if (vista === "progreso") {
+    vLista?.classList.remove("gen-cursos-view--active");
+    vDet?.classList.remove("gen-cursos-view--active");
+    modal.querySelector("#gen-cursos-vista-progreso")?.classList.add("gen-cursos-view--active");
+    footDet?.classList.add("d-none");
+    if (icon) {
+      icon.className = "bi bi-hourglass-split gen-modal-cursos-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+    if (titulo) titulo.textContent = "Procesando cursos";
+  }
+}
+
+function setGenCursosProcesando(locked) {
+  const modal = getModalBuscarEl();
+  if (!modal) return;
+  modal.dataset.genCursosProcesando = locked ? "1" : "0";
+  const closeBtn = modal.querySelector(".gen-cursos-header-close");
+  if (closeBtn) {
+    closeBtn.toggleAttribute("disabled", !!locked);
+    closeBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+  }
+}
+
+function setGenCursosProgresoVisible(visible) {
+  const ov = document.getElementById("gen-cursos-vista-progreso");
+  const bar = document.getElementById("gen-cursos-progreso-bar");
+  const pctEl = document.getElementById("gen-cursos-progreso-pct");
+  if (!ov) return;
+  if (visible) {
+    mostrarVistaGenCursos("progreso");
+    ov.classList.remove("gen-cursos-progreso-overlay--success");
+    if (bar) {
+      bar.classList.add("progress-bar-striped", "progress-bar-animated", "bg-primary");
+      bar.classList.remove("bg-success");
+    }
+    if (pctEl) pctEl.textContent = "0%";
+  }
+  if (!visible && ov.classList.contains("gen-cursos-view--active")) {
+    mostrarVistaGenCursos("lista");
+  }
+}
+
+function mapGenCursosProgressLabel(message) {
+  const m = String(message || "").trim().toLowerCase();
+  if (!m) return "Procesando cursos...";
+  if (m === "done") return "Procesamiento finalizado.";
+  return String(message);
+}
+
+function updateGenCursosProgreso(done, total, message) {
+  const bar = document.getElementById("gen-cursos-progreso-bar");
+  const lbl = document.getElementById("gen-cursos-progreso-label");
+  const pctEl = document.getElementById("gen-cursos-progreso-pct");
+  if (!bar || !lbl || !pctEl) return;
+  const t = Math.max(1, Number(total) || 1);
+  const d = Math.min(Math.max(0, Number(done) || 0), t);
+  const pct = Math.min(100, Math.round((100 * d) / t));
+  bar.style.width = `${pct}%`;
+  bar.setAttribute("aria-valuenow", String(pct));
+  pctEl.textContent = `${pct}%`;
+  lbl.textContent = mapGenCursosProgressLabel(message);
+}
+
+function showGenCursosProgresoDone(msg) {
+  const ov = document.getElementById("gen-cursos-progreso-overlay");
+  const bar = document.getElementById("gen-cursos-progreso-bar");
+  const lbl = document.getElementById("gen-cursos-progreso-label");
+  const pctEl = document.getElementById("gen-cursos-progreso-pct");
+  if (!ov || !bar || !lbl || !pctEl) return;
+  bar.style.width = "100%";
+  bar.setAttribute("aria-valuenow", "100");
+  bar.classList.remove("progress-bar-striped", "progress-bar-animated", "bg-primary");
+  bar.classList.add("bg-success");
+  pctEl.textContent = "100%";
+  lbl.textContent = String(msg || "Cursos procesados correctamente.");
+  ov.classList.add("gen-cursos-progreso-overlay--success");
+}
+
+async function waitPartirGuardarJob(jobId, deadlineMs) {
+  const statusUrl = `http://localhost:5050/api/examenes/partir_y_guardar/jobs/${jobId}`;
+  try {
+    const sseUrl = `http://localhost:5050/api/examenes/partir_y_guardar/jobs/${jobId}/events`;
+    const st = await new Promise((resolve, reject) => {
+      const remainMs = Math.max(1000, deadlineMs - Date.now());
+      const es = new EventSource(sseUrl);
+      let settled = false;
+      const finish = (fn, val) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        try { es.close(); } catch {}
+        fn(val);
+      };
+      const timeoutId = setTimeout(() => finish(reject, new Error("timeout")), remainMs);
+      const onProgress = (ev) => {
+        let data;
+        try { data = JSON.parse(ev.data); } catch { return; }
+        updateGenCursosProgreso(data.done, data.total, data.message || "Procesando cursos...");
+        if (data.status === "done" || data.status === "error") finish(resolve, data);
+      };
+      es.onmessage = onProgress;
+      es.addEventListener("progress", onProgress);
+      es.onerror = () => finish(reject, new Error("sse_unavailable"));
+    });
+    return st;
+  } catch (e) {
+    if (e?.message !== "sse_unavailable") throw e;
+    while (Date.now() < deadlineMs) {
+      await new Promise((r) => setTimeout(r, 650));
+      const res = await fetch(statusUrl);
+      const st = await res.json();
+      updateGenCursosProgreso(st.done, st.total, st.message || "Procesando cursos...");
+      if (st.status === "done" || st.status === "error") return st;
+    }
+    throw new Error("timeout");
   }
 }
 
@@ -1280,6 +1399,7 @@ if (!window.__GEN_CURSOS_HEADER_CLOSE_DELEGATED__) {
       if (!btn) return;
       const modalRoot = btn.closest("#modalBuscar");
       if (!modalRoot || !modalRoot.classList.contains("show")) return;
+      if (modalRoot.dataset.genCursosProcesando === "1") return;
       e.preventDefault();
       e.stopPropagation();
       if (modalRoot.dataset.genCursosVista === "detalle") {
@@ -1304,6 +1424,12 @@ $(document).on("hidden.bs.modal", "#modalBuscar", () => {
   mostrarVistaGenCursos("lista");
 });
 
+$(document).on("hide.bs.modal", "#modalBuscar", function (e) {
+  if (this.dataset.genCursosProcesando === "1") {
+    e.preventDefault();
+  }
+});
+
 $(document).on("click", ".btn-buscar", async function () {
   const btn = this;
   const raw = btn.dataset.id ?? $(btn).attr("data-id");
@@ -1325,33 +1451,49 @@ $(document).on("click", ".btn-buscar", async function () {
   examenActual = id;
 
   try {
-    const res = await fetch(
-      `http://localhost:5050/api/examenes/${id}/partir_y_guardar?overwrite=1`,
-      { method: "POST" }
-    );
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    await cargarTemasDelExamen(id);
-
     const modalEl = getModalBuscarEl();
     if (modalEl && modalEl.parentElement !== document.body) {
       document.body.appendChild(modalEl);
     }
-
     mostrarVistaGenCursos("lista");
-
     bootstrap.Modal.getOrCreateInstance(modalEl, {
       backdrop: "static",
       focus: true,
       keyboard: false,
     }).show();
+
+    setGenCursosProcesando(true);
+    setGenCursosProgresoVisible(true);
+    updateGenCursosProgreso(0, 100, "Iniciando separación por cursos...");
+
+    const startRes = await fetch(
+      `http://localhost:5050/api/examenes/${id}/partir_y_guardar_async?overwrite=1`,
+      { method: "POST" }
+    );
+    const startJson = await startRes.json();
+    if (!startRes.ok || !startJson?.ok || !startJson?.job_id) {
+      throw new Error(startJson?.error || `HTTP ${startRes.status}`);
+    }
+
+    const st = await waitPartirGuardarJob(
+      startJson.job_id,
+      Date.now() + GEN_CURSOS_JOB_TIMEOUT_MS
+    );
+    if (st.status === "error") {
+      const msg = st?.error?.error || st?.message || "No se pudo preparar el examen.";
+      throw new Error(msg);
+    }
+
+    showGenCursosProgresoDone("Cursos procesados correctamente.");
+    await new Promise((r) => setTimeout(r, 850));
+    await cargarTemasDelExamen(id);
+    mostrarVistaGenCursos("lista");
   } catch (e) {
     console.error(e);
-    await uiAlert("No se pudo preparar el examen.");
+    await uiAlert(e?.message || "No se pudo preparar el examen.");
   } finally {
+    setGenCursosProgresoVisible(false);
+    setGenCursosProcesando(false);
     btn.dataset.loading = "0";
     btn.disabled = false;
     btn.innerHTML = oldHtml;

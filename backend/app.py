@@ -2860,6 +2860,9 @@ def guardar_pregunta_docx_desde_rango_wordcom(origen_docx: str, destino_docx: st
 # -----------------------------------------------------------------------------------
 # CRUD PREGUNTAS / PARTIR EXAMEN POR TEMAS (ROBUSTO)
 # -----------------------------------------------------------------------------------
+_partir_guardar_jobs_lock = threading.Lock()
+_partir_guardar_jobs: dict = {}
+
 @app.route("/api/examenes/<int:idexamen>/partir_y_guardar", methods=["POST"])
 def partir_y_guardar(idexamen):
     overwrite = (request.args.get("overwrite") == "1")
@@ -3320,6 +3323,192 @@ def partir_y_guardar(idexamen):
         "preguntas_insertadas": insertados,
         "por_tema": resumen
     })
+
+
+def _partir_guardar_public_state(j: dict) -> dict:
+    resp = {
+        "ok": True,
+        "status": j.get("status", "queued"),
+        "done": int(j.get("done", 0)),
+        "total": int(max(1, j.get("total", 1))),
+        "message": j.get("message", ""),
+    }
+    if resp["status"] == "done":
+        resp["result"] = j.get("result")
+    elif resp["status"] == "error":
+        resp["ok"] = False
+        resp["error"] = j.get("error") or {}
+        resp["http_status"] = int(j.get("http_status", 500))
+    return resp
+
+
+def _partir_guardar_async_worker(job_id: str, idexamen: int, overwrite: bool):
+    stop_tick = threading.Event()
+
+    def ticker():
+        while not stop_tick.is_set():
+            with _partir_guardar_jobs_lock:
+                j = _partir_guardar_jobs.get(job_id)
+                if not j:
+                    return
+                if j.get("status") != "running":
+                    return
+                if int(j.get("done", 0)) < 92:
+                    j["done"] = int(j.get("done", 0)) + 1
+                j["message"] = "Procesando y separando preguntas"
+            time.sleep(0.55)
+
+    try:
+        with _partir_guardar_jobs_lock:
+            j = _partir_guardar_jobs.get(job_id)
+            if j:
+                j.update({"status": "running", "done": 2, "total": 100, "message": "Iniciando proceso"})
+
+        tick_thread = threading.Thread(target=ticker, daemon=True)
+        tick_thread.start()
+
+        q_overwrite = "1" if overwrite else "0"
+        with app.test_request_context(
+            f"/api/examenes/{idexamen}/partir_y_guardar?overwrite={q_overwrite}",
+            method="POST",
+        ):
+            out = partir_y_guardar(idexamen)
+
+        if isinstance(out, tuple):
+            resp_obj, status_code = out[0], int(out[1])
+        else:
+            resp_obj, status_code = out, 200
+
+        data = {}
+        try:
+            data = resp_obj.get_json(silent=True) or {}
+        except Exception:
+            data = {}
+
+        with _partir_guardar_jobs_lock:
+            j = _partir_guardar_jobs.get(job_id)
+            if not j:
+                return
+            if status_code >= 400 or not data.get("ok", status_code < 400):
+                j.update(
+                    {
+                        "status": "error",
+                        "done": int(j.get("done", 0)),
+                        "total": 100,
+                        "message": (data or {}).get("error", "Error"),
+                        "error": data or {"error": "Error en partir_y_guardar"},
+                        "http_status": status_code,
+                        "result": None,
+                    }
+                )
+            else:
+                j.update(
+                    {
+                        "status": "done",
+                        "done": 100,
+                        "total": 100,
+                        "message": "done",
+                        "result": data,
+                        "error": None,
+                        "http_status": None,
+                    }
+                )
+    except Exception as e:
+        traceback.print_exc()
+        with _partir_guardar_jobs_lock:
+            j = _partir_guardar_jobs.get(job_id)
+            if j:
+                j.update(
+                    {
+                        "status": "error",
+                        "message": str(e),
+                        "error": {"error": str(e)},
+                        "http_status": 500,
+                        "result": None,
+                    }
+                )
+    finally:
+        stop_tick.set()
+
+
+@app.post("/api/examenes/<int:idexamen>/partir_y_guardar_async")
+def partir_y_guardar_async_start(idexamen: int):
+    overwrite = (request.args.get("overwrite") == "1")
+    job_id = uuid.uuid4().hex
+    with _partir_guardar_jobs_lock:
+        _partir_guardar_jobs[job_id] = {
+            "status": "queued",
+            "done": 0,
+            "total": 100,
+            "message": "En cola…",
+            "result": None,
+            "error": None,
+            "http_status": None,
+        }
+    t = threading.Thread(
+        target=_partir_guardar_async_worker,
+        args=(job_id, idexamen, overwrite),
+        daemon=True,
+    )
+    t.start()
+    return jsonify({"ok": True, "job_id": job_id})
+
+
+@app.get("/api/examenes/partir_y_guardar/jobs/<job_id>")
+def partir_y_guardar_job_status(job_id: str):
+    with _partir_guardar_jobs_lock:
+        j = _partir_guardar_jobs.get(job_id)
+    if not j:
+        return jsonify({"ok": False, "error": "job no encontrado"}), 404
+    return jsonify(_partir_guardar_public_state(j))
+
+
+@app.get("/api/examenes/partir_y_guardar/jobs/<job_id>/events")
+def partir_y_guardar_job_events(job_id: str):
+    with _partir_guardar_jobs_lock:
+        exists = _partir_guardar_jobs.get(job_id)
+    if not exists:
+        return jsonify({"ok": False, "error": "job no encontrado"}), 404
+
+    def event_stream():
+        last_payload = None
+        last_heartbeat = 0.0
+        while True:
+            with _partir_guardar_jobs_lock:
+                j = _partir_guardar_jobs.get(job_id)
+                payload = _partir_guardar_public_state(j) if j else None
+
+            if payload is None:
+                yield "event: error\ndata: " + json.dumps(
+                    {"ok": False, "error": "job no encontrado"},
+                    ensure_ascii=False,
+                ) + "\n\n"
+                break
+
+            payload_json = json.dumps(payload, ensure_ascii=False)
+            if payload_json != last_payload:
+                last_payload = payload_json
+                yield f"event: progress\ndata: {payload_json}\n\n"
+
+            now = time.time()
+            if now - last_heartbeat >= 15:
+                last_heartbeat = now
+                yield ":\n\n"
+
+            if payload.get("status") in ("done", "error"):
+                break
+
+            time.sleep(0.25)
+
+    return Response(
+        stream_with_context(event_stream()),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ========== TEMAS DEL EXAMEN (con conteo de preguntas ya partidas) ==========

@@ -6744,6 +6744,46 @@ body.modal-open:has(.modal.show ~ .modal.show)
   overflow-y: auto;
 }
 
+#modalBuscar .gen-cursos-progreso-main {
+  width: min(100%, 560px);
+  margin: 0.6rem auto 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+#modalBuscar .gen-cursos-progreso-msg {
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+#modalBuscar .gen-cursos-progreso-track {
+  height: 1.25rem;
+  border-radius: 999px;
+  background: rgba(26, 45, 69, 0.1);
+  overflow: hidden;
+  margin-bottom: 0.85rem;
+}
+
+#modalBuscar .gen-cursos-progreso-track .progress-bar {
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+#modalBuscar .gen-cursos-progreso-overlay--success .gen-cursos-progreso-msg {
+  color: #166534;
+}
+
+#modalBuscar .gen-cursos-view--progreso {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 10.5rem;
+  padding: 0.35rem 0.25rem 0.25rem;
+}
+
 /* Dos vistas en un solo modal (misma idea que .cuad-banco-views-stage) */
 #modalBuscar .gen-cursos-views-stage {
   display: grid;
