@@ -236,6 +236,14 @@ function forceIPv4(u) {
   }
 }
 
+function sanitizeFilename(name) {
+  return String(name || "")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/g, "");
+}
+
 async function fetchWithRendererCookies(rawUrl) {
   const url = forceIPv4(rawUrl);
   const cookies = await session.defaultSession.cookies.get({ url: "http://127.0.0.1:5050" });
@@ -382,6 +390,41 @@ ipcMain.handle("open-pdf-from-url", async (_event, rawUrl) => {
     return { ok: true, path: pdfPath };
   } catch (err) {
     console.error("open-pdf-from-url error:", err);
+    return { ok: false, message: String(err) };
+  }
+});
+
+ipcMain.handle("open-docx-from-url", async (_event, payload) => {
+  try {
+    const rawUrl = typeof payload === "string" ? payload : payload?.url;
+    const suggestedName = typeof payload === "object" ? payload?.suggestedName : null;
+    if (!rawUrl) {
+      throw new Error("URL de DOCX inválida.");
+    }
+    const url = forceIPv4(rawUrl);
+    const res = await fetchWithRendererCookies(url);
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} al abrir DOCX\n${txt.slice(0, 200)}`);
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    const tmpDir = path.join(app.getPath("temp"), "evalunia_print");
+    await fs.mkdir(tmpDir, { recursive: true });
+
+    const baseNameRaw = String(suggestedName || "").trim() || `EXAMEN_${Date.now()}.docx`;
+    const baseName = sanitizeFilename(baseNameRaw.toLowerCase().endsWith(".docx") ? baseNameRaw : `${baseNameRaw}.docx`);
+    const finalName = baseName || `EXAMEN_${Date.now()}.docx`;
+    const docxPath = path.join(tmpDir, finalName);
+    await fs.writeFile(docxPath, buf);
+
+    const opened = await shell.openPath(docxPath);
+    if (opened) throw new Error(opened);
+
+    return { ok: true, path: docxPath };
+  } catch (err) {
+    console.error("open-docx-from-url error:", err);
     return { ok: false, message: String(err) };
   }
 });

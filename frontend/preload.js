@@ -50,6 +50,9 @@ contextBridge.exposeInMainWorld("api", {
    openPdfFromUrl: (url) =>
     ipcRenderer.invoke("open-pdf-from-url", url),
 
+  openDocxFromUrl: (url, suggestedName) =>
+    ipcRenderer.invoke("open-docx-from-url", { url, suggestedName }),
+
 
 });
 
