@@ -2492,10 +2492,10 @@ main {
 }
 
 /*
-  Full-viewport dim for Agregar grupo only: BS backdrop can sit under the parent modal when stacked.
-  Modal uses backdrop:false; this layer sits between parent (1055) and #modalGrupoCrear (1065) in nested mode.
+  Full-viewport dim for Agregar / Editar grupo: BS second backdrop can sit under the parent when stacked.
+  Both modals use backdrop:false; layer sits between parent (1055) and child modal (1065) in nested mode.
 */
-body.modal-open.gen-modal-grupo-crear-scrim::after {
+body.modal-open.gen-modal-grupo-nested-scrim::after {
   content: "";
   position: fixed;
   inset: 0;
@@ -2507,13 +2507,20 @@ body.modal-open.gen-modal-grupo-crear-scrim::after {
   pointer-events: auto;
 }
 
-/* Elevación solo #modalGrupoCrear (no aplica a otros modales ni a #modalGrupoEditar) */
-#modalGrupoCrear .modal-content.modal-evalunia {
+/* Card elevation: crear y editar grupo (override .modal-cuad-root content box-shadow: none) */
+#modalGrupoCrear .modal-content.modal-evalunia,
+#modalGrupoEditar .modal-content.modal-evalunia {
   box-shadow:
-    0 0 0 1px rgba(15, 23, 41, 0.07),
-    0 4px 6px -2px rgba(15, 23, 41, 0.12),
-    0 18px 38px -8px rgba(15, 23, 41, 0.38),
-    0 32px 64px -12px rgba(15, 23, 41, 0.32) !important;
+    0 0 0 1px rgba(0, 0, 0, 0.07),
+    0 4px 6px -2px rgba(0, 0, 0, 0.12),
+    0 18px 38px -8px rgba(0, 0, 0, 0.38),
+    0 32px 64px -12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Elevation only on .modal-content; dialog-level shadow would blend with the full-screen scrim */
+#modalGrupoCrear.gen-modal-grupo .gen-modal-grupo-dialog,
+#modalGrupoEditar.gen-modal-grupo .gen-modal-grupo-dialog {
+  box-shadow: none;
 }
 
 /* Crear / editar grupo: width also set under .modal-cuad-root (flex-shrink override there). */
@@ -4926,7 +4933,8 @@ body.modal-open.gen-modal-grupo-crear-scrim::after {
     0 11px 30px rgba(8, 15, 28, 0.2);
 }
 
-.modal.modal-cuad-root.gen-modal-grupo .gen-modal-grupo-dialog {
+#modalGrupoCrear.modal.modal-cuad-root.gen-modal-grupo .gen-modal-grupo-dialog,
+#modalGrupoEditar.modal.modal-cuad-root.gen-modal-grupo .gen-modal-grupo-dialog {
   flex-shrink: 0;
   width: min(96vw, 800px);
   max-width: min(96vw, 800px);

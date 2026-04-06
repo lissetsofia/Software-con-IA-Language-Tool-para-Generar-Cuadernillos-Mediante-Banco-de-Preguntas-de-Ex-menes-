@@ -1398,13 +1398,13 @@ $(document).on("click", "#btnAbrirModalGrupoCrearGenExamen", function (e) {
   requestAnimationFrame(() => repararEstadoModales());
 });
 
-$(document).on("shown.bs.modal", "#modalGrupoCrear", () => {
-  document.body.classList.add("gen-modal-grupo-crear-scrim");
+$(document).on("shown.bs.modal", "#modalGrupoCrear, #modalGrupoEditar", () => {
+  document.body.classList.add("gen-modal-grupo-nested-scrim");
 });
 
 $(document).on("hidden.bs.modal", "#modalGrupoCrear, #modalGrupoEditar", function () {
+  document.body.classList.remove("gen-modal-grupo-nested-scrim");
   if (this.id === "modalGrupoCrear") {
-    document.body.classList.remove("gen-modal-grupo-crear-scrim");
     limpiarModalGrupoCrear();
   } else if (this.id === "modalGrupoEditar") {
     limpiarModalGrupoEditar();
@@ -1880,10 +1880,10 @@ async function abrirModalEditarGrupo(g) {
     document.body.appendChild(modalEditarEl);
   }
 
-  const inst = bootstrap.Modal.getOrCreateInstance(modalEditarEl, {
-    backdrop: "static",
-    focus: true,
-    keyboard: true,
+  bootstrap.Modal.getInstance(modalEditarEl)?.dispose();
+  const inst = new bootstrap.Modal(modalEditarEl, {
+    backdrop: false,
+    keyboard: false,
   });
 
   inst.show();
