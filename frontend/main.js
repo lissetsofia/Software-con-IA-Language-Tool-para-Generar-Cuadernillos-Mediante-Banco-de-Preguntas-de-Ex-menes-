@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, session } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, shell, session, Menu } = require("electron");
 const path = require("path");
 const { spawn } = require("child_process");
 const fetch = require("node-fetch");
@@ -13,6 +13,26 @@ let backendProcess = null;
 
 const isDev = !app.isPackaged;
 const BACKEND_PORT = 5050;
+
+if (isDev) {
+  try {
+    // watchRenderer vigila todo el cwd (raíz del repo con package.json). Sin ignorar
+    // backend/temas_archivos, cada .docx creado al partir exámenes recarga la ventana
+    // y aborta el fetch largo de partir_y_guardar.
+    const ignoreBackendGenerated = (filePath) => {
+      const norm = path.normalize(filePath).replace(/\\/g, "/");
+      if (/(^|\/)backend\/(temas_archivos|uploads|data|descargas)(\/|$)/i.test(norm))
+        return true;
+      if (/(^|\/)descargas(\/|$)/i.test(norm)) return true;
+      if (/(^|\/)static\/previews(\/|$)/i.test(norm)) return true;
+      return false;
+    };
+    require("electron-reloader")(module, {
+      watchRenderer: true,
+      ignore: [ignoreBackendGenerated],
+    });
+  } catch (_) {}
+}
 
 function logMain(...args) {
   console.log("[MAIN]", ...args);
@@ -182,6 +202,8 @@ function crearVentana() {
   win = new BrowserWindow({
     width: 1000,
     height: 700,
+    autoHideMenuBar: true,
+    icon: path.join(__dirname, "img", "logo.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -190,19 +212,23 @@ function crearVentana() {
     },
   });
 
+  // App desktop: ocultamos menu nativo y abrimos maximizada por defecto.
+  win.setMenuBarVisibility(false);
+  win.maximize();
   logMain("cargando index.html =", path.join(__dirname, "index.html"));
   win.loadFile(path.join(__dirname, "index.html"));
 }
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null);
   await startBackend();
   crearVentana();
 });
 
-ipcMain.on("login-exitoso", () => {
+ipcMain.on("login-exitoso", (_event, token) => {
   if (win && !win.isDestroyed()) {
     win.maximize();
-    win.webContents.send("login-exitoso");
+    win.webContents.send("login-exitoso", token);
   }
 });
 
@@ -214,6 +240,14 @@ function forceIPv4(u) {
   } catch {
     return u.replace("http://localhost:", "http://127.0.0.1:");
   }
+}
+
+function sanitizeFilename(name) {
+  return String(name || "")
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, "_")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[. ]+$/g, "");
 }
 
 async function fetchWithRendererCookies(rawUrl) {
@@ -362,6 +396,41 @@ ipcMain.handle("open-pdf-from-url", async (_event, rawUrl) => {
     return { ok: true, path: pdfPath };
   } catch (err) {
     console.error("open-pdf-from-url error:", err);
+    return { ok: false, message: String(err) };
+  }
+});
+
+ipcMain.handle("open-docx-from-url", async (_event, payload) => {
+  try {
+    const rawUrl = typeof payload === "string" ? payload : payload?.url;
+    const suggestedName = typeof payload === "object" ? payload?.suggestedName : null;
+    if (!rawUrl) {
+      throw new Error("URL de DOCX inválida.");
+    }
+    const url = forceIPv4(rawUrl);
+    const res = await fetchWithRendererCookies(url);
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} al abrir DOCX\n${txt.slice(0, 200)}`);
+    }
+
+    const buf = Buffer.from(await res.arrayBuffer());
+    const tmpDir = path.join(app.getPath("temp"), "evalunia_print");
+    await fs.mkdir(tmpDir, { recursive: true });
+
+    const baseNameRaw = String(suggestedName || "").trim() || `EXAMEN_${Date.now()}.docx`;
+    const baseName = sanitizeFilename(baseNameRaw.toLowerCase().endsWith(".docx") ? baseNameRaw : `${baseNameRaw}.docx`);
+    const finalName = baseName || `EXAMEN_${Date.now()}.docx`;
+    const docxPath = path.join(tmpDir, finalName);
+    await fs.writeFile(docxPath, buf);
+
+    const opened = await shell.openPath(docxPath);
+    if (opened) throw new Error(opened);
+
+    return { ok: true, path: docxPath };
+  } catch (err) {
+    console.error("open-docx-from-url error:", err);
     return { ok: false, message: String(err) };
   }
 });

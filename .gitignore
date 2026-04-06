@@ -173,20 +173,17 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 node_modules/
-backend/uploads
-backend/data
-backend/jre
-backend/libs
-backend/static
+
 backend/uploads/
+backend/temas_archivos/
 backend/data/
+backend/descargas/
+descargas/
+static/previews/
+
 backend/jre/
 backend/libs/
 backend/static/
-# Modelos locales
+
 backend/models/*.gguf
 *.gguf
-
-descargas/
-backend/descargas/
-backend/uploads/

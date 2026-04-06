@@ -4,6 +4,12 @@
     <meta charset="UTF-8" />
     <title>EVALUNIA</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap"
+      rel="stylesheet"
+    />
     <link
       rel="stylesheet"
       href="../node_modules/bootstrap/dist/css/bootstrap.min.css"
@@ -13,11 +19,7 @@
       href="../node_modules/bootstrap-icons/font/bootstrap-icons.css"
     />
     <link rel="stylesheet" href="./css/index.css" />
-    <!-- DataTables Bootstrap 5 CSS -->
-    <!-- Bootstrap 5 CSS -->
-
-    <!-- DataTables Bootstrap 5 CSS -->
-    <link rel="stylesheet" href="./libs/bootstrap5.min.css" />
+    <link rel="stylesheet" href="./libs/dataTables.bootstrap5.min.css" />
   </head>
   <body class="d-flex flex-column min-vh-100">
     <div id="header"></div>
@@ -29,6 +31,8 @@
     <div id="footer"></div>
 
   <script>
+  const EVALUNIA_SESSION_KEY = "evalunia_session_token";
+
   async function include(id, path) {
     const res = await fetch(path);
     const html = await res.text();
@@ -44,15 +48,51 @@
       if (footer) footer.style.display = esLogin ? "none" : "block";
 
       if (esLogin) {
-        // enganchar login
-        setTimeout(() => {
-          const boton = document.getElementById("btnLogin");
-          if (boton) boton.addEventListener("click", login);
-        }, 100);
+        setTimeout(() => engancharLogin(), 0);
       }
+
+      document.querySelectorAll('[id="modalTemas"]').forEach((el) => {
+        if (!cont.contains(el)) {
+          const Modal = window.bootstrap?.Modal;
+          if (Modal) {
+            const inst = Modal.getInstance(el);
+            if (inst) inst.dispose();
+          }
+          el.remove();
+        }
+      });
     }
 
     return Promise.resolve();
+  }
+
+  function engancharLogin() {
+    const form = document.getElementById("formLogin");
+    if (form) {
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!form.reportValidity()) return;
+        login();
+      });
+    }
+
+    const toggleBtn = document.getElementById("btnTogglePassword");
+    const clave = document.getElementById("clave");
+    if (toggleBtn && clave) {
+      const icon = toggleBtn.querySelector("i");
+      toggleBtn.addEventListener("click", () => {
+        clave.type = clave.type === "password" ? "text" : "password";
+        const visible = clave.type === "text";
+        toggleBtn.setAttribute("aria-pressed", visible ? "true" : "false");
+        const label = visible ? "Ocultar contraseña" : "Mostrar contraseña";
+        toggleBtn.setAttribute("aria-label", label);
+        toggleBtn.setAttribute("title", label);
+        if (icon) {
+          icon.classList.toggle("bi-eye", !visible);
+          icon.classList.toggle("bi-eye-slash", visible);
+        }
+      });
+    }
   }
 
   async function login() {
@@ -62,7 +102,8 @@
 
     try {
       const res = await window.api.login(usuario, clave);
-      if (res && res.exito) {
+      if (res && res.status === "ok") {
+        if (res.token) localStorage.setItem(EVALUNIA_SESSION_KEY, res.token);
         alerta.classList.add("d-none");
       } else {
         alerta.textContent =
@@ -178,16 +219,27 @@
         : "<p>Sección: Configuración (próximamente)</p>";
   }
 
-  // Al iniciar: mostrar login
-  include("contenido", "./login.html");
+  async function entrarComoLogueado() {
+    await Promise.all([
+      include("header", "./components/header.html"),
+      include("footer", "./components/footer.html"),
+      include("contenido", "./home.html"),
+    ]);
+    const homeLink = document.querySelector(
+      '.nav-link[onclick*="home.html"]'
+    );
+    activarMenu(homeLink || document.querySelector(".nav-link"));
+  }
 
-  // Clicks globales (navbar + logout)
+  // Clicks globales (logout; el menú usa onclick + cargarPagina)
   document.addEventListener("click", (e) => {
-    if (e.target?.matches(".nav-link")) {
-      activarMenu(e.target);
-    }
-
-    if (e.target?.id === "btnLogout") {
+    const salir = e.target.closest("#btnLogout");
+    if (salir) {
+      const token = localStorage.getItem(EVALUNIA_SESSION_KEY);
+      localStorage.removeItem(EVALUNIA_SESSION_KEY);
+      if (window.api.logoutRemote) {
+        window.api.logoutRemote(token);
+      }
       include("contenido", "./login.html").then(() => {
         const header = document.getElementById("header");
         const footer = document.getElementById("footer");
@@ -197,36 +249,40 @@
     }
   });
 
-  // Cargar header y footer una vez
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
     const header = document.getElementById("header");
-    if (header) {
-      include("header", "./components/header.html");
-    }
+    if (header) await include("header", "./components/header.html");
 
     const footer = document.getElementById("footer");
-    if (footer) {
-      include("footer", "./components/footer.html");
+    if (footer) await include("footer", "./components/footer.html");
+
+    const token = localStorage.getItem(EVALUNIA_SESSION_KEY);
+    if (token) {
+      const s = await window.api.checkSession(token);
+      if (s && s.ok) {
+        await include("contenido", "./home.html");
+        const homeLink = document.querySelector(
+          '.nav-link[onclick*="home.html"]'
+        );
+        activarMenu(homeLink || document.querySelector(".nav-link"));
+        return;
+      }
+      localStorage.removeItem(EVALUNIA_SESSION_KEY);
     }
+    await include("contenido", "./login.html");
   });
 
-  // Login exitoso desde preload.js
-  window.api.onLoginExitoso(() => {
-    include("header", "./components/header.html");
-    include("footer", "./components/footer.html");
-    // HOME por defecto
-    include("contenido", "./home.html").then(() => {
-      const homeLink = [...document.querySelectorAll(".nav-link")].find(
-        (el) => el.textContent.trim() === "HOME"
-      );
-      activarMenu(homeLink);
-    });
+  // Login exitoso desde preload.js (token guardado en servidor + localStorage)
+  window.api.onLoginExitoso(async (token) => {
+    if (token) localStorage.setItem(EVALUNIA_SESSION_KEY, token);
+    await entrarComoLogueado();
   });
 </script>
 
 
 
     <script src="../node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="./js/evalunia-dialog.js"></script>
 
     <!-- jQuery -->
     <script src="./libs/jquery.min.js"></script>
@@ -236,5 +292,6 @@
 
     <!-- DataTables Bootstrap 5 integration -->
     <script src="./libs/dataTables.bootstrap5.min.js"></script>
+    <script src="./js/temario_modal.js"></script>
   </body>
 </html>

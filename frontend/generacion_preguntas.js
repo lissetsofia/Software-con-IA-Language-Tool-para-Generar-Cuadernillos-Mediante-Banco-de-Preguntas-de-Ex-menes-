@@ -1,5 +1,4 @@
-// Estado global del último archivo generado (docx/pdf)
-// --- SIEMPRE al comienzo del archivo ---
+// Último examen generado: URLs y nombres para guardar / enlaces
 window.__ultimoGenerado = {
   docxUrl: null,
   pdfUrl: null,
@@ -15,22 +14,250 @@ if (window.__GENERACION_PREGUNTAS_LOADED__) {
 }
 
 function generarNuevoExamen() {
-  document
-    .getElementById("modal-examen")
-    .classList.replace("oculto", "mostrar-flex");
+  const el = document.getElementById("modal-examen");
+  if (!el) return;
+  if (el.parentElement !== document.body) {
+    document.body.appendChild(el);
+  }
+  bootstrap.Modal.getOrCreateInstance(el, {
+    backdrop: "static",
+    focus: true,
+    keyboard: false,
+  }).show();
 }
 
 function cerrarModalExamen() {
-  document
-    .getElementById("modal-examen")
-    .classList.replace("mostrar-flex", "oculto");
+  const el = document.getElementById("modal-examen");
+  if (!el) return;
+  const inst = bootstrap.Modal.getInstance(el);
+  if (inst) inst.hide();
 }
 
-function repararEstadoModales() {
-  const visibles = [...document.querySelectorAll(".modal.show")];
-  const backdrops = [...document.querySelectorAll(".modal-backdrop")];
+function genExamenBannerHtml(kind, msg) {
+  const icons = {
+    success: "bi-check-circle-fill",
+    danger: "bi-exclamation-octagon-fill",
+    warning: "bi-exclamation-triangle-fill",
+    info: "bi-info-circle-fill",
+  };
+  const ic = icons[kind] || icons.info;
+  return `<span class="gen-modal-examen-alert__inner"><i class="bi ${ic} gen-modal-examen-alert__icon" aria-hidden="true"></i><span class="gen-modal-examen-alert__text">${msg}</span></span>`;
+}
 
-  if (!visibles.length) {
+function applyGenExamenBanner(el, kind, msg) {
+  el.className = `gen-modal-examen-alert alert alert-${kind}`;
+  el.setAttribute("role", "alert");
+  el.innerHTML = genExamenBannerHtml(kind, msg);
+}
+
+const GEN_EXAMEN_IDLE_ICON_BY_KIND = {
+  info: "bi-info-circle-fill",
+  success: "bi-check-circle-fill",
+  warning: "bi-exclamation-triangle-fill",
+  danger: "bi-exclamation-octagon-fill",
+};
+
+function setGenExamenIdleHeroAlertState(kind) {
+  const hero = document.querySelector("#gen-examen-visor-idle .gen-examen-visor-idle-hero");
+  const badge = document.getElementById("gen-examen-visor-idle-hero-badge");
+  const badgeIc = document.getElementById("gen-examen-visor-idle-hero-badge-ic");
+  if (!hero || !badge || !badgeIc) return;
+  const currentKind = hero.getAttribute("data-gen-examen-idle-kind") || "";
+  const sameKind = !!kind && currentKind === kind && !badge.classList.contains("d-none");
+  hero.classList.remove(
+    "gen-examen-visor-idle-hero--info",
+    "gen-examen-visor-idle-hero--success",
+    "gen-examen-visor-idle-hero--warning",
+    "gen-examen-visor-idle-hero--danger"
+  );
+  badge.classList.remove("gen-examen-visor-idle-hero-badge--enter");
+  const bi = kind && GEN_EXAMEN_IDLE_ICON_BY_KIND[kind];
+  if (!bi) {
+    badge.classList.remove("gen-examen-visor-idle-hero-badge--enter");
+    badge.classList.add("d-none");
+    badgeIc.className = "bi gen-examen-visor-idle-hero-badge-ic";
+    hero.removeAttribute("data-gen-examen-idle-kind");
+    return;
+  }
+  hero.classList.add(`gen-examen-visor-idle-hero--${kind}`);
+  hero.setAttribute("data-gen-examen-idle-kind", kind);
+  badgeIc.className = `bi ${bi} gen-examen-visor-idle-hero-badge-ic`;
+  badge.classList.remove("d-none");
+  if (sameKind) return;
+  requestAnimationFrame(() => {
+    void badge.offsetWidth;
+    badge.classList.add("gen-examen-visor-idle-hero-badge--enter");
+  });
+}
+
+function applyGenExamenIdleMsg(el, kind, msgHtml) {
+  const k = kind && GEN_EXAMEN_IDLE_ICON_BY_KIND[kind] ? kind : "info";
+  const currentKind = el.dataset.kind || "";
+  const sameKind = currentKind === k && !el.classList.contains("d-none");
+  const prevKind = el.dataset.kind || "";
+  const prevMsg = el.dataset.msgHtml || "";
+  const samePayload = prevKind === k && prevMsg === String(msgHtml);
+
+  el.dataset.kind = k;
+  el.dataset.msgHtml = String(msgHtml);
+  el.classList.remove("gen-examen-visor-idle-msg--enter");
+  el.className = `gen-examen-visor-idle-msg gen-examen-visor-idle-msg--${k}`;
+  el.innerHTML = `<span class="gen-examen-visor-idle-msg__txt">${msgHtml}</span>`;
+  setGenExamenIdleHeroAlertState(k);
+  if (samePayload || sameKind) return;
+  requestAnimationFrame(() => {
+    void el.offsetWidth;
+    el.classList.add("gen-examen-visor-idle-msg--enter");
+  });
+}
+
+const GEN_EXAMEN_HINT_SELECCION_VISTO_KEY = "evalunia_genExamen_seleccionHint_visto";
+const GEN_EXAMEN_MSG_SUCCESS_MS = 2800;
+const GEN_EXAMEN_MSG_COLLAPSE_MS = 380;
+const GEN_EXAMEN_SUCCESS_BEFORE_PDF_MS = 1100;
+const genExamenAvisoTimers = { successHide: null, successCollapse: null };
+
+function getGenExamenMensajeEl() {
+  return document.getElementById("gen-examen-seleccion-hint");
+}
+
+function clearGenExamenAvisoTimers() {
+  if (genExamenAvisoTimers.successHide) {
+    clearTimeout(genExamenAvisoTimers.successHide);
+    genExamenAvisoTimers.successHide = null;
+  }
+  if (genExamenAvisoTimers.successCollapse) {
+    clearTimeout(genExamenAvisoTimers.successCollapse);
+    genExamenAvisoTimers.successCollapse = null;
+  }
+}
+
+function setGenExamenMensajeModal(msg, kind = "info") {
+  const el = getGenExamenMensajeEl();
+  if (!el) return;
+  clearGenExamenAvisoTimers();
+  el.classList.remove("d-none", "gen-examen-visor-idle-msg--hiding");
+  applyGenExamenIdleMsg(el, kind, msg);
+  const live = kind === "danger" || kind === "warning" ? "assertive" : "polite";
+  el.setAttribute("aria-live", live);
+  el.setAttribute("role", kind === "danger" || kind === "warning" ? "alert" : "status");
+
+  if (kind === "success") {
+    genExamenAvisoTimers.successHide = setTimeout(() => {
+      el.classList.add("gen-examen-visor-idle-msg--hiding");
+      genExamenAvisoTimers.successHide = null;
+      genExamenAvisoTimers.successCollapse = setTimeout(() => {
+        el.classList.remove("gen-examen-visor-idle-msg--hiding");
+        el.classList.add("d-none");
+        genExamenAvisoTimers.successCollapse = null;
+        actualizarGenExamenHintSeleccionGrupo();
+      }, GEN_EXAMEN_MSG_COLLAPSE_MS);
+    }, GEN_EXAMEN_MSG_SUCCESS_MS);
+  }
+}
+
+function escapeHtmlGenExamen(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function actualizarGenExamenHintSeleccionGrupo() {
+  const modal = document.getElementById("modal-examen");
+  const hint = getGenExamenMensajeEl();
+  const visor = document.getElementById("visor-examen");
+  if (!hint) return;
+
+  if (!modal?.classList.contains("show")) {
+    hint.classList.add("d-none");
+    setGenExamenIdleHeroAlertState(null);
+    return;
+  }
+
+  if (visor?.classList.contains("cargado")) {
+    clearGenExamenAvisoTimers();
+    hint.classList.remove("gen-examen-visor-idle-msg--hiding");
+    hint.classList.add("d-none");
+    setGenExamenIdleHeroAlertState(null);
+    return;
+  }
+
+  clearGenExamenAvisoTimers();
+  hint.classList.remove("gen-examen-visor-idle-msg--hiding");
+
+  const sel = window.grupoSeleccionado;
+  if (sel?.id) {
+    const clave = escapeHtmlGenExamen(sel.clave);
+    applyGenExamenIdleMsg(
+      hint,
+      "success",
+      `Grupo <b>${clave}</b> seleccionado. Pulsa <b>Generar</b> para crear el examen.`
+    );
+    hint.setAttribute("role", "status");
+    hint.setAttribute("aria-live", "polite");
+    hint.classList.remove("d-none");
+    return;
+  }
+
+  if (sessionStorage.getItem(GEN_EXAMEN_HINT_SELECCION_VISTO_KEY) === "1") {
+    hint.classList.add("d-none");
+    setGenExamenIdleHeroAlertState(null);
+    return;
+  }
+
+  applyGenExamenIdleMsg(
+    hint,
+    "info",
+    "Selecciona un grupo en el listado de la izquierda para poder generar el examen."
+  );
+  hint.setAttribute("role", "status");
+  hint.setAttribute("aria-live", "polite");
+  hint.classList.remove("d-none");
+}
+
+document.getElementById("modal-examen")?.addEventListener("shown.bs.modal", () => {
+  actualizarGenExamenHintSeleccionGrupo();
+});
+
+function resetFlujoAvisosModalExamen() {
+  clearGenExamenAvisoTimers();
+  if (typeof window.resetGenExamenGeneratingUi === "function") {
+    window.resetGenExamenGeneratingUi();
+  }
+  window.__ultimoGenerado = {
+    docxUrl: null,
+    pdfUrl: null,
+    docxName: null,
+    pdfName: null,
+  };
+  window.grupoSeleccionado = null;
+  sessionStorage.removeItem(GEN_EXAMEN_HINT_SELECCION_VISTO_KEY);
+  const visor = document.getElementById("visor-examen");
+  const host = document.getElementById("pdf-host");
+  if (visor) visor.classList.remove("cargado");
+  if (host) host.innerHTML = "";
+  if (typeof mostrarAccionesDescarga === "function") {
+    mostrarAccionesDescarga(false);
+  }
+  const hint = getGenExamenMensajeEl();
+  if (hint) {
+    hint.classList.remove("gen-examen-visor-idle-msg--hiding");
+    hint.classList.add("d-none");
+  }
+  setGenExamenIdleHeroAlertState(null);
+  document.querySelector("#modal-examen #banner-estado")?.remove();
+}
+
+/** Z-index y backdrops con varios modales (alineado con cuadernillos.js). */
+const EVALUNIA_DIALOG_MODAL_ID = "evaluniaDialogModal";
+
+function repararEstadoModales() {
+  const allShown = [...document.querySelectorAll(".modal.show")];
+  let backdrops = [...document.querySelectorAll(".modal-backdrop")];
+
+  if (!allShown.length) {
     backdrops.forEach((b) => b.remove());
     document.body.classList.remove("modal-open");
     document.body.style.removeProperty("padding-right");
@@ -40,28 +267,73 @@ function repararEstadoModales() {
   document.body.classList.add("modal-open");
   document.body.style.removeProperty("padding-right");
 
-  visibles.forEach((m, i) => {
-    m.style.display = "block";
+  allShown.forEach((m) => {
     m.removeAttribute("aria-hidden");
     m.setAttribute("aria-modal", "true");
-    m.style.zIndex = String(1055 + i * 20);
   });
 
-  // dejar solo los backdrops necesarios
-  while (backdrops.length > visibles.length) {
+  while (backdrops.length > allShown.length) {
     const b = backdrops.shift();
     b?.remove();
   }
 
-  const backdropsFinal = [...document.querySelectorAll(".modal-backdrop")];
-  backdropsFinal.forEach((b, i) => {
-    b.style.zIndex = String(1050 + i * 20);
-    b.style.pointerEvents = i === backdropsFinal.length - 1 ? "auto" : "none";
-  });
+  backdrops = [...document.querySelectorAll(".modal-backdrop")];
 
-  const top = visibles[visibles.length - 1];
+  let focusTarget = allShown[allShown.length - 1];
+
+  if (allShown.length === 1) {
+    allShown[0].style.removeProperty("z-index");
+    backdrops.forEach((b) => {
+      b.style.removeProperty("z-index");
+      b.style.pointerEvents = "auto";
+    });
+  } else {
+    const cuadStack = allShown.filter((m) => m.id !== EVALUNIA_DIALOG_MODAL_ID);
+    cuadStack.sort((a, b) => {
+      const ta = parseInt(a.dataset.cuadZStackTs || "0", 10);
+      const tb = parseInt(b.dataset.cuadZStackTs || "0", 10);
+      if (ta !== tb) return ta - tb;
+      const bit = a.compareDocumentPosition(b);
+      if (bit & Node.DOCUMENT_POSITION_FOLLOWING) return -1;
+      if (bit & Node.DOCUMENT_POSITION_PRECEDING) return 1;
+      return 0;
+    });
+
+    allShown.forEach((m) => m.style.removeProperty("z-index"));
+    backdrops.forEach((b) => b.style.removeProperty("z-index"));
+
+    // Escalera +10 como en cuadernillos.js / index.css
+    cuadStack.forEach((m, i) => {
+      m.style.zIndex = String(1055 + i * 10);
+    });
+    backdrops.forEach((b, i) => {
+      b.style.zIndex = String(1050 + i * 10);
+    });
+
+    const evaluniaEl = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
+    if (evaluniaEl && evaluniaEl.classList.contains("show")) {
+      const shown = allShown.length;
+      const base = 1055 + shown * 30;
+      evaluniaEl.style.zIndex = String(base + 25);
+      const lastBd = backdrops[backdrops.length - 1];
+      if (lastBd) lastBd.style.zIndex = String(base + 15);
+    }
+
+    backdrops.forEach((b, i) => {
+      b.style.pointerEvents = i === backdrops.length - 1 ? "auto" : "none";
+    });
+
+    const evaluniaOpen =
+      document.getElementById(EVALUNIA_DIALOG_MODAL_ID)?.classList.contains("show");
+    if (evaluniaOpen) {
+      focusTarget = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
+    } else if (cuadStack.length) {
+      focusTarget = cuadStack[cuadStack.length - 1];
+    }
+  }
+
   setTimeout(() => {
-    top
+    focusTarget
       ?.querySelector(
         'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])'
       )
@@ -69,21 +341,108 @@ function repararEstadoModales() {
   }, 0);
 }
 
-function uiAlert(msg) {
-  alert(msg);
-  setTimeout(repararEstadoModales, 0);
+if (!window.__evaluniaBsModalStackListeners) {
+  window.__evaluniaBsModalStackListeners = true;
+  document.addEventListener("shown.bs.modal", (ev) => {
+    const el = ev.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+    el.dataset.cuadZStackTs = String(Date.now());
+    requestAnimationFrame(() => repararEstadoModales());
+  });
+  document.addEventListener("hidden.bs.modal", (ev) => {
+    const el = ev.target;
+    if (!(el instanceof HTMLElement) || !el.classList.contains("modal")) return;
+    requestAnimationFrame(() => repararEstadoModales());
+  });
 }
 
-function uiConfirm(msg) {
-  const ok = confirm(msg);
+function uiAlert(msg, opts) {
+  const p =
+    window.EvaluniaDialog && typeof window.EvaluniaDialog.alert === "function"
+      ? window.EvaluniaDialog.alert(msg, opts || {})
+      : Promise.resolve(window.alert(msg));
+  return p.then(() => {
+    setTimeout(repararEstadoModales, 0);
+  });
+}
+
+function uiConfirm(msg, opts) {
+  if (
+    window.EvaluniaDialog &&
+    typeof window.EvaluniaDialog.confirm === "function"
+  ) {
+    return window.EvaluniaDialog.confirm(msg, opts || {}).then((ok) => {
+      setTimeout(repararEstadoModales, 0);
+      return ok;
+    });
+  }
+  const ok = window.confirm(msg);
   setTimeout(repararEstadoModales, 0);
-  return ok;
+  return Promise.resolve(ok);
+}
+
+function uiChoose(msg, opts) {
+  if (
+    window.EvaluniaDialog &&
+    typeof window.EvaluniaDialog.choose === "function"
+  ) {
+    return window.EvaluniaDialog.choose(msg, opts || {}).then((value) => {
+      setTimeout(repararEstadoModales, 0);
+      return value;
+    });
+  }
+  setTimeout(repararEstadoModales, 0);
+  return Promise.resolve(null);
 }
 
 window.addEventListener("focus", () => {
   setTimeout(repararEstadoModales, 0);
 });
 
+/** Saca #tabla-examenes del wrapper DataTables (como #tabla-temas). */
+function destroyDtWrappersExamenes() {
+  const host = document.getElementById("bancoExamenesDtToolbarHost");
+  if (host) host.replaceChildren();
+
+  const t = document.querySelector("#tabla-examenes");
+  if (!t) return;
+
+  const $t = $(t);
+
+  if ($.fn.DataTable.isDataTable(t)) {
+    try {
+      $t.DataTable().clear().destroy();
+    } catch (e) {
+      console.warn("[Examenes] destroy error:", e);
+    }
+  }
+
+  for (;;) {
+    const $w = $t.closest(".dataTables_wrapper, .dt-container");
+    if (!$w.length) break;
+    $w.before($t);
+    $w.remove();
+  }
+
+  t.querySelector("thead")?.remove();
+
+  const thead = document.createElement("thead");
+  thead.className = "table-dark";
+  thead.innerHTML = `
+    <tr>
+      <th class="banco-examenes-th-nombre">Nombre</th>
+      <th class="text-end text-nowrap banco-examenes-th-numero">Número</th>
+      <th class="banco-examenes-th-institucion">Institución</th>
+      <th class="text-center text-nowrap banco-examenes-th-anio">Año</th>
+      <th class="text-end text-nowrap banco-examenes-th-actions">Acciones</th>
+    </tr>
+  `;
+  t.prepend(thead);
+
+  const tb = t.querySelector("tbody") || document.createElement("tbody");
+  tb.innerHTML = "";
+  if (!tb.parentElement) t.appendChild(tb);
+}
 
 async function cargarExamenes() {
   try {
@@ -97,68 +456,205 @@ async function cargarExamenes() {
       return;
     }
 
-    if (!$.fn.DataTable.isDataTable("#tabla-examenes")) {
-      tabla.DataTable({
-        data: examenes,
-        columns: [
-          { data: "nombre" },
-          { data: "numero" },
-          { data: "institucion" },
-          { data: "anio" },
-          {
-            data: null,
-            render: function (data, type, row) {
-              return `
-  <button class="btn btn-sm btn-primary btn-buscar" data-id="${row.idexamenes}">Cursos</button>
-  <button class="btn btn-sm btn-success mx-1" onclick="abrirModalExportar(${row.idexamenes})">Exportar</button>
-  <button class="btn btn-sm btn-danger eliminar-examen" data-id="${row.idexamenes}">Eliminar</button>
-`;
-            },
-          },
-        ],
-        autoWidth: false, // Desactiva el ancho automático de columnas
-        responsive: true, // Activa responsividad si lo usas
-        language: {
-          search: "Buscar:",
-          lengthMenu: "Mostrar _MENU_ registros por página",
-          zeroRecords: "No se encontraron resultados",
-          info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-          infoEmpty: "Mostrando 0 a 0 de 0 registros",
-          infoFiltered: "(filtrado de _MAX_ registros totales)",
-          paginate: {
-            first: "Primero",
-            last: "Último",
-            next: "Siguiente",
-            previous: "Anterior",
+    destroyDtWrappersExamenes();
+
+    tabla.DataTable({
+      data: examenes,
+      destroy: true,
+      autoWidth: false,
+      responsive: false,
+      pageLength: 12,
+      lengthMenu: [
+        [8, 12, 20, 50, -1],
+        [8, 12, 20, 50, "Todos"],
+      ],
+      dom: "<'banco-exam-dt-toolbar banco-exam-dt-toolbar--row'lf>rt<'banco-exam-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
+      columnDefs: [
+        { targets: 0, width: "26%" },
+        { targets: 1, width: "9%" },
+        { targets: 2, width: "26%" },
+        { targets: 3, width: "7%" },
+        { targets: 4, width: "32%", orderable: false },
+      ],
+      columns: [
+        {
+          data: "nombre",
+          className: "banco-examenes-col-nombre",
+        },
+        {
+          data: "numero",
+          className: "text-end text-nowrap banco-examenes-col-numero",
+        },
+        {
+          data: "institucion",
+          className: "banco-examenes-col-institucion",
+        },
+        {
+          data: "anio",
+          className: "text-center text-nowrap banco-examenes-col-anio",
+        },
+        {
+          data: null,
+          orderable: false,
+          searchable: false,
+          className: "text-end banco-examenes-col-actions",
+          render: function (data, type, row) {
+            const id = row.idexamenes;
+            return `
+<div class="btn-group btn-group-sm banco-examenes-actions-group" role="group">
+  <button type="button" class="btn btn-primary btn-buscar d-inline-flex align-items-center gap-1" data-id="${id}">
+    <i class="bi bi-mortarboard-fill" aria-hidden="true"></i>
+    Cursos
+  </button>
+  <button type="button" class="btn btn-success d-inline-flex align-items-center gap-1" onclick="abrirModalExportar(${id})">
+    <i class="bi bi-download" aria-hidden="true"></i>
+    Exportar
+  </button>
+  <button type="button" class="btn btn-danger eliminar-examen d-inline-flex align-items-center gap-1" data-id="${id}">
+    <i class="bi bi-trash" aria-hidden="true"></i>
+    Eliminar
+  </button>
+</div>`;
           },
         },
-      });
-    } else {
-      const dt = tabla.DataTable();
-      dt.clear();
-      dt.rows.add(examenes);
-      dt.draw();
-    }
+      ],
+      language: {
+        ...(window.DT_ES || {}),
+        search: "",
+        searchPlaceholder: "Buscar por nombre, institución o año…",
+        lengthMenu: "_MENU_",
+        zeroRecords: "No se encontraron resultados",
+        info: "_START_–_END_ de _TOTAL_",
+        infoEmpty: "0 exámenes",
+        infoFiltered: "(de _MAX_)",
+        paginate: {
+          first: "«",
+          last: "»",
+          next: "›",
+          previous: "‹",
+        },
+        processing: "Procesando…",
+      },
+      initComplete: function () {
+        const $wrap = $(this.api().table().container());
+        $wrap.addClass("banco-exam-dt-wrap");
+        const $toolbar = $wrap.find(".banco-exam-dt-toolbar").first();
+        const $host = $("#bancoExamenesDtToolbarHost");
+        if ($host.length && $toolbar.length) {
+          $toolbar.detach().appendTo($host);
+        }
+
+        const findCtl = (sel) => {
+          let $el = $host.find(sel);
+          if (!$el.length) $el = $toolbar.find(sel);
+          if (!$el.length) $el = $wrap.find(sel);
+          return $el;
+        };
+
+        const $length = findCtl(".dt-length, .dataTables_length");
+        const $lenSelect = $length.find("select").first().detach();
+        if ($lenSelect.length && $length.length) {
+          $length.addClass(
+            "banco-exam-toolbar-field banco-exam-toolbar-field--length"
+          );
+          $length.find("label").remove();
+          $lenSelect.addClass("form-select banco-exam-length-select");
+          const lenId =
+            $lenSelect.attr("id") || "bancoExamenesDtLengthSelect";
+          $lenSelect.attr("id", lenId);
+          $length.find(".banco-exam-toolbar-block-label--length").remove();
+          $length.prepend(
+            `<label class="form-label banco-exam-toolbar-block-label banco-exam-toolbar-block-label--length" for="${lenId}">Filas por página</label>`
+          );
+          $("<div>")
+            .addClass("banco-exam-length-wrap")
+            .append($lenSelect)
+            .appendTo($length);
+        }
+
+        const $fil = findCtl(".dt-search, .dataTables_filter");
+        const $inp = $fil.find("input[type=search], input").first().detach();
+        if ($inp.length && $fil.length) {
+          $fil.empty();
+          $fil.addClass(
+            "banco-exam-filter-wrap banco-exam-toolbar-field banco-exam-toolbar-field--search"
+          );
+          const searchId = "bancoExamenesDtSearchInput";
+          $fil.prepend(
+            `<label class="form-label banco-exam-toolbar-block-label banco-exam-toolbar-block-label--search" for="${searchId}">Buscar en la tabla</label>`
+          );
+          $inp.attr({
+            id: searchId,
+            type: "search",
+            placeholder: "Nombre, institución o número…",
+            autocomplete: "off",
+          });
+          $inp.addClass("form-control banco-exam-search-input flex-grow-1");
+          const $ig = $(
+            '<div class="input-group banco-exam-search-ig align-items-stretch"></div>'
+          );
+          $ig.append(
+            '<span class="input-group-text banco-exam-search-prefix" aria-hidden="true"><i class="bi bi-search"></i></span>',
+            $inp
+          );
+          $("<div>")
+            .addClass("banco-exam-filter-label")
+            .append($ig)
+            .appendTo($fil);
+        }
+      },
+    });
+
+    setTimeout(() => {
+      try {
+        const api = tabla.DataTable();
+        api.columns.adjust();
+        if (api.responsive && typeof api.responsive.recalc === "function") {
+          api.responsive.recalc();
+        }
+      } catch (e) {
+        console.warn("[Examenes] DataTable columns.adjust", e);
+      }
+    }, 0);
   } catch (error) {
     console.error("❌ Error al cargar exámenes:", error);
   }
 }
 
-// ================== INICIALIZACIÓN DEL MÓDULO ==================
 window.initGeneracionPreguntas = function () {
   console.log("🔁 initGeneracionPreguntas() → recargar tabla y wiring");
 
-  // 1) Cargar / recargar tabla de exámenes
+  if ($.fn.dataTable && $.fn.dataTable.ext) {
+    $.fn.dataTable.ext.errMode = "console";
+  }
+
   cargarExamenes();
 
-  // 2) Enganchar input de archivo y botón importar (solo una vez)
+  setTimeout(() => {
+    try {
+      if ($.fn.DataTable.isDataTable("#tabla-examenes")) {
+        const api = $("#tabla-examenes").DataTable();
+        api.columns.adjust();
+        if (api.responsive && typeof api.responsive.recalc === "function") {
+          api.responsive.recalc();
+        }
+      }
+    } catch (e) {}
+  }, 150);
+
   const archivo = document.getElementById("archivo");
   const btnImportar = document.getElementById("btnImportar");
 
   if (archivo && btnImportar && !archivo.dataset.wired) {
-    archivo.dataset.wired = "1"; // marca para no duplicar el listener
+    archivo.dataset.wired = "1";
     archivo.addEventListener("change", () => {
       btnImportar.disabled = false;
+      const hint = document.getElementById("banco-file-name-display");
+      if (hint) {
+        hint.textContent = archivo.files[0]
+          ? archivo.files[0].name
+          : "Ningún archivo seleccionado";
+      }
     });
   }
 };
@@ -168,7 +664,16 @@ window.initGeneracionPreguntas = function () {
 $(document).on("click", ".eliminar-examen", async function () {
   const id = $(this).data("id");
 
-  if (!confirm("¿Estás seguro de eliminar este examen?")) return;
+  if (
+    !(await uiConfirm("¿Estás seguro de eliminar este examen?", {
+      variant: "danger",
+      title: "Eliminar examen",
+      confirmLabel: "Eliminar",
+      dangerous: true,
+    }))
+  ) {
+    return;
+  }
 
   try {
     const res = await fetch(`http://localhost:5050/api/examenes/${id}`, {
@@ -177,14 +682,14 @@ $(document).on("click", ".eliminar-examen", async function () {
 
     const data = await res.json();
     if (res.ok) {
-      alert("✅ " + data.mensaje);
+      await uiAlert("✅ " + data.mensaje);
       cargarExamenes();
     } else {
-      alert("❌ " + (data.error || "Error al eliminar examen"));
+      await uiAlert("❌ " + (data.error || "Error al eliminar examen"));
     }
   } catch (err) {
     console.error("Error eliminando examen:", err);
-    alert("❌ Error al conectar con el servidor");
+    await uiAlert("❌ Error al conectar con el servidor");
   }
 });
 
@@ -194,7 +699,7 @@ async function importarExamen() {
   const btnImportar = document.getElementById("btnImportar");
 
   if (!archivo) {
-    alert("Selecciona un archivo primero");
+    await uiAlert("Selecciona un archivo primero");
     return;
   }
 
@@ -209,37 +714,50 @@ async function importarExamen() {
 
     const resultado = await res.json();
     if (resultado.exito) {
-      alert("✅ Examen importado correctamente");
+      await uiAlert("✅ Examen importado correctamente");
 
-      // 🔒 Desactiva el botón después de importar exitosamente
       document.getElementById("btnImportar").disabled = true;
-      // Recarga tabla
       cargarExamenes();
     } else {
-      alert("❌ " + (resultado.error || "Error al importar"));
+      await uiAlert("❌ " + (resultado.error || "Error al importar"));
     }
   } catch (err) {
     console.error(err);
-    alert("❌ Error al conectar con el servidor");
+    await uiAlert("❌ Error al conectar con el servidor");
   }
 }
-//  Para exportar examenes
+
 if (typeof examenSeleccionadoParaExportar === "undefined") {
   var examenSeleccionadoParaExportar = null;
 }
 
-function abrirModalExportar(idexamen) {
-  console.log("🧪 Modal abierto para exportar:", idexamen);
+async function abrirModalExportar(idexamen) {
+  console.log("🧪 Elegir formato para exportar:", idexamen);
+  const formato = await uiChoose("", {
+    title: "¿En qué formato deseas exportar?",
+    variant: "info",
+    actions: [
+      {
+        value: "pdf",
+        label: "Exportar PDF",
+        className: "btn-danger",
+        icon: "bi-file-earmark-pdf",
+      },
+      {
+        value: "word",
+        label: "Exportar Word",
+        className: "btn-primary",
+        icon: "bi-file-earmark-word",
+      },
+    ],
+    cancelLabel: false,
+  });
+  if (!formato) return;
   examenSeleccionadoParaExportar = idexamen;
-  document
-    .getElementById("modal-exportar")
-    .classList.replace("oculto", "mostrar");
+  await exportarExamenSeleccionado(formato);
 }
 
 function cerrarModalExportar() {
-  document
-    .getElementById("modal-exportar")
-    .classList.replace("mostrar", "oculto");
   examenSeleccionadoParaExportar = null;
 }
 
@@ -247,7 +765,6 @@ async function exportarExamenSeleccionado(formato) {
   if (!examenSeleccionadoParaExportar) return;
 
   try {
-    // 1) ¿Existe la API del preload?
     if (window.api && typeof window.api.exportarExamen === "function") {
       const res = await window.api.exportarExamen(
         examenSeleccionadoParaExportar,
@@ -256,37 +773,32 @@ async function exportarExamenSeleccionado(formato) {
       if (res?.ok) {
         console.log("✅ Guardado en:", res.path);
       } else if (!res?.canceled) {
-        alert(
+        await uiAlert(
           "❌ No se pudo exportar: " + (res?.message || "Error desconocido")
         );
       }
     } else {
-      // 2) Fallback: descarga directa desde el backend (abre nueva pestaña)
       console.warn("window.api no disponible, usando fallback fetch.");
       const url = `http://localhost:5050/api/exportar_examen/${examenSeleccionadoParaExportar}?formato=${formato}`;
       window.open(url, "_blank");
     }
   } catch (e) {
     console.error("Error exportando:", e);
-    alert("❌ Error exportando.");
+    await uiAlert("❌ Error exportando.");
   } finally {
     cerrarModalExportar();
   }
 }
 
-/* =======================
-   TEMAS (CRUD en modal) — INICIALIZAR CUANDO EL MODAL ESTÁ VISIBLE
-   ======================= */
-
-
+// Temario (#modalTemas, ctx banco): render al mostrar el modal
 
 (() => {
   if (window.__TEMAS_WIRED__) return;
   window.__TEMAS_WIRED__ = true;
 
   let dtTemas = null;
+  const PANEL_TEMA_OPEN_CLASS_BANCO = "cuad-tema-form-panel--open";
 
-  // Mostrar errores de DataTables en consola
   $.fn.dataTable.ext.errMode = "console";
 
   const urlTemas = (all) => `${window.TEMAS_API_BASE}${all ? "?all=1" : ""}`;
@@ -317,10 +829,16 @@ async function renderTemas() {
 
   const data = await fetchTemas(showInactivos);
   const $tabla = $("#tabla-temas");
+  const ETM = window.EvaluniaTemarioModal;
 
   destroyDtWrappersBanco();
 
   console.log("[Temas] reconstruyendo DataTable...");
+
+  if (!ETM) {
+    console.error("[Temas] Falta EvaluniaTemarioModal (temario_modal.js).");
+    return;
+  }
 
   dtTemas = $tabla.DataTable({
     data,
@@ -328,51 +846,18 @@ async function renderTemas() {
     autoWidth: false,
     responsive: true,
     pageLength: 8,
-    columns: [
-      { data: "id" },
-      { data: "nombre" },
-      { data: "n_preguntas" },
-      {
-        data: "activo",
-        render: (v) =>
-          v
-            ? '<span class="badge bg-success">Activo</span>'
-            : '<span class="badge bg-secondary">Inactivo</span>',
-      },
-      {
-        data: null,
-        orderable: false,
-        render: (row) => {
-          const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
-          const toggleClass = row.activo ? "btn-warning" : "btn-success";
-          return `
-            <div class="btn-group btn-group-sm" role="group">
-              <button class="btn btn-primary btn-editar-tema"
-                      data-id="${row.id}" data-nombre="${row.nombre || ""}">
-                Editar
-              </button>
-              <button class="btn ${toggleClass} btn-toggle-tema"
-                      data-id="${row.id}">
-                ${toggleTxt}
-              </button>
-            </div>`;
-        },
-      },
-    ],
-    language: {
-      search: "Buscar:",
-      lengthMenu: "Mostrar _MENU_ registros por página",
-      zeroRecords: "No se encontraron resultados",
-      info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
-      infoEmpty: "Mostrando 0 a 0 de 0 registros",
-      infoFiltered: "(filtrado de _MAX_ registros totales)",
-      paginate: {
-        first: "Primero",
-        last: "Último",
-        next: "Siguiente",
-        previous: "Anterior",
-      },
-      processing: "Procesando...",
+    lengthMenu: ETM.lengthMenu,
+    dom: ETM.dom,
+    columnDefs: ETM.columnDefsForMode(true),
+    columns: ETM.buildColumns(true),
+    language: ETM.language("Nombre del tema…"),
+    initComplete: function () {
+      ETM.wireToolbar(this.api(), {
+        hostSelector: "#temarioDtToolbarHost",
+        lengthId: "temarioGenDtLength",
+        searchId: "temarioGenDtSearch",
+        searchPlaceholder: "Nombre del tema…",
+      });
     },
   });
 
@@ -380,25 +865,23 @@ async function renderTemas() {
   $tabla.off("click.temasBanco", ".btn-toggle-tema");
 
   $tabla.on("click.temasBanco", ".btn-editar-tema", function () {
-    const id = this.dataset.id;
-    const nombre = this.dataset.nombre || "";
-
-    document.getElementById("temaIdEditar").value = id;
-    document.getElementById("temaNombreEditar").value = nombre;
-
-    const modalEditarEl = document.getElementById("modalTemaEditar");
-    if (modalEditarEl.parentElement !== document.body) {
-      document.body.appendChild(modalEditarEl);
-    }
-
-    bootstrap.Modal.getOrCreateInstance(modalEditarEl, {
-      backdrop: "static",
-    }).show();
+    showPanelTemaBanco("editar", {
+      id: this.dataset.id,
+      nombre: this.dataset.nombre || "",
+    });
   });
 
   $tabla.on("click.temasBanco", ".btn-toggle-tema", async function () {
     const id = this.dataset.id;
-    if (!confirm("¿Cambiar el estado de este tema?")) return;
+    if (
+      !(await uiConfirm("¿Cambiar el estado de este tema?", {
+        variant: "warning",
+        title: "Cambiar estado del tema",
+        confirmLabel: "Sí, cambiar",
+      }))
+    ) {
+      return;
+    }
 
     try {
       const r = await fetch(`${window.TEMAS_API_BASE}/${id}/toggle`, {
@@ -407,14 +890,14 @@ async function renderTemas() {
       const d = await r.json();
 
       if (!r.ok) {
-        alert(d.error || "No se pudo cambiar el estado.");
+        await uiAlert(d.error || "No se pudo cambiar el estado.");
         return;
       }
 
       await renderTemas();
     } catch (e) {
       console.error(e);
-      alert("Error de red.");
+      await uiAlert("Error de red.");
     }
   });
 
@@ -434,6 +917,15 @@ async function renderTemas() {
 function destroyDtWrappersBanco() {
   const t = document.querySelector("#tabla-temas");
   if (!t) return;
+
+  const ETM = window.EvaluniaTemarioModal;
+  if (ETM) {
+    ETM.destroy("#tabla-temas", ETM.TOOLBAR_HOST_ID);
+    ETM.rebuildThead(t, { includePreguntas: true });
+    return;
+  }
+
+  document.getElementById("temarioDtToolbarHost")?.replaceChildren();
 
   const $t = $(t);
 
@@ -455,6 +947,7 @@ function destroyDtWrappersBanco() {
   t.querySelector("thead")?.remove();
 
   const thead = document.createElement("thead");
+  thead.className = "table-dark";
   thead.innerHTML = `
     <tr>
       <th>ID</th>
@@ -471,10 +964,133 @@ function destroyDtWrappersBanco() {
   if (!tb.parentElement) t.appendChild(tb);
 }
 
+  function panelTemaBancoEls() {
+    return {
+      panel: document.getElementById("panelTemaBanco"),
+      titulo: document.getElementById("panelTemaBancoTitulo"),
+      icon: document.getElementById("panelTemaBancoIcon"),
+      idInput: document.getElementById("temaIdBanco"),
+      nombreInput: document.getElementById("temaNombreBanco"),
+      btnG: document.getElementById("btnTemaBancoGuardar"),
+    };
+  }
 
-  // ————— Cableado robusto —————
+  function hidePanelTemaBanco() {
+    const { panel, idInput, nombreInput, btnG, icon } = panelTemaBancoEls();
+    if (!panel) return;
+    panel.classList.remove(
+      "cuad-tema-form-panel--crear",
+      "cuad-tema-form-panel--editar",
+      PANEL_TEMA_OPEN_CLASS_BANCO
+    );
+    panel.setAttribute("aria-hidden", "true");
+    if (icon) icon.className = "bi bi-plus-circle";
+    panel.dataset.modo = "";
+    if (idInput) idInput.value = "";
+    if (nombreInput) {
+      nombreInput.value = "";
+      nombreInput.disabled = false;
+    }
+    if (btnG) btnG.disabled = false;
+  }
 
-  // 1) Inicializar SOLO cuando el modal ya está visible
+  function showPanelTemaBanco(modo, payload = {}) {
+    const { panel, titulo, icon, idInput, nombreInput, btnG } = panelTemaBancoEls();
+    if (!panel || !nombreInput) return;
+    panel.classList.remove(
+      "cuad-tema-form-panel--crear",
+      "cuad-tema-form-panel--editar"
+    );
+    panel.classList.add(
+      modo === "editar" ? "cuad-tema-form-panel--editar" : "cuad-tema-form-panel--crear"
+    );
+    if (icon) {
+      icon.className =
+        modo === "editar" ? "bi bi-pencil-square" : "bi bi-plus-circle";
+    }
+    panel.dataset.modo = modo;
+    if (titulo) {
+      titulo.textContent = modo === "editar" ? "Editar tema" : "Nuevo tema";
+    }
+    if (idInput) idInput.value = modo === "editar" ? String(payload.id ?? "") : "";
+    nombreInput.value =
+      modo === "editar" ? String(payload.nombre ?? "").trim() : "";
+    if (btnG) {
+      const label = btnG.querySelector(".btn-text");
+      if (label) {
+        label.textContent = modo === "editar" ? "Actualizar" : "Guardar";
+      }
+      btnG.classList.toggle("btn-success", modo !== "editar");
+      btnG.classList.toggle("btn-primary", modo === "editar");
+    }
+
+    panel.setAttribute("aria-hidden", "false");
+    panel.classList.remove(PANEL_TEMA_OPEN_CLASS_BANCO);
+    void panel.offsetWidth;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        panel.classList.add(PANEL_TEMA_OPEN_CLASS_BANCO);
+        requestAnimationFrame(() => {
+          try {
+            nombreInput.focus();
+          } catch (_) {}
+        });
+      });
+    });
+  }
+
+  async function guardarPanelTemaBanco() {
+    const modal = document.getElementById("modalTemas");
+    if (modal?.dataset?.ctx !== "banco") return;
+
+    const { panel, idInput, nombreInput, btnG } = panelTemaBancoEls();
+    const modo = panel?.dataset?.modo;
+    if (!modo || !panel.classList.contains(PANEL_TEMA_OPEN_CLASS_BANCO)) return;
+
+    const nombre = nombreInput?.value.trim() || "";
+    if (!nombre) return;
+
+    if (btnG) btnG.disabled = true;
+    if (nombreInput) nombreInput.disabled = true;
+
+    try {
+      if (modo === "crear") {
+        const r = await fetch(window.TEMAS_API_BASE, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          await uiAlert(d.error || "Error al crear.");
+          return;
+        }
+      } else if (modo === "editar") {
+        const id = idInput?.value;
+        if (!id) return;
+        const r = await fetch(`${window.TEMAS_API_BASE}/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre }),
+        });
+        const d = await r.json();
+        if (!r.ok) {
+          await uiAlert(d.error || "Error al actualizar.");
+          return;
+        }
+      }
+      hidePanelTemaBanco();
+      await renderTemas();
+    } catch (e2) {
+      console.error(e2);
+      await uiAlert("Error de red.");
+    } finally {
+      const els = panelTemaBancoEls();
+      if (els.btnG) els.btnG.disabled = false;
+      if (els.nombreInput) els.nombreInput.disabled = false;
+    }
+  }
+
 $(document).off("show.bs.modal.temasBancoCtx", "#modalTemas");
 $(document).on("show.bs.modal.temasBancoCtx", "#modalTemas", function (ev) {
   const trigger = ev.relatedTarget;
@@ -495,13 +1111,10 @@ $(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function 
     await renderTemas();
   } catch (e) {
     console.error(e);
-    alert("No se pudo cargar Temas.");
+    await uiAlert("No se pudo cargar Temas.");
   }
 });
 
-
-
-  // 2) Filtro “mostrar inactivos”
  $(document).on("change", "#chkVerInactivosTemas", async function () {
   const modal = document.getElementById("modalTemas");
   if (modal?.dataset?.ctx !== "banco") return;
@@ -513,66 +1126,38 @@ $(document).on("shown.bs.modal.temasBancoRender", "#modalTemas", async function 
   }
 });
 
+  $(document).on("click.temasBancoPanel", "#btnAgregarTemaBanco", function (ev) {
+    ev.preventDefault();
+    const modal = document.getElementById("modalTemas");
+    if (modal?.dataset?.ctx !== "banco") return;
+    showPanelTemaBanco("crear");
+  });
 
-  // 3) Crear
-$(document).on("submit", "#formTemaCrear", async function (e) {
-  const modal = document.getElementById("modalTemas");
-  if (modal?.dataset?.ctx !== "banco") return;
+  $(document).on("click.temasBancoPanel", "#btnTemaBancoGuardar", function (ev) {
+    ev.preventDefault();
+    void guardarPanelTemaBanco();
+  });
 
-  e.preventDefault();
+  $(document).on("click.temasBancoPanel", "#btnTemaBancoCancelar", function (ev) {
+    ev.preventDefault();
+    hidePanelTemaBanco();
+  });
 
-  const nombre = document.getElementById("temaNombreCrear").value.trim();
-  if (!nombre) return;
+  $(document).on("hidden.bs.modal.temasBancoPanel", "#modalTemas", function () {
+    if (this.dataset.ctx !== "banco") return;
+    hidePanelTemaBanco();
+  });
 
-  try {
-    const r = await fetch(window.TEMAS_API_BASE, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre }),
-    });
-    const d = await r.json();
-    if (!r.ok) return alert(d.error || "Error al crear.");
-
-    bootstrap.Modal.getInstance(document.getElementById("modalTemaCrear"))?.hide();
-    document.getElementById("temaNombreCrear").value = "";
-    await renderTemas();
-  } catch (e2) {
-    console.error(e2);
-    alert("Error de red.");
-  }
-});
-
-  // 4) Editar
- $(document).on("submit", "#formTemaEditar", async function (e) {
-  const modal = document.getElementById("modalTemas");
-  if (modal?.dataset?.ctx !== "banco") return;
-
-  e.preventDefault();
-
-  const id = document.getElementById("temaIdEditar").value;
-  const nombre = document.getElementById("temaNombreEditar").value.trim();
-  if (!nombre) return;
-
-  try {
-    const r = await fetch(`${window.TEMAS_API_BASE}/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre }),
-    });
-    const d = await r.json();
-    if (!r.ok) return alert(d.error || "Error al actualizar.");
-
-    bootstrap.Modal.getInstance(document.getElementById("modalTemaEditar"))?.hide();
-    await renderTemas();
-  } catch (e2) {
-    console.error(e2);
-    alert("Error de red.");
-  }
-});
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Escape") return;
+    const modal = document.getElementById("modalTemas");
+    if (!modal?.classList.contains("show") || modal.dataset.ctx !== "banco") return;
+    const panel = document.getElementById("panelTemaBanco");
+    if (!panel || !panel.classList.contains(PANEL_TEMA_OPEN_CLASS_BANCO)) return;
+    ev.stopPropagation();
+    hidePanelTemaBanco();
+  });
  })();
-// Reusa tu objeto de traducciones si lo tienes
-//preguntas
-// Helper fetch -> JSON con manejo de errores
 
 async function fetchJSON(url, opts) {
   const r = await fetch(url, opts);
@@ -631,8 +1216,220 @@ if (typeof window.examenActual === "undefined") window.examenActual = null;
 if (typeof window.dtBuscarTemas === "undefined") window.dtBuscarTemas = null;
 if (typeof window.dtBuscarPregs === "undefined") window.dtBuscarPregs = null;
 
-// Click en "Buscar" de un examen
-// Click en "Buscar"
+const GEN_CURSOS_TITULO_LISTA = "Cursos";
+const GEN_CURSOS_JOB_TIMEOUT_MS = 15 * 60 * 1000;
+
+function getModalBuscarEl() {
+  const els = [...document.querySelectorAll("#modalBuscar")];
+  const enContenido = els.find((el) =>
+    document.getElementById("contenido")?.contains(el)
+  );
+  return enContenido || els[els.length - 1] || null;
+}
+
+function mostrarVistaGenCursos(vista) {
+  const modal = getModalBuscarEl();
+  if (!modal) return;
+
+  modal.dataset.genCursosVista = vista;
+
+  const vLista = modal.querySelector("#gen-cursos-vista-lista");
+  const vDet = modal.querySelector("#gen-cursos-vista-detalle");
+  const footDet = modal.querySelector("#gen-cursos-footer-detalle");
+  const icon = modal.querySelector("#genCursosHeaderIcon");
+  const titulo = modal.querySelector("#genCursosTituloTexto");
+  const closeBtn = modal.querySelector(".gen-cursos-header-close");
+
+  if (closeBtn) {
+    closeBtn.setAttribute(
+      "aria-label",
+      vista === "detalle" ? "Volver al listado de cursos" : "Cerrar"
+    );
+  }
+
+  if (vista === "lista") {
+    vLista?.classList.add("gen-cursos-view--active");
+    vDet?.classList.remove("gen-cursos-view--active");
+    modal.querySelector("#gen-cursos-vista-progreso")?.classList.remove("gen-cursos-view--active");
+    footDet?.classList.add("d-none");
+    if (icon) {
+      icon.className = "bi bi-journal-bookmark gen-modal-cursos-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+    if (titulo) titulo.textContent = GEN_CURSOS_TITULO_LISTA;
+    requestAnimationFrame(() => {
+      try {
+        if (window.dtBuscarTemas) dtBuscarTemas.columns.adjust();
+      } catch (e) {}
+    });
+  } else if (vista === "detalle") {
+    vLista?.classList.remove("gen-cursos-view--active");
+    vDet?.classList.add("gen-cursos-view--active");
+    modal.querySelector("#gen-cursos-vista-progreso")?.classList.remove("gen-cursos-view--active");
+    footDet?.classList.remove("d-none");
+    if (icon) {
+      icon.className = "bi bi-list-ul gen-modal-cursos-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+  } else if (vista === "progreso") {
+    vLista?.classList.remove("gen-cursos-view--active");
+    vDet?.classList.remove("gen-cursos-view--active");
+    modal.querySelector("#gen-cursos-vista-progreso")?.classList.add("gen-cursos-view--active");
+    footDet?.classList.add("d-none");
+    if (icon) {
+      icon.className = "bi bi-hourglass-split gen-modal-cursos-header-icon";
+      icon.setAttribute("aria-hidden", "true");
+    }
+    if (titulo) titulo.textContent = "Procesando cursos";
+  }
+}
+
+function setGenCursosProcesando(locked) {
+  const modal = getModalBuscarEl();
+  if (!modal) return;
+  modal.dataset.genCursosProcesando = locked ? "1" : "0";
+  const closeBtn = modal.querySelector(".gen-cursos-header-close");
+  if (closeBtn) {
+    closeBtn.toggleAttribute("disabled", !!locked);
+    closeBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+  }
+}
+
+function setGenCursosProgresoVisible(visible) {
+  const ov = document.getElementById("gen-cursos-vista-progreso");
+  const bar = document.getElementById("gen-cursos-progreso-bar");
+  const pctEl = document.getElementById("gen-cursos-progreso-pct");
+  if (!ov) return;
+  if (visible) {
+    mostrarVistaGenCursos("progreso");
+    ov.classList.remove("gen-cursos-progreso-overlay--success");
+    if (bar) {
+      bar.classList.add("progress-bar-striped", "progress-bar-animated", "bg-primary");
+      bar.classList.remove("bg-success");
+    }
+    if (pctEl) pctEl.textContent = "0%";
+  }
+  if (!visible && ov.classList.contains("gen-cursos-view--active")) {
+    mostrarVistaGenCursos("lista");
+  }
+}
+
+function mapGenCursosProgressLabel(message) {
+  const m = String(message || "").trim().toLowerCase();
+  if (!m) return "Procesando cursos...";
+  if (m === "done") return "Procesamiento finalizado.";
+  return String(message);
+}
+
+function updateGenCursosProgreso(done, total, message) {
+  const bar = document.getElementById("gen-cursos-progreso-bar");
+  const lbl = document.getElementById("gen-cursos-progreso-label");
+  const pctEl = document.getElementById("gen-cursos-progreso-pct");
+  if (!bar || !lbl || !pctEl) return;
+  const t = Math.max(1, Number(total) || 1);
+  const d = Math.min(Math.max(0, Number(done) || 0), t);
+  const pct = Math.min(100, Math.round((100 * d) / t));
+  bar.style.width = `${pct}%`;
+  bar.setAttribute("aria-valuenow", String(pct));
+  pctEl.textContent = `${pct}%`;
+  lbl.textContent = mapGenCursosProgressLabel(message);
+}
+
+function showGenCursosProgresoDone(msg) {
+  const ov = document.getElementById("gen-cursos-progreso-overlay");
+  const bar = document.getElementById("gen-cursos-progreso-bar");
+  const lbl = document.getElementById("gen-cursos-progreso-label");
+  const pctEl = document.getElementById("gen-cursos-progreso-pct");
+  if (!ov || !bar || !lbl || !pctEl) return;
+  bar.style.width = "100%";
+  bar.setAttribute("aria-valuenow", "100");
+  bar.classList.remove("progress-bar-striped", "progress-bar-animated", "bg-primary");
+  bar.classList.add("bg-success");
+  pctEl.textContent = "100%";
+  lbl.textContent = String(msg || "Cursos procesados correctamente.");
+  ov.classList.add("gen-cursos-progreso-overlay--success");
+}
+
+async function waitPartirGuardarJob(jobId, deadlineMs) {
+  const statusUrl = `http://localhost:5050/api/examenes/partir_y_guardar/jobs/${jobId}`;
+  try {
+    const sseUrl = `http://localhost:5050/api/examenes/partir_y_guardar/jobs/${jobId}/events`;
+    const st = await new Promise((resolve, reject) => {
+      const remainMs = Math.max(1000, deadlineMs - Date.now());
+      const es = new EventSource(sseUrl);
+      let settled = false;
+      const finish = (fn, val) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        try { es.close(); } catch {}
+        fn(val);
+      };
+      const timeoutId = setTimeout(() => finish(reject, new Error("timeout")), remainMs);
+      const onProgress = (ev) => {
+        let data;
+        try { data = JSON.parse(ev.data); } catch { return; }
+        updateGenCursosProgreso(data.done, data.total, data.message || "Procesando cursos...");
+        if (data.status === "done" || data.status === "error") finish(resolve, data);
+      };
+      es.onmessage = onProgress;
+      es.addEventListener("progress", onProgress);
+      es.onerror = () => finish(reject, new Error("sse_unavailable"));
+    });
+    return st;
+  } catch (e) {
+    if (e?.message !== "sse_unavailable") throw e;
+    while (Date.now() < deadlineMs) {
+      await new Promise((r) => setTimeout(r, 650));
+      const res = await fetch(statusUrl);
+      const st = await res.json();
+      updateGenCursosProgreso(st.done, st.total, st.message || "Procesando cursos...");
+      if (st.status === "done" || st.status === "error") return st;
+    }
+    throw new Error("timeout");
+  }
+}
+
+if (!window.__GEN_CURSOS_HEADER_CLOSE_DELEGATED__) {
+  window.__GEN_CURSOS_HEADER_CLOSE_DELEGATED__ = true;
+  document.addEventListener(
+    "click",
+    (e) => {
+      const btn = e.target.closest(".gen-cursos-header-close");
+      if (!btn) return;
+      const modalRoot = btn.closest("#modalBuscar");
+      if (!modalRoot || !modalRoot.classList.contains("show")) return;
+      if (modalRoot.dataset.genCursosProcesando === "1") return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (modalRoot.dataset.genCursosVista === "detalle") {
+        mostrarVistaGenCursos("lista");
+      } else {
+        const inst =
+          bootstrap.Modal.getInstance(modalRoot) ||
+          bootstrap.Modal.getOrCreateInstance(modalRoot);
+        inst.hide();
+      }
+    },
+    true
+  );
+}
+
+$(document).on("click", "#btnGenCursosVolver", (e) => {
+  e.preventDefault();
+  mostrarVistaGenCursos("lista");
+});
+
+$(document).on("hidden.bs.modal", "#modalBuscar", () => {
+  mostrarVistaGenCursos("lista");
+});
+
+$(document).on("hide.bs.modal", "#modalBuscar", function (e) {
+  if (this.dataset.genCursosProcesando === "1") {
+    e.preventDefault();
+  }
+});
+
 $(document).on("click", ".btn-buscar", async function () {
   const btn = this;
   const raw = btn.dataset.id ?? $(btn).attr("data-id");
@@ -640,7 +1437,7 @@ $(document).on("click", ".btn-buscar", async function () {
   console.log("[Buscar] id =", raw, "->", id);
 
   if (!Number.isInteger(id) || id <= 0) {
-    alert("ID de examen inválido");
+    await uiAlert("ID de examen inválido");
     return;
   }
 
@@ -654,31 +1451,49 @@ $(document).on("click", ".btn-buscar", async function () {
   examenActual = id;
 
   try {
-    const res = await fetch(
-      `http://localhost:5050/api/examenes/${id}/partir_y_guardar?overwrite=1`,
-      { method: "POST" }
-    );
-
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-
-    await cargarTemasDelExamen(id);
-
-    const modalEl = document.getElementById("modalBuscar");
+    const modalEl = getModalBuscarEl();
     if (modalEl && modalEl.parentElement !== document.body) {
       document.body.appendChild(modalEl);
     }
-
+    mostrarVistaGenCursos("lista");
     bootstrap.Modal.getOrCreateInstance(modalEl, {
       backdrop: "static",
       focus: true,
-      keyboard: true,
+      keyboard: false,
     }).show();
+
+    setGenCursosProcesando(true);
+    setGenCursosProgresoVisible(true);
+    updateGenCursosProgreso(0, 100, "Iniciando separación por cursos...");
+
+    const startRes = await fetch(
+      `http://localhost:5050/api/examenes/${id}/partir_y_guardar_async?overwrite=1`,
+      { method: "POST" }
+    );
+    const startJson = await startRes.json();
+    if (!startRes.ok || !startJson?.ok || !startJson?.job_id) {
+      throw new Error(startJson?.error || `HTTP ${startRes.status}`);
+    }
+
+    const st = await waitPartirGuardarJob(
+      startJson.job_id,
+      Date.now() + GEN_CURSOS_JOB_TIMEOUT_MS
+    );
+    if (st.status === "error") {
+      const msg = st?.error?.error || st?.message || "No se pudo preparar el examen.";
+      throw new Error(msg);
+    }
+
+    showGenCursosProgresoDone("Cursos procesados correctamente.");
+    await new Promise((r) => setTimeout(r, 850));
+    await cargarTemasDelExamen(id);
+    mostrarVistaGenCursos("lista");
   } catch (e) {
     console.error(e);
-    alert("No se pudo preparar el examen.");
+    await uiAlert(e?.message || "No se pudo preparar el examen.");
   } finally {
+    setGenCursosProgresoVisible(false);
+    setGenCursosProcesando(false);
     btn.dataset.loading = "0";
     btn.disabled = false;
     btn.innerHTML = oldHtml;
@@ -706,10 +1521,19 @@ async function cargarTemasDelExamen(id) {
         {
           data: null,
           orderable: false,
-          render: (row) =>
-            `<button class="btn btn-primary btn-ver-tema" 
-                      data-tema="${row.id}" 
-                      data-nombre="${row.nombre}">Descargar</button>`,
+          render: (row) => {
+            const nom = String(row.nombre ?? "")
+              .replace(/&/g, "&amp;")
+              .replace(/"/g, "&quot;")
+              .replace(/</g, "&lt;");
+            return `<button type="button" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1 btn-ver-tema"
+                      data-tema="${row.id}"
+                      data-nombre="${nom}"
+                      aria-label="Ver detalles del curso">
+                <i class="bi bi-list-ul" aria-hidden="true"></i>
+                <span>Detalles</span>
+              </button>`;
+          },
         },
       ],
       language: DT_ES,
@@ -725,8 +1549,9 @@ $(document).on("click", ".btn-ver-tema", async function () {
   const temaId = Number(this.dataset.tema);
   const temaNombre = this.dataset.nombre || "";
 
-  // Título del modal preguntas
-  $("#tituloTemaPregs").text(temaNombre);
+  const modalBuscar = getModalBuscarEl();
+  const tituloEl = modalBuscar?.querySelector("#genCursosTituloTexto");
+  if (tituloEl) tituloEl.textContent = `Preguntas — ${temaNombre}`;
 
   try {
     const r = await fetch(
@@ -752,7 +1577,7 @@ $(document).on("click", ".btn-ver-tema", async function () {
             render: (row) => {
               const ruta = (row.archivo_ruta || "").replace(/\\/g, "/");
               const href = "file:///" + encodeURI(ruta);
-              return `<a class="btn btn-sm btn-secondary" href="${href}" target="_blank">Abrir</a>`;
+              return `<a class="btn btn-sm btn-outline-primary d-inline-flex align-items-center gap-1 gen-pregunta-abrir-btn" href="${href}" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i><span>Abrir</span></a>`;
             },
           },
         ],
@@ -762,32 +1587,57 @@ $(document).on("click", ".btn-ver-tema", async function () {
       dtPregsTema.clear().rows.add(pregs).draw(false);
     }
 
-    // Mostrar modal de preguntas
-       const modalPreguntasEl = document.getElementById("modalPreguntas");
-    if (modalPreguntasEl && modalPreguntasEl.parentElement !== document.body) {
-      document.body.appendChild(modalPreguntasEl);
-    }
-
-    abrirModalSobre("modalBuscar", "modalPreguntas");
+    mostrarVistaGenCursos("detalle");
+    requestAnimationFrame(() => {
+      try {
+        if (window.dtPregsTema) dtPregsTema.columns.adjust();
+      } catch (e) {}
+    });
   } catch (e) {
     console.error(e);
-    alert("No se pudieron cargar las preguntas.");
+    await uiAlert("No se pudieron cargar las preguntas.");
   }
 });
 
-// ======================= GRUPOS (nuevo) =======================
-// ======================= GRUPOS (nuevo) =======================
-// --- Definición segura de API_BASEs ---
 if (typeof window.GRUPOS_API_BASE === "undefined")
   window.GRUPOS_API_BASE = "http://localhost:5050/api/grupos";
 
 if (typeof window.TEMAS_API_BASE === "undefined")
   window.TEMAS_API_BASE = "http://localhost:5050/api/temas";
 
-if (typeof window.dtGrupos === "undefined") window.dtGrupos = null;
-window.grupoSeleccionado = null; // { id, clave }
+window.grupoSeleccionado = null;
 
-// --- cache de temas activos ---
+$(document).on("click", "#btnAbrirModalGrupoCrearGenExamen", function (e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const el = document.getElementById("modalGrupoCrear");
+  if (!el) return;
+  if (el.parentElement !== document.body) {
+    document.body.appendChild(el);
+  }
+  bootstrap.Modal.getInstance(el)?.dispose();
+  const inst = new bootstrap.Modal(el, {
+    backdrop: false,
+    keyboard: false,
+  });
+  inst.show();
+  requestAnimationFrame(() => repararEstadoModales());
+});
+
+$(document).on("shown.bs.modal", "#modalGrupoCrear, #modalGrupoEditar", () => {
+  document.body.classList.add("gen-modal-grupo-nested-scrim");
+});
+
+$(document).on("hidden.bs.modal", "#modalGrupoCrear, #modalGrupoEditar", function () {
+  document.body.classList.remove("gen-modal-grupo-nested-scrim");
+  if (this.id === "modalGrupoCrear") {
+    limpiarModalGrupoCrear();
+  } else if (this.id === "modalGrupoEditar") {
+    limpiarModalGrupoEditar();
+  }
+  requestAnimationFrame(() => repararEstadoModales());
+});
+
 if (typeof window.__temasCache === "undefined") window.__temasCache = null;
 async function cargarTemasActivos() {
   if (__temasCache) return __temasCache;
@@ -797,7 +1647,6 @@ async function cargarTemasActivos() {
   return __temasCache;
 }
 
-// --- helpers cuotas (fila + total) ---
 function leerCuotasDe(containerSel) {
   const filas = [...document.querySelectorAll(`${containerSel} .cuota-row`)];
   const cuotas = [];
@@ -823,8 +1672,8 @@ function filaCuotaHTML(temas, temaSel = "", cant = "") {
     )
     .join("");
   return `
-    <div class="row g-2 align-items-center cuota-row mb-2">
-      <div class="col-8">
+    <div class="row g-2 align-items-end align-items-sm-center cuota-row gen-grupo-cuota-row mb-2">
+      <div class="col-12 col-sm-7 col-md-8">
         <select class="form-select sel-tema" required>
           <option value="" disabled ${
             temaSel ? "" : "selected"
@@ -832,11 +1681,13 @@ function filaCuotaHTML(temas, temaSel = "", cant = "") {
           ${opts}
         </select>
       </div>
-      <div class="col-3">
-        <input type="number" min="1" class="form-control inp-cant" placeholder="Cant." required value="${cant}">
+      <div class="col-8 col-sm-3 col-md-3">
+        <input type="number" min="1" class="form-control inp-cant" placeholder="Cantidad" required value="${cant}">
       </div>
-      <div class="col-1 text-end">
-        <button type="button" class="btn btn-sm btn-danger btnQuitarCuota">✕</button>
+      <div class="col-4 col-sm-2 col-md-1 text-end text-sm-end">
+        <button type="button" class="btn btn-sm btn-outline-danger gen-grupo-cuota-remove btnQuitarCuota" title="Quitar tema" aria-label="Quitar tema">
+          <i class="bi bi-trash3" aria-hidden="true"></i>
+        </button>
       </div>
     </div>`;
 }
@@ -847,7 +1698,33 @@ function totalFrom(containerSel, totalSel) {
   document.querySelector(totalSel).textContent = n;
 }
 
-// --- API helpers ---
+function limpiarModalGrupoCrear() {
+  document.getElementById("formGrupoCrear")?.reset();
+  const cont = document.getElementById("cuotasContainer");
+  if (cont) {
+    cont.innerHTML = "";
+    cont.onclick = null;
+    cont.oninput = null;
+    cont.onchange = null;
+  }
+  const inpClave = document.getElementById("grupoClaveCrear");
+  if (inpClave) inpClave.oninput = null;
+  const btnAdd = document.getElementById("btnAgregarCuota");
+  if (btnAdd) btnAdd.onclick = null;
+  const totalEl = document.getElementById("totalCuotas");
+  if (totalEl) totalEl.textContent = "0";
+}
+
+function limpiarModalGrupoEditar() {
+  document.getElementById("formGrupoEditar")?.reset();
+  const cont = document.getElementById("cuotasContainerEdit");
+  if (cont) cont.innerHTML = "";
+  const btn = document.getElementById("btnAgregarCuotaEdit");
+  if (btn) btn.onclick = null;
+  const totalEl = document.getElementById("totalCuotasEdit");
+  if (totalEl) totalEl.textContent = "0";
+}
+
 async function fetchGrupos(includeInactive) {
   const url = includeInactive
     ? `${window.GRUPOS_API_BASE}?all=1`
@@ -862,7 +1739,7 @@ async function fetchCuotasGrupo(idgrupo) {
   if (!r.ok) return [];
   return r.json();
 }
-// guardar cuotas por ID de grupo (sin examenes)
+
 async function saveCuotasGrupoById(idgrupo, cuotas) {
   const r = await fetch(`${window.GRUPOS_API_BASE}/${idgrupo}/cuotas`, {
     method: "PUT",
@@ -874,132 +1751,155 @@ async function saveCuotasGrupoById(idgrupo, cuotas) {
   return j;
 }
 
-
-
-
-
-// -------- panel izquierdo (lista dinámica) --------
 async function renderGruposLeftPanel() {
   const ul = document.getElementById("lista-grupos");
   if (!ul) return;
 
   try {
-    const grupos = await fetchGrupos(false); // solo activos
+    const grupos = await fetchGrupos(false);
     ul.innerHTML = "";
 
     grupos.forEach((g) => {
       const li = document.createElement("li");
-      li.className = "d-flex align-items-center justify-content-between mb-2";
+      li.className =
+        "gen-examen-grupo-row d-flex align-items-center justify-content-between mb-2";
 
-      const left = document.createElement("div");
-      left.className = "d-flex align-items-center gap-2";
-      left.innerHTML = `
-        <span class="btn btn-sm btn-custom">${g.clave}</span>
-        <span class="text-muted small">${g.nombre || ""}</span>
-        <span class="btn btn-sm btn-primary">${g.total_preguntas ?? 0}</span>
+      const main = document.createElement("div");
+      main.className =
+        "gen-examen-grupo-main d-flex align-items-center gap-2 flex-grow-1 min-w-0";
+      main.innerHTML = `
+        <span class="gen-examen-grupo-pill gen-examen-grupo-pill--clave">${g.clave}</span>
+        <span class="text-muted small gen-examen-grupo-name">${g.nombre || ""}</span>
+        <span class="gen-examen-grupo-pill gen-examen-grupo-pill--count">${g.total_preguntas ?? 0}</span>
       `;
 
-      const right = document.createElement("div");
-      right.className = "d-flex align-items-center gap-1";
+      const actions = document.createElement("div");
+      actions.className =
+        "gen-examen-grupo-actions d-flex align-items-center gap-1 flex-shrink-0";
 
       const btnCfg = document.createElement("button");
-      btnCfg.className = "btn btn-sm btn-secondary";
+      btnCfg.type = "button";
+      btnCfg.className =
+        "btn gen-examen-grupo-act gen-examen-grupo-act--config";
       btnCfg.title = "Configurar cuotas por tema";
-      btnCfg.textContent = "⚙";
+      btnCfg.innerHTML =
+        '<i class="bi bi-gear-fill" aria-hidden="true"></i>';
       btnCfg.onclick = (ev) => {
         ev.stopPropagation();
         abrirModalEditarGrupo(g);
       };
 
       const btnDel = document.createElement("button");
-
-      btnDel.className = "btn btn-sm btn-danger btnQuitarCuota";
+      btnDel.type = "button";
+      btnDel.className =
+        "btn gen-examen-grupo-act gen-examen-grupo-act--delete btnQuitarCuota";
       btnDel.title = "Eliminar";
-      btnDel.textContent = "✕";
+      btnDel.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
       btnDel.onclick = async (ev) => {
-      ev.stopPropagation();
-      try {
-        if (!confirm("¿Eliminar este grupo?")) return;
+        ev.stopPropagation();
+        try {
+          if (
+            !(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" }))
+          ) {
+            return;
+          }
 
-        let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
-          method: "DELETE",
-        });
-        let d = await r.json();
-
-        console.log("[GRUPO DELETE] status inicial =", r.status, d);
-
-        if (!r.ok && r.status === 409) {
-          const continuar = confirm(
-            (d.error || "El grupo tiene cuotas asociadas.") +
-              "\n\n¿Deseas eliminarlo de todas formas?"
-          );
-          if (!continuar) return;
-
-          r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}?force=1`, {
+          let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
             method: "DELETE",
           });
-          d = await r.json();
+          let d = await r.json();
 
-          console.log("[GRUPO DELETE] status force =", r.status, d);
+          console.log("[GRUPO DELETE] status inicial =", r.status, d);
+
+          if (!r.ok && r.status === 409) {
+            const continuar = await uiConfirm(
+              (d.error || "El grupo tiene cuotas asociadas.") +
+                "\n\n¿Deseas eliminarlo de todas formas?",
+              {
+                variant: "warning",
+                title: "Forzar eliminación",
+                confirmLabel: "Sí, eliminar",
+                dangerous: true,
+              }
+            );
+            if (!continuar) return;
+
+            r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}?force=1`, {
+              method: "DELETE",
+            });
+            d = await r.json();
+
+            console.log("[GRUPO DELETE] status force =", r.status, d);
+          }
+
+          if (!r.ok) {
+            await uiAlert(d.error || "No se pudo eliminar");
+            return;
+          }
+
+          if (window.grupoSeleccionado?.id === g.idgrupo) {
+            window.grupoSeleccionado = null;
+          }
+
+          await uiAlert("✅ Grupo eliminado correctamente");
+
+          setTimeout(() => {
+            limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible();
+          }, 50);
+
+          await renderGruposLeftPanel();
+        } catch (e) {
+          console.error(e);
+          await uiAlert("Error de red.");
         }
+      };
 
-        if (!r.ok) {
-          alert(d.error || "No se pudo eliminar");
-          return;
-        }
+      actions.appendChild(btnCfg);
+      actions.appendChild(btnDel);
 
-        if (window.grupoSeleccionado?.id === g.idgrupo) {
-          window.grupoSeleccionado = null;
-        }
-
-        alert("✅ Grupo eliminado correctamente");
-        
-        
-       setTimeout(() => {
-          limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible();
-        }, 50);
-
-        await renderGruposLeftPanel();
-
-        if ($.fn.DataTable.isDataTable("#tabla-grupos")) {
-          await renderGruposModal();
-        }
-
-      } catch (e) {
-        console.error(e);
-        alert("Error de red.");
-      }
-    };
-      right.appendChild(btnCfg);
-      right.appendChild(btnDel);
-
-      li.appendChild(left);
-      li.appendChild(right);
+      li.appendChild(main);
+      li.appendChild(actions);
 
       li.style.cursor = "pointer";
 
       li.onclick = (ev) => {
-        if (ev.target === btnCfg || ev.target === btnDel) return;
+        if (ev.target.closest("button")) return;
         [...ul.children].forEach((n) => n.classList.remove("selected"));
         li.classList.add("selected");
 
-        // ⬇️ importante: guardar en window
+        const prevId = window.grupoSeleccionado?.id;
         window.grupoSeleccionado = { id: g.idgrupo, clave: g.clave };
+        if (prevId !== g.idgrupo) {
+          const vis = document.getElementById("visor-examen");
+          const host = document.getElementById("pdf-host");
+          if (vis) vis.classList.remove("cargado");
+          if (host) host.innerHTML = "";
+          if (typeof mostrarAccionesDescarga === "function") {
+            mostrarAccionesDescarga(false);
+          }
+        }
         console.log("Grupo seleccionado:", window.grupoSeleccionado);
+        actualizarGenExamenHintSeleccionGrupo();
       };
 
       ul.appendChild(li);
     });
+    actualizarGenExamenHintSeleccionGrupo();
   } catch (e) {
     console.error("[Grupos] No se pudo cargar la lista:", e);
   }
 }
 
-// mostrar lista al abrir tu modal principal
 if (typeof window.__origGenerarNuevoExamen === "undefined") {
   window.__origGenerarNuevoExamen = window.generarNuevoExamen;
 }
 window.generarNuevoExamen = function () {
+  const banco = document.getElementById("modalBancoPreguntas");
+  if (banco && banco.classList.contains("show")) {
+    const inst = bootstrap.Modal.getInstance(banco);
+    if (inst) inst.hide();
+  }
+
   renderGruposLeftPanel();
   if (typeof window.__origGenerarNuevoExamen === "function") {
     window.__origGenerarNuevoExamen();
@@ -1055,163 +1955,11 @@ const PLANTILLAS_GRUPO = {
   
   ],
 };
-// -------- DataTable del modal (CRUD) --------
-async function renderGruposModal() {
-  const showInactivos = document.getElementById(
-    "chkVerInactivosGrupos"
-  )?.checked;
-  const data = await fetchGrupos(showInactivos);
 
-  if (!$.fn.DataTable.isDataTable("#tabla-grupos")) {
-    dtGrupos = $("#tabla-grupos").DataTable({
-      data,
-      destroy: true,
-      autoWidth: false,
-      responsive: true,
-      pageLength: 8,
-      columns: [
-        { data: "idgrupo", title: "ID" },
-        { data: "clave", title: "Clave" },
-        { data: "nombre", title: "Nombre" },
-        { data: "total_preguntas", title: "Preguntas" },
-        {
-          data: "activo",
-          render: (v) =>
-            v
-              ? '<span class="badge bg-success">Activo</span>'
-              : '<span class="badge bg-secondary">Inactivo</span>',
-        },
-        {
-          data: null,
-          orderable: false,
-          render: (row) => {
-            const toggleTxt = row.activo ? "Deshabilitar" : "Habilitar";
-            const toggleClass = row.activo ? "btn-warning" : "btn-success";
-            return `
-              <div class="btn-group btn-group-sm" role="group">
-                <button class="btn btn-primary btn-editar-grupo"
-                        data-id="${row.idgrupo}" data-clave="${row.clave}"
-                        data-nombre="${row.nombre || ""}">
-                  Editar
-                </button>
-                <button class="btn ${toggleClass} btn-toggle-grupo" data-id="${
-              row.idgrupo
-            }">
-                  ${toggleTxt}
-                </button>
-                <button class="btn btn-danger btn-eliminar-grupo" data-id="${
-                  row.idgrupo
-                }">
-                  Eliminar
-                </button>
-              </div>`;
-          },
-        },
-      ],
-      language: DT_ES,
-    });
-
-    // Delegados
-    $("#tabla-grupos").off("click", ".btn-editar-grupo");
-    $("#tabla-grupos").on("click", ".btn-editar-grupo", async function () {
-      const { id, clave, nombre } = this.dataset;
-      // usa el mismo editor que el panel izquierdo
-      abrirModalEditarGrupo({ idgrupo: Number(id), clave, nombre });
-    });
-
-    $("#tabla-grupos").on("click", ".btn-toggle-grupo", async function () {
-      const id = this.dataset.id;
-      try {
-        const r = await fetch(`${window.GRUPOS_API_BASE}/${id}/toggle`, {
-          method: "PATCH",
-        });
-        const d = await r.json();
-        if (!r.ok) return alert(d.error || "No se pudo cambiar el estado.");
-        await renderGruposModal();
-        await renderGruposLeftPanel();
-      } catch (e) {
-        console.error(e);
-        alert("Error de red.");
-      }
-    });
-
-    $("#tabla-grupos").on("click", ".btn-eliminar-grupo", async function () {
-  const id = this.dataset.id;
-  if (!confirm("¿Eliminar este grupo?")) return;
-
-  try {
-    let r = await fetch(`${window.GRUPOS_API_BASE}/${id}`, {
-      method: "DELETE",
-    });
-    let d = await r.json();
-
-    console.log("[GRUPO DELETE TABLA] status inicial =", r.status, d);
-
-    if (!r.ok && r.status === 409) {
-      const continuar = confirm(
-        (d.error || "El grupo tiene cuotas asociadas.") +
-          "\n\n¿Deseas eliminarlo de todas formas?"
-      );
-      if (!continuar) return;
-
-      r = await fetch(`${window.GRUPOS_API_BASE}/${id}?force=1`, {
-        method: "DELETE",
-      });
-      d = await r.json();
-
-      console.log("[GRUPO DELETE TABLA] status force =", r.status, d);
-    }
-
-    if (!r.ok) {
-      alert(d.error || "No se pudo eliminar");
-      return;
-    }
-
-    if (window.grupoSeleccionado?.id === Number(id)) {
-      window.grupoSeleccionado = null;
-    }
-
-    alert("✅ Grupo eliminado correctamente");
-    await renderGruposModal();
-    await renderGruposLeftPanel();
-  } catch (e) {
-    console.error(e);
-    alert("Error de red.");
-  }
-});
-  } else {
-    dtGrupos.clear().rows.add(data).draw(false);
-  }
-  
-  setTimeout(() => {
-    try {
-      $("#tabla-grupos").DataTable().columns.adjust().responsive.recalc();
-    } catch {}
-  }, 0);
-}
-
-
-// abrir modal → cargar tabla
-$(document).on("shown.bs.modal", "#modalGrupos", async function () {
-  try {
-    await renderGruposModal();
-  } catch (e) {
-    console.error(e);
-    alert("No se pudo cargar grupos.");
-  }
-});
-
-// filtro “mostrar inactivos”
-$(document).on("change", "#chkVerInactivosGrupos", async function () {
-  try {
-    await renderGruposModal();
-  } catch (e) {
-    console.error(e);
-  }
-});
-
-// ========== CREAR GRUPO ==========
 $(document).on("show.bs.modal", "#modalGrupoCrear", async function () {
+  if (this instanceof HTMLElement && this.parentElement !== document.body) {
+    document.body.appendChild(this);
+  }
   const temas = await cargarTemasActivos();
   const cont = document.getElementById("cuotasContainer");
   const inpClave = document.getElementById("grupoClaveCrear");
@@ -1251,8 +1999,9 @@ $(document).on("show.bs.modal", "#modalGrupoCrear", async function () {
   };
 
   cont.onclick = (e) => {
-    if (e.target.classList.contains("btnQuitarCuota")) {
-      e.target.closest(".cuota-row")?.remove();
+    const q = e.target.closest(".btnQuitarCuota");
+    if (q) {
+      q.closest(".cuota-row")?.remove();
       totalFrom("#cuotasContainer", "#totalCuotas");
     }
   };
@@ -1268,6 +2017,8 @@ $(document).on("show.bs.modal", "#modalGrupoCrear", async function () {
       totalFrom("#cuotasContainer", "#totalCuotas");
     }
   };
+
+  requestAnimationFrame(() => repararEstadoModales());
 });
 
 $(document).on("submit", "#formGrupoCrear", async function (e) {
@@ -1276,7 +2027,6 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
   const clave = $("#grupoClaveCrear").val().trim();
   const nombre = $("#grupoNombreCrear").val().trim();
 
-  // Armar cuotas
   const cuotas = [];
   const seen = new Set();
   for (const row of document.querySelectorAll("#cuotasContainer .cuota-row")) {
@@ -1284,18 +2034,17 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
     const cant = row.querySelector(".inp-cant").value;
     if (!temaId || !cant) continue;
     if (seen.has(temaId)) {
-      alert("No repitas el mismo tema.");
+      await uiAlert("No repitas el mismo tema.");
       return;
     }
     seen.add(temaId);
     cuotas.push({ tema_id: Number(temaId), cantidad: Number(cant) });
   }
   if (!clave || cuotas.length === 0) {
-    alert("Completa la clave y al menos una cuota.");
+    await uiAlert("Completa la clave y al menos una cuota.");
     return;
   }
 
-  // 1) crear grupo
   let idgrupo = null;
   try {
     const r = await fetch(window.GRUPOS_API_BASE, {
@@ -1304,36 +2053,32 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
       body: JSON.stringify({ clave, nombre }),
     });
     const j = await r.json().catch(() => ({}));
-    if (r.ok) idgrupo = j.idgrupo ?? j.id; // según lo que devuelva tu API
+    if (r.ok) idgrupo = j.idgrupo ?? j.id;
     else if (r.status !== 409)
-      return alert(j.error || "No se pudo crear el grupo.");
+      return await uiAlert(j.error || "No se pudo crear el grupo.");
   } catch (e) {
     console.error(e);
-    return alert("Error de red al crear el grupo.");
+    return await uiAlert("Error de red al crear el grupo.");
   }
 
-  // si no vino el id, búscalo por clave
   if (!idgrupo) {
     const todos = await fetchGrupos(true);
     idgrupo = (todos.find((g) => g.clave === clave) || {}).idgrupo;
-    if (!idgrupo) return alert("No se pudo obtener el id del grupo.");
+    if (!idgrupo) return await uiAlert("No se pudo obtener el id del grupo.");
   }
 
-  // 2) guardar cuotas
   try {
     await saveCuotasGrupoById(idgrupo, cuotas);
-    // ⬇️ solo cerrar y refrescar la lista de la izquierda
     bootstrap.Modal.getInstance(
       document.getElementById("modalGrupoCrear")
     ).hide();
     await renderGruposLeftPanel();
   } catch (e2) {
     console.error(e2);
-    alert(e2.message || "No se pudieron guardar las cuotas.");
+    await uiAlert(e2.message || "No se pudieron guardar las cuotas.");
   }
 });
 
-// ========== EDITAR GRUPO ==========
 async function abrirModalEditarGrupo(g) {
   $("#grupoIdEditar").val(g.idgrupo);
   $("#grupoClaveEditar").val(g.clave);
@@ -1371,43 +2116,14 @@ async function abrirModalEditarGrupo(g) {
     document.body.appendChild(modalEditarEl);
   }
 
-  const modalGruposVisible =
-    document.querySelector("#modalGrupos.show") ||
-    document.querySelector('#modalGrupos[style*="display: block"]');
-
-  if (modalGruposVisible) {
-    abrirModalSobre("modalGrupos", "modalGrupoEditar");
-    return;
-  }
-
-  // caso: abierto desde el modal custom principal
-  const main = document.getElementById("modal-examen");
-  if (main && main.classList.contains("mostrar-flex")) {
-    main.dataset.wasVisible = "1";
-    main.classList.remove("mostrar-flex");
-    main.classList.add("oculto");
-  }
-
-  const inst = bootstrap.Modal.getOrCreateInstance(modalEditarEl, {
-    backdrop: "static",
-    focus: true,
-    keyboard: true,
+  bootstrap.Modal.getInstance(modalEditarEl)?.dispose();
+  const inst = new bootstrap.Modal(modalEditarEl, {
+    backdrop: false,
+    keyboard: false,
   });
 
-  modalEditarEl.addEventListener(
-    "hidden.bs.modal",
-    () => {
-      const main2 = document.getElementById("modal-examen");
-      if (main2 && main2.dataset.wasVisible === "1") {
-        main2.classList.remove("oculto");
-        main2.classList.add("mostrar-flex");
-        delete main2.dataset.wasVisible;
-      }
-    },
-    { once: true }
-  );
-
   inst.show();
+  requestAnimationFrame(() => repararEstadoModales());
 }
 
 $(document).off("click", "#cuotasContainerEdit .btnQuitarCuota");
@@ -1438,17 +2154,16 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
   try {
     cuotas = leerCuotasDe("#cuotasContainerEdit");
   } catch (err) {
-    alert(err.message);
+    await uiAlert(err.message);
     return;
   }
 
   if (!nuevaClave || cuotas.length === 0) {
-    alert("Completa clave y al menos una cuota.");
+    await uiAlert("Completa clave y al menos una cuota.");
     return;
   }
 
   try {
-    // 1) actualizar datos del grupo
     const r1 = await fetch(`${window.GRUPOS_API_BASE}/${idgrupo}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -1457,22 +2172,17 @@ $(document).on("submit", "#formGrupoEditar", async function (e) {
     const j1 = await r1.json();
     if (!r1.ok) throw new Error(j1.error || "No se pudo actualizar el grupo.");
 
-    // 2) reemplazar cuotas
     await saveCuotasGrupoById(idgrupo, cuotas);
 
     bootstrap.Modal.getInstance(
       document.getElementById("modalGrupoEditar")
     ).hide();
-    await renderGruposModal();
     await renderGruposLeftPanel();
-    //new bootstrap.Modal(document.getElementById("modalGrupos")).show();
   } catch (e2) {
     console.error(e2);
-    alert(e2.message || "Error al actualizar cuotas.");
+    await uiAlert(e2.message || "Error al actualizar cuotas.");
   }
 });
-// --- Gestión de apilamiento entre tu modal custom y los modales Bootstrap ---
-
 
 function getLastById(id) {
   const els = [...document.querySelectorAll(`#${id}`)];
@@ -1488,15 +2198,10 @@ function getVisibleById(id) {
   );
 }
 
-function abrirModalSobre(parentId, childId) {
+/** Modal hijo sobre padre: al cerrar el hijo se reabre el padre. */
+function abrirModalSobre(parentId, childId, opts) {
   const parentEl = getVisibleById(parentId);
   const childEl = getLastById(childId);
-
-  console.log("[MODAL] abrirModalSobre");
-  console.log("[MODAL] parentId =", parentId, "count =", document.querySelectorAll(`#${parentId}`).length);
-  console.log("[MODAL] childId =", childId, "count =", document.querySelectorAll(`#${childId}`).length);
-  console.log("[MODAL] parentEl =", parentEl);
-  console.log("[MODAL] childEl =", childEl);
 
   if (!parentEl || !childEl) {
     console.error("[MODAL] Falta parent o child", { parentId, childId });
@@ -1507,110 +2212,264 @@ function abrirModalSobre(parentId, childId) {
     document.body.appendChild(childEl);
   }
 
-  const parent = bootstrap.Modal.getOrCreateInstance(parentEl);
   const child = bootstrap.Modal.getOrCreateInstance(childEl, {
     backdrop: "static",
     focus: true,
     keyboard: true,
   });
 
+  const parent = bootstrap.Modal.getOrCreateInstance(parentEl);
+
   const onParentHidden = () => {
-    console.log("[MODAL] parent oculto, ahora se abre child:", childId);
     child.show();
   };
 
   const onChildHidden = () => {
-    console.log("[MODAL] child cerrado, reabriendo parent:", parentId);
     bootstrap.Modal.getOrCreateInstance(parentEl).show();
   };
 
   parentEl.addEventListener("hidden.bs.modal", onParentHidden, { once: true });
   childEl.addEventListener("hidden.bs.modal", onChildHidden, { once: true });
 
-  console.log("[MODAL] ocultando parent:", parentId, "para abrir child:", childId);
   parent.hide();
 }
 
-// ========= GENERAR EXAMEN DESDE GRUPO (robusto) =========
 (() => {
   const BASE = "http://localhost:5050";
   let blobUrlActual = null;
-  let __bannerEl = null;
 
-  function ensureBanner() {
-    if (__bannerEl && document.body.contains(__bannerEl)) return __bannerEl;
-    const cont =
-      document.querySelector("#zona-avisos") ||
-      document.querySelector(".pdf-vista") ||
-      document.getElementById("modal-examen") ||
-      document.body;
-    __bannerEl =
-      document.getElementById("banner-estado") || document.createElement("div");
-    __bannerEl.id = "banner-estado";
-    __bannerEl.className = "alert alert-info mb-3";
-    if (!__bannerEl.parentElement) cont.prepend(__bannerEl);
-    return __bannerEl;
-  }
-  function setBanner(msg, kind = "info") {
-    const el = ensureBanner();
-    el.className = `alert alert-${kind} mb-3`;
-    el.innerHTML = msg;
+  const GEN_DOC_POLL_MS = 280;
+  const GEN_DOC_JOB_TIMEOUT_MS = 15 * 60 * 1000;
+
+  let __genExamenClaveProgresoRaw = "";
+
+  function resetGenExamenGenerarOverlayVisual() {
+    const ov = document.getElementById("gen-examen-generar-progress");
+    ov?.classList.remove(
+      "gen-examen-generar-overlay--success",
+      "gen-examen-generar-overlay--success-pop"
+    );
+    const bar = document.getElementById("gen-examen-generar-progress-bar");
+    if (bar) {
+      bar.style.removeProperty("width");
+      bar.classList.add("progress-bar-striped", "progress-bar-animated", "bg-primary");
+      bar.classList.remove("bg-success");
+    }
+    const lblText = document.getElementById("gen-examen-generar-progress-label-text");
+    if (lblText) lblText.textContent = "";
+    const pctEl = document.getElementById("gen-examen-generar-progress-pct");
+    if (pctEl) pctEl.textContent = "0%";
   }
 
-  async function generarExamenGrupo(formato = "word") {
+  function setGenExamenGenerarProgressVisible(visible) {
+    const el = document.getElementById("gen-examen-generar-progress");
+    el?.classList.toggle("d-none", !visible);
+    resetGenExamenGenerarOverlayVisual();
+  }
+
+  function setGenExamenModalInteractionLocked(locked) {
+    const modal = document.getElementById("modal-examen");
+    if (!modal) return;
+    modal.classList.toggle("gen-modal-examen--generating", !!locked);
+    window.__genExamenGenerando = !!locked;
+
+    const closeBtn = modal.querySelector(".modal-header .btn-close");
+    if (closeBtn) {
+      closeBtn.toggleAttribute("disabled", !!locked);
+      if (locked) closeBtn.setAttribute("aria-disabled", "true");
+      else closeBtn.removeAttribute("aria-disabled");
+    }
+
+    const aside = document.getElementById("genExamenGruposAside");
+    if (aside) aside.toggleAttribute("inert", !!locked);
+
+    const layout = document.getElementById("genExamenLayout");
+    if (!layout) return;
+
+    if (locked) {
+      layout.querySelectorAll("button").forEach((b) => {
+        if (b.dataset.genExamenLockApplied) return;
+        b.dataset.genExamenWasDisabled = b.disabled ? "1" : "";
+        b.disabled = true;
+        b.dataset.genExamenLockApplied = "1";
+      });
+      layout.querySelectorAll("a.btn").forEach((a) => {
+        if (a.dataset.genExamenLockApplied) return;
+        const href = a.getAttribute("href");
+        if (href) a.dataset.genExamenLockHref = href;
+        a.removeAttribute("href");
+        a.setAttribute("aria-disabled", "true");
+        a.classList.add("disabled");
+        a.dataset.genExamenLockApplied = "1";
+      });
+      return;
+    }
+
+    layout.querySelectorAll("[data-gen-examen-lock-applied]").forEach((el) => {
+      if (el instanceof HTMLButtonElement) {
+        el.disabled = el.dataset.genExamenWasDisabled === "1";
+        delete el.dataset.genExamenWasDisabled;
+      } else if (el instanceof HTMLAnchorElement) {
+        const h = el.dataset.genExamenLockHref;
+        if (h) el.setAttribute("href", h);
+        delete el.dataset.genExamenLockHref;
+        el.removeAttribute("aria-disabled");
+        el.classList.remove("disabled");
+      }
+      delete el.dataset.genExamenLockApplied;
+    });
+
+    const toolbarEnabled =
+      document.getElementById("accionesDescarga")?.dataset.enabled === "1";
+    if (typeof mostrarAccionesDescarga === "function") {
+      mostrarAccionesDescarga(toolbarEnabled);
+    }
+  }
+
+  window.resetGenExamenGeneratingUi = function resetGenExamenGeneratingUi() {
+    setGenExamenModalInteractionLocked(false);
+    resetGenExamenGenerarOverlayVisual();
+    setGenExamenGenerarProgressVisible(false);
+  };
+
+  document.getElementById("modal-examen")?.addEventListener("hide.bs.modal", (ev) => {
+    if (window.__genExamenGenerando) {
+      ev.preventDefault();
+    }
+  });
+
+  function mapGenExamenProgressLabel(serverMessage) {
+    const g = __genExamenClaveProgresoRaw || "";
+    const s = String(serverMessage || "").trim().toLowerCase();
+    const pdfPhase =
+      s === "pdf" ||
+      s.includes("pdf") ||
+      s.includes("vista previa") ||
+      s.includes("generando vista");
+    if (pdfPhase) {
+      return g
+        ? `Generando la vista previa PDF del grupo ${g}`
+        : "Generando la vista previa PDF";
+    }
+    return g
+      ? `Preparando el examen del grupo ${g}`
+      : "Preparando el examen";
+  }
+
+  function updateGenExamenGenerarProgress(done, total, message) {
+    const bar = document.getElementById("gen-examen-generar-progress-bar");
+    const lblText = document.getElementById("gen-examen-generar-progress-label-text");
+    const pctEl = document.getElementById("gen-examen-generar-progress-pct");
+    if (!bar || !lblText || !pctEl) return;
+    const t = Math.max(1, Number(total) || 1);
+    const d = Math.min(Math.max(0, Number(done) || 0), t);
+    const pct = Math.min(100, Math.round((100 * d) / t));
+    bar.style.width = `${pct}%`;
+    bar.setAttribute("aria-valuenow", String(pct));
+    bar.setAttribute("aria-valuemax", "100");
+    pctEl.textContent = `${pct}%`;
+    bar.classList.toggle("gen-examen-pct-outside", pct < 14);
+    lblText.textContent = mapGenExamenProgressLabel(message);
+  }
+
+  function parseGenExamenStatusPayload(raw, statusCode, sourceLabel) {
+    let st;
     try {
-      const sel = window.grupoSeleccionado;
-      if (!sel?.id) {
-        setBanner(
-          "Selecciona un grupo en la lista de la izquierda.",
-          "warning"
-        );
-        return;
+      st = typeof raw === "string" ? JSON.parse(raw) : raw;
+    } catch (e) {
+      throw new Error(`Estado del trabajo no JSON (${sourceLabel} HTTP ${statusCode}).`);
+    }
+    if (!st || typeof st !== "object") {
+      throw new Error(`Estado del trabajo inválido (${sourceLabel} HTTP ${statusCode}).`);
+    }
+    return st;
+  }
+
+  async function waitGenExamenJobByPolling(statusUrl, deadlineMs) {
+    while (Date.now() < deadlineMs) {
+      await new Promise((r) => setTimeout(r, GEN_DOC_POLL_MS));
+      const stRes = await fetch(statusUrl);
+      const stRaw = await stRes.text();
+      const st = parseGenExamenStatusPayload(stRaw, stRes.status, "poll");
+      if (!stRes.ok) {
+        throw new Error(st?.error || `HTTP ${stRes.status}`);
       }
-
-      const endpoint = `http://localhost:5050/api/grupos/${
-        sel.id
-      }/generar_doc?formato=${encodeURIComponent(formato)}&numerar=1`;
-      setBanner(`Generando examen para el grupo <b>${sel.clave}</b>…`, "info");
-
-      const res = await fetch(endpoint, { method: "POST" });
-      const raw = await res.text();
-
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch (e) {
-        console.error("HTML devuelto por el backend:\n", raw);
-        throw new Error(`Respuesta no JSON (HTTP ${res.status}).`);
+      updateGenExamenGenerarProgress(st.done, st.total, st.message || "");
+      if (st.status === "done" || st.status === "error") {
+        return st;
       }
+    }
+    throw new Error("timeout");
+  }
 
-      if (!res.ok || !data?.ok) {
-        const msg = data?.error || `Error ${res.status}`;
+  async function waitGenExamenJobBySse(jobId, deadlineMs) {
+    return await new Promise((resolve, reject) => {
+      const remainMs = Math.max(1000, deadlineMs - Date.now());
+      const sseUrl = `http://localhost:5050/api/grupos/generar_doc/jobs/${jobId}/events`;
+      const es = new EventSource(sseUrl);
+      let settled = false;
+      const finish = (fn, value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        try { es.close(); } catch {}
+        fn(value);
+      };
 
-        console.group("[GENERAR_EXAMEN][ERROR_BACKEND]");
-        console.log("status =", res.status);
-        console.log("error =", msg);
-        console.log("payload completo =", data);
+      const timeoutId = setTimeout(() => {
+        finish(reject, new Error("timeout"));
+      }, remainMs);
 
-        if (Array.isArray(data?.detalles)) {
-          console.log("detalles:");
-          data.detalles.forEach((d, i) => {
-            console.log(`  [${i + 1}] path=${d.path || "-"} motivo=${d.motivo || d.tema || "-"}`);
-          });
+      const onProgressEvent = (ev) => {
+        const st = parseGenExamenStatusPayload(ev.data, 200, "sse");
+        updateGenExamenGenerarProgress(st.done, st.total, st.message || "");
+        if (st.status === "done" || st.status === "error") {
+          finish(resolve, st);
         }
+      };
+      es.onmessage = onProgressEvent;
+      es.addEventListener("progress", onProgressEvent);
 
-        console.groupEnd();
+      es.onerror = () => {
+        finish(reject, new Error("sse_unavailable"));
+      };
+    });
+  }
 
-        setBanner(`❌ ${msg}`, "danger");
-        mostrarAccionesDescarga(false);
-        return;
-      }
+  function showGenExamenGenerarDone() {
+    const ov = document.getElementById("gen-examen-generar-progress");
+    const bar = document.getElementById("gen-examen-generar-progress-bar");
+    const lblText = document.getElementById("gen-examen-generar-progress-label-text");
+    const pctEl = document.getElementById("gen-examen-generar-progress-pct");
+    if (!ov || !bar || !lblText) return;
+    const cv = window.grupoSeleccionado?.clave
+      ? String(window.grupoSeleccionado.clave)
+      : "";
+    bar.style.width = "100%";
+    bar.setAttribute("aria-valuenow", "100");
+    if (pctEl) pctEl.textContent = "100%";
+    bar.classList.remove("gen-examen-pct-outside");
+    lblText.textContent = cv
+      ? `Examen del grupo ${cv} generado correctamente.`
+      : "Examen generado correctamente.";
+    bar.classList.remove(
+      "progress-bar-striped",
+      "progress-bar-animated",
+      "bg-primary"
+    );
+    ov.classList.remove("gen-examen-generar-overlay--success-pop");
+    void ov.offsetWidth;
+    ov.classList.add("gen-examen-generar-overlay--success");
+    ov.classList.add("gen-examen-generar-overlay--success-pop");
+    setTimeout(() => {
+      ov.classList.remove("gen-examen-generar-overlay--success-pop");
+    }, 650);
+  }
 
-      // --- Normalizador de rutas absolutas desde el backend ----
+  async function aplicarExamenGeneradoOk(data) {
       const toAbs = (p) =>
         p ? `http://127.0.0.1:5050${p.startsWith("/") ? "" : "/"}${p}` : null;
 
-      // 1) Guardamos rutas para DESCARGA (tal como vienen del backend)
       const docxUrlApi = toAbs(data.ruta_rel || "");
       const pdfUrlApi = toAbs(data.ruta_rel_pdf || "");
       const docxName = data.archivo_docx || null;
@@ -1623,10 +2482,7 @@ function abrirModalSobre(parentId, childId) {
       window.__ultimoGenerado.docxName = data.archivo_docx || "examen.docx";
       window.__ultimoGenerado.pdfName = data.archivo_pdf || "examen.pdf";
 
-      // 2) Para la VISTA en iframe, FORZAR SIEMPRE PDF inline:
-      //    a) si viene ruta_rel_pdf (normalmente "/api/descargas/Nombre con espacios.pdf")
-      //       la convertimos a inline quitando "/api" (→ "/descargas/...").
-      // 3) Si NO hay PDF, forzarlo ahora con el nuevo endpoint
+      // Visor PDF: rutas bajo /api/... se sirven mejor sin prefijo api; si no hay PDF, pdf_from_docx
       let previewAbs = toAbs(data.preview_url || "");
       if (!pdfUrlApi && docxName) {
         try {
@@ -1641,7 +2497,6 @@ function abrirModalSobre(parentId, childId) {
             window.__ultimoGenerado.pdfUrl = abs;
             window.__ultimoGenerado.pdfName = j.archivo_pdf;
 
-            // usar el PDF inline en el visor
             previewAbs = abs.replace(
               "http://127.0.0.1:5050/api/",
               "http://127.0.0.1:5050/"
@@ -1654,12 +2509,19 @@ function abrirModalSobre(parentId, childId) {
         }
       }
 
-      // 4) Mostrar en visor:
       ensureViewer();
 
       if (data.preview_kind === "pdf" && previewAbs) {
+        showGenExamenGenerarDone();
+        await new Promise((r) =>
+          setTimeout(r, GEN_EXAMEN_SUCCESS_BEFORE_PDF_MS)
+        );
         cargarIframe(previewAbs);
       } else if (window.__ultimoGenerado.pdfUrl) {
+        showGenExamenGenerarDone();
+        await new Promise((r) =>
+          setTimeout(r, GEN_EXAMEN_SUCCESS_BEFORE_PDF_MS)
+        );
         cargarIframe(
           window.__ultimoGenerado.pdfUrl.replace(
             "http://127.0.0.1:5050/api/",
@@ -1667,32 +2529,144 @@ function abrirModalSobre(parentId, childId) {
           )
         );
       } else {
-        setBanner("❌ No se pudo generar la vista PDF del examen.", "danger");
+        setGenExamenMensajeModal(
+          "No se pudo generar la vista PDF del examen.",
+          "danger"
+        );
         mostrarAccionesDescarga(false);
         return;
       }
 
-      // 4) Links de arriba del visor + banner
-      ponerLinksVista(docxUrlApi, pdfUrlApi);
+      ponerLinksVista(window.__ultimoGenerado.docxUrl, window.__ultimoGenerado.pdfUrl);
       mostrarAccionesDescarga(true);
-      setBanner("✅ Tu examen está listo.", "success");
+  }
+
+  async function generarExamenGrupo(formato = "word") {
+    const sel = window.grupoSeleccionado;
+    if (!sel?.id) {
+      setGenExamenMensajeModal(
+        "Selecciona un grupo en la lista de la izquierda.",
+        "warning"
+      );
+      return;
+    }
+    if (window.__genExamenGenerando) return;
+
+    try {
+      const q = `formato=${encodeURIComponent(formato)}&numerar=1`;
+      const startUrl = `http://localhost:5050/api/grupos/${sel.id}/generar_doc_async?${q}`;
+
+      __genExamenClaveProgresoRaw = String(sel.clave ?? "");
+      getGenExamenMensajeEl()?.classList.add("d-none");
+      setGenExamenIdleHeroAlertState(null);
+      setGenExamenModalInteractionLocked(true);
+      {
+        const visGen = document.getElementById("visor-examen");
+        const hostGen = document.getElementById("pdf-host");
+        if (visGen) visGen.classList.remove("cargado");
+        if (hostGen) hostGen.innerHTML = "";
+        mostrarAccionesDescarga(false);
+      }
+      setGenExamenGenerarProgressVisible(true);
+      updateGenExamenGenerarProgress(0, 1, "prep");
+
+      const startRes = await fetch(startUrl, { method: "POST" });
+      const startRaw = await startRes.text();
+      let startJson;
+      try {
+        startJson = JSON.parse(startRaw);
+      } catch (e) {
+        console.error("generar_doc_async no JSON:\n", startRaw);
+        throw new Error(`Respuesta no JSON (HTTP ${startRes.status}).`);
+      }
+      if (!startRes.ok || !startJson?.ok || !startJson.job_id) {
+        const msg = startJson?.error || `Error ${startRes.status}`;
+        setGenExamenMensajeModal(msg, "danger");
+        mostrarAccionesDescarga(false);
+        return;
+      }
+
+      const jobId = startJson.job_id;
+      const statusUrl = `http://localhost:5050/api/grupos/generar_doc/jobs/${jobId}`;
+      const deadline = Date.now() + GEN_DOC_JOB_TIMEOUT_MS;
+      let st;
+      try {
+        st = await waitGenExamenJobBySse(jobId, deadline);
+      } catch (e) {
+        if (e?.message !== "sse_unavailable") {
+          throw e;
+        }
+        st = await waitGenExamenJobByPolling(statusUrl, deadline);
+      }
+
+      if (st.status === "done") {
+        const data = st.result;
+        if (!data?.ok) {
+          const msg = data?.error || "Error al generar el examen.";
+          console.group("[GENERAR_EXAMEN][ERROR_BACKEND]");
+          console.log("payload =", data);
+          if (Array.isArray(data?.detalles)) {
+            data.detalles.forEach((d, i) => {
+              console.log(
+                `  [${i + 1}] path=${d.path || "-"} motivo=${d.motivo || d.tema || "-"}`
+              );
+            });
+          }
+          console.groupEnd();
+          setGenExamenMensajeModal(msg, "danger");
+          mostrarAccionesDescarga(false);
+          return;
+        }
+        await aplicarExamenGeneradoOk(data);
+        return;
+      }
+
+      if (st.status === "error") {
+        const code = st.http_status || 500;
+        const body = st.error || {};
+        const msg = body.error || body.message || `Error ${code}`;
+        console.group("[GENERAR_EXAMEN][ERROR_BACKEND]");
+        console.log("http_status =", code);
+        console.log("error =", msg);
+        console.log("payload =", body);
+        if (Array.isArray(body?.detalles)) {
+          body.detalles.forEach((d, i) => {
+            console.log(
+              `  [${i + 1}] path=${d.path || "-"} motivo=${d.motivo || d.tema || "-"}`
+            );
+          });
+        }
+        console.groupEnd();
+        setGenExamenMensajeModal(msg, "danger");
+        mostrarAccionesDescarga(false);
+        return;
+      }
     } catch (e) {
       console.error(e);
-      setBanner("❌ Error de red al generar el examen.", "danger");
+      if (e?.message === "timeout") {
+        setGenExamenMensajeModal(
+          "La generación tardó demasiado. Revisa el servidor e inténtalo de nuevo.",
+          "warning"
+        );
+        mostrarAccionesDescarga(false);
+        return;
+      }
+      setGenExamenMensajeModal("Error de red al generar el examen.", "danger");
       mostrarAccionesDescarga(false);
+    } finally {
+      __genExamenClaveProgresoRaw = "";
+      setGenExamenModalInteractionLocked(false);
+      setGenExamenGenerarProgressVisible(false);
     }
   }
 
-  // ⬇⬇ REGISTRO DE CLICK CON DELEGACIÓN (funciona aunque el botón se cree luego)
   document.addEventListener("click", (ev) => {
     const btn = ev.target.closest("#btnGenerarDesdeGrupo");
     if (!btn) return;
-    // Puedes permitir data-formato="pdf" en el botón si quieres
     const formato = btn.dataset.formato || "word";
     generarExamenGrupo(formato);
   });
 
-  // Limpieza del blob si se cierra la página
   window.addEventListener("beforeunload", () => {
     if (blobUrlActual) URL.revokeObjectURL(blobUrlActual);
   });
@@ -1707,8 +2681,7 @@ function showBanner(msg, kind = "info") {
       (document.querySelector(".pdf-vista") || document.body).prepend(el);
       return el;
     })();
-  b.className = `alert alert-${kind} mb-3`;
-  b.innerHTML = msg;
+  applyGenExamenBanner(b, kind, msg);
 }
 
 async function guardarUltimoDeDescargasDocx() {
@@ -1718,7 +2691,7 @@ async function guardarUltimoDeDescargasDocx() {
     pattern: "\\.(docx)$",
     suggestedName: window.__ultimoGenerado?.docxName || "examen.docx",
   });
-  if (!res?.ok && !res?.canceled) alert(res?.message || "No se pudo guardar.");
+  if (!res?.ok && !res?.canceled) await uiAlert(res?.message || "No se pudo guardar.");
 }
 async function guardarUltimoDeDescargasPdf() {
   const res = await window.api?.saveLastFromFolder?.({
@@ -1727,32 +2700,31 @@ async function guardarUltimoDeDescargasPdf() {
     pattern: "\\.(pdf)$",
     suggestedName: window.__ultimoGenerado?.pdfName || "examen.pdf",
   });
-  if (!res?.ok && !res?.canceled) alert(res?.message || "No se pudo guardar.");
+  if (!res?.ok && !res?.canceled) await uiAlert(res?.message || "No se pudo guardar.");
 }
 
-// Delegación: capturamos clicks aunque el botón se inserte luego
 document.addEventListener("click", async (ev) => {
-  // ----- GUARDAR DOCX -----
   if (ev.target.closest("#btnGuardarDocx")) {
+    if (!hasGenExamenPreviewReady()) {
+      ev.preventDefault();
+      return;
+    }
     try {
-      // A) Si vienes del listado (hay id) → exportar por id (IPC)
       if (window.examenSeleccionadoParaExportar) {
         console.log("[GUARDAR DOCX] Plan A: exportarExamenSeleccionado(docx)");
         return exportarExamenSeleccionado("docx");
       }
 
-      // B) Si vienes de Generar (hay URL del backend) → guardar desde URL (IPC)
       const u = window.__ultimoGenerado?.docxUrl;
       const n = window.__ultimoGenerado?.docxName || "examen.docx";
       if (u) {
         console.log("[GUARDAR DOCX] Plan B: guardarDesdeUrl", u, n);
         const r = await window.api?.guardarDesdeUrl?.(u, n);
         if (!r?.ok && !r?.canceled)
-          alert(r?.message || "No se pudo guardar DOCX.");
+          await uiAlert(r?.message || "No se pudo guardar DOCX.");
         return;
       }
 
-      // C) Último archivo en /descargas → copiarlo (IPC)
       console.log("[GUARDAR DOCX] Plan C: saveLastFromFolder");
       const res = await window.api?.saveLastFromFolder?.({
         sourceDir:
@@ -1761,15 +2733,18 @@ document.addEventListener("click", async (ev) => {
         suggestedName: n,
       });
       if (!res?.ok && !res?.canceled)
-        alert(res?.message || "No se pudo guardar DOCX.");
+        await uiAlert(res?.message || "No se pudo guardar DOCX.");
     } catch (e) {
       console.error(e);
-      alert("Error guardando DOCX.");
+      await uiAlert("Error guardando DOCX.");
     }
   }
 
-  // ----- GUARDAR PDF -----
   if (ev.target.closest("#btnGuardarPdf")) {
+    if (!hasGenExamenPreviewReady()) {
+      ev.preventDefault();
+      return;
+    }
     try {
       if (window.examenSeleccionadoParaExportar) {
         console.log("[GUARDAR PDF] Plan A: exportarExamenSeleccionado(pdf)");
@@ -1782,7 +2757,7 @@ document.addEventListener("click", async (ev) => {
         console.log("[GUARDAR PDF] Plan B: guardarDesdeUrl", u, n);
         const r = await window.api?.guardarDesdeUrl?.(u, n);
         if (!r?.ok && !r?.canceled)
-          alert(r?.message || "No se pudo guardar PDF.");
+          await uiAlert(r?.message || "No se pudo guardar PDF.");
         return;
       }
 
@@ -1794,10 +2769,10 @@ document.addEventListener("click", async (ev) => {
         suggestedName: n,
       });
       if (!res?.ok && !res?.canceled)
-        alert(res?.message || "No se pudo guardar PDF.");
+        await uiAlert(res?.message || "No se pudo guardar PDF.");
     } catch (e) {
       console.error(e);
-      alert("Error guardando PDF.");
+      await uiAlert("Error guardando PDF.");
     }
   }
 });
@@ -1843,15 +2818,15 @@ function ensureViewer() {
     return false;
   }
 
-  // si no existe pdf-host, créalo dentro del cuadro blanco
   if (!pdfHost) {
+    const stack = visor.querySelector(".gen-examen-visor-stack");
     const host = document.createElement("div");
     host.id = "pdf-host";
     host.style.width = "100%";
     host.style.height = "100%";
     host.style.border = "0";
     host.style.background = "#fff";
-    visor.appendChild(host);
+    (stack || visor).appendChild(host);
   }
 
   return true;
@@ -1864,6 +2839,17 @@ async function mostrarVistaDocx(nombreDocx) {
   const cont = document.getElementById("visor-examen");
   const host = document.getElementById("pdf-host");
   const btnAbrir = document.getElementById("btnAbrirPreview");
+  if (!host) return;
+
+  let frame = host.querySelector("iframe.gen-docx-preview");
+  if (!frame) {
+    host.innerHTML = "";
+    frame = document.createElement("iframe");
+    frame.className = "gen-docx-preview";
+    frame.setAttribute("title", "Vista previa DOCX");
+    frame.style.cssText = "width:100%;height:100%;border:0;";
+    host.appendChild(frame);
+  }
 
   const banner = (msg, kind = "success") => {
     const el =
@@ -1871,16 +2857,16 @@ async function mostrarVistaDocx(nombreDocx) {
       (() => {
         const d = document.createElement("div");
         d.id = "banner-estado";
-        d.className = "alert alert-info mb-3";
-        (document.getElementById("visor-examen") || document.body).prepend(d);
+        (document.querySelector(".pdf-vista") ||
+          document.getElementById("visor-examen") ||
+          document.body
+        ).prepend(d);
         return d;
       })();
-    el.className = `alert alert-${kind} mb-3`;
-    el.innerHTML = msg;
+    applyGenExamenBanner(el, kind, msg);
   };
 
   try {
-    // quita estado cargado mientras cambia el contenido
     cont?.classList.remove("cargado");
 
     const resp = await fetch(
@@ -1899,18 +2885,15 @@ async function mostrarVistaDocx(nombreDocx) {
     const absUrl = `${base}${data.html_url}?v=${Date.now()}`;
     console.log("[preview url]", absUrl);
 
-    // Link “Abrir en pestaña”
     if (btnAbrir) {
       btnAbrir.classList.remove("d-none");
       btnAbrir.onclick = () => window.open(absUrl, "_blank", "noopener");
     }
 
-    // 1) Intento normal con src
     frame.onload = () => cont?.classList.add("cargado");
     frame.removeAttribute("srcdoc");
     frame.src = absUrl;
 
-    // 2) A los 900 ms, si sigue en blanco, usar srcdoc
     setTimeout(async () => {
       let looksBlank = false;
       try {
@@ -1921,7 +2904,7 @@ async function mostrarVistaDocx(nombreDocx) {
         looksBlank = true;
       }
 
-      if (!looksBlank) return; // ya cargó → onload agregó “cargado”
+      if (!looksBlank) return;
 
       try {
         const raw = await fetch(absUrl).then((r) => r.text());
@@ -1934,7 +2917,6 @@ async function mostrarVistaDocx(nombreDocx) {
         frame.removeAttribute("src");
         frame.srcdoc = html;
 
-        // 👇 IMPORTANTE: marcar como cargado cuando usamos srcdoc
         cont?.classList.add("cargado");
 
         console.log("[preview] srcdoc fallback aplicado");
@@ -1963,42 +2945,184 @@ async function mostrarVistaDocx(nombreDocx) {
   }
 }
 
-// Muestra/oculta el bloque de acciones
 function mostrarAccionesDescarga(show) {
+  const enabled = !!show;
   const box = document.getElementById("accionesDescarga");
-  if (!box) return;
-  box.classList.toggle("d-none", !show);
+  const btnVerDocx = document.getElementById("btnVerDocx");
+  const btnVerPdf = document.getElementById("btnVerPdf");
+  const btnGuardarDocx = document.getElementById("btnGuardarDocx");
+  if (box) box.dataset.enabled = enabled ? "1" : "0";
+  [btnVerDocx, btnVerPdf, btnGuardarDocx].forEach((btn) => {
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.setAttribute("aria-disabled", enabled ? "false" : "true");
+  });
+  if (!enabled) {
+    if (btnVerDocx) btnVerDocx.dataset.url = "";
+    if (btnVerPdf) btnVerPdf.dataset.url = "";
+  }
 }
-
-// Guardar DOCX…
 
 function ponerLinksVista(docxUrl, pdfUrl) {
-  const box = document.getElementById("linksVista");
-  if (!box) return;
-  let html = "";
-  if (docxUrl)
-    html += `📄 <a href="${docxUrl}" target="_blank" rel="noopener">Ver DOCX</a> `;
-  if (pdfUrl)
-    html += ` | 🖨️ <a href="${pdfUrl}" target="_blank" rel="noopener">Ver PDF</a>`;
-  box.innerHTML = html;
+  const btnVerDocx = document.getElementById("btnVerDocx");
+  const btnVerPdf = document.getElementById("btnVerPdf");
+  if (btnVerDocx) btnVerDocx.dataset.url = docxUrl || "";
+  if (btnVerPdf) btnVerPdf.dataset.url = pdfUrl || "";
+
+  const canOpen = !!(docxUrl || pdfUrl);
+  mostrarAccionesDescarga(canOpen);
 }
 
-// ======================= BANCO DE PREGUNTAS =======================
-// ======================= BANCO DE PREGUNTAS =======================
+function hasGenExamenPreviewReady() {
+  const box = document.getElementById("accionesDescarga");
+  if (box?.dataset.enabled !== "1") return false;
+  return !!(window.__ultimoGenerado?.docxUrl || window.__ultimoGenerado?.pdfUrl);
+}
+
+document.addEventListener("click", async (ev) => {
+  const btnDocx = ev.target.closest("#btnVerDocx");
+  if (btnDocx) {
+    ev.preventDefault();
+    if (!hasGenExamenPreviewReady()) return;
+    const docxUrl = btnDocx.dataset.url || window.__ultimoGenerado?.docxUrl;
+    if (!docxUrl) return;
+    const suggestedName = window.__ultimoGenerado?.docxName || "examen.docx";
+    const r = await window.api?.openDocxFromUrl?.(docxUrl, suggestedName);
+    if (!r?.ok && !r?.canceled) {
+      await uiAlert(r?.message || "No se pudo abrir el DOCX en Word.");
+    }
+    return;
+  }
+
+  const btnPdf = ev.target.closest("#btnVerPdf");
+  if (btnPdf) {
+    ev.preventDefault();
+    if (!hasGenExamenPreviewReady()) return;
+    const pdfUrl = btnPdf.dataset.url || window.__ultimoGenerado?.pdfUrl;
+    if (!pdfUrl) return;
+    window.open(pdfUrl, "_blank", "noopener");
+  }
+});
+
+(function initGenExamenGruposToggle() {
+  const layout = document.getElementById("genExamenLayout");
+  const btn = document.getElementById("btnToggleGenExamenGrupos");
+  if (!layout || !btn) return;
+
+  const icon = btn.querySelector("i.bi");
+  const vh = btn.querySelector(".visually-hidden");
+
+  function applyCollapsed(collapsed) {
+    layout.classList.toggle("gen-modal-examen-layout--grupos-collapsed", collapsed);
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    btn.title = collapsed ? "Mostrar panel de grupos" : "Plegar panel de grupos";
+    if (vh) vh.textContent = collapsed ? "Mostrar grupos" : "Plegar grupos";
+    if (icon) {
+      icon.classList.remove("bi-chevron-left", "bi-chevron-right");
+      icon.classList.add(collapsed ? "bi-chevron-right" : "bi-chevron-left");
+    }
+  }
+
+  btn.addEventListener("click", () => {
+    applyCollapsed(!layout.classList.contains("gen-modal-examen-layout--grupos-collapsed"));
+  });
+
+  const modalExamen = document.getElementById("modal-examen");
+  if (modalExamen) {
+    modalExamen.addEventListener("hidden.bs.modal", () => {
+      resetFlujoAvisosModalExamen();
+      if (layout.classList.contains("gen-modal-examen-layout--grupos-collapsed")) {
+        applyCollapsed(false);
+      }
+    });
+  }
+})();
+
 (function () {
   if (typeof window.BANCO_API_BASE === "undefined") {
     window.BANCO_API_BASE = "http://localhost:5050/api/banco_preguntas";
   }
 
-  // DataTables y estado
   let dtBancoResumen = null;
   let dtBancoDetalle = null;
-  let bancoDataCache = [];        // todos los registros del banco
+  let bancoDataCache = [];
   let temaSeleccionadoBanco = null;
-  let temasCacheBanco = null;     // todos los temas (para resumen y selects)
-  let temaPreseleccionadoImport = null; // para el modal Importar
+  let temasCacheBanco = null;
+  let temaPreseleccionadoImport = null;
 
-  // ------------- Helpers de fetch -------------
+  /** Toolbar DataTables fuera de la tabla (como en exámenes importados). */
+  function wireMbancoDataTableToolbar(api, opts) {
+    const {
+      hostSelector,
+      lengthId,
+      searchId,
+      searchPlaceholder,
+    } = opts;
+    const $wrap = $(api.table().container());
+    $wrap.addClass("mbanco-dt-wrap");
+    const $toolbar = $wrap.find(".mbanco-dt-toolbar").first();
+    const $host = $(hostSelector);
+    if ($host.length && $toolbar.length) {
+      $toolbar.detach().appendTo($host);
+    }
+
+    const findCtl = (sel) => {
+      let $el = $host.find(sel);
+      if (!$el.length) $el = $toolbar.find(sel);
+      if (!$el.length) $el = $wrap.find(sel);
+      return $el;
+    };
+
+    const $length = findCtl(".dt-length, .dataTables_length");
+    const $lenSelect = $length.find("select").first().detach();
+    if ($lenSelect.length && $length.length) {
+      $length.addClass("mbanco-toolbar-field mbanco-toolbar-field--length");
+      $length.find("label").remove();
+      $lenSelect.addClass("form-select mbanco-length-select");
+      $lenSelect.attr("id", lengthId);
+      $length.find(".mbanco-toolbar-block-label--length").remove();
+      $length.prepend(
+        `<label class="form-label mbanco-toolbar-block-label mbanco-toolbar-block-label--length" for="${lengthId}">Filas por página</label>`
+      );
+      $("<div>")
+        .addClass("mbanco-length-wrap")
+        .append($lenSelect)
+        .appendTo($length);
+    }
+
+    const $fil = findCtl(".dt-search, .dataTables_filter");
+    const $inp = $fil.find("input[type=search], input").first().detach();
+    if ($inp.length && $fil.length) {
+      $fil.empty();
+      $fil.addClass(
+        "mbanco-filter-wrap mbanco-toolbar-field mbanco-toolbar-field--search"
+      );
+      $fil.prepend(
+        `<label class="form-label mbanco-toolbar-block-label mbanco-toolbar-block-label--search" for="${searchId}">Buscar en la tabla</label>`
+      );
+      $inp.attr({
+        id: searchId,
+        type: "search",
+        placeholder: searchPlaceholder,
+        autocomplete: "off",
+      });
+      $inp.addClass("form-control mbanco-search-input flex-grow-1");
+      const $ig = $(
+        '<div class="input-group mbanco-search-ig align-items-stretch"></div>'
+      );
+      $ig.append(
+        '<span class="input-group-text mbanco-search-prefix" aria-hidden="true"><i class="bi bi-search"></i></span>',
+        $inp
+      );
+      $("<div>")
+        .addClass("mbanco-filter-label")
+        .append($ig)
+        .appendTo($fil);
+    }
+  }
+
+  window.wireMbancoDataTableToolbar = wireMbancoDataTableToolbar;
+
   async function cargarBancoDesdeApi() {
     const r = await fetch(window.BANCO_API_BASE);
     let data = await r.json();
@@ -2018,9 +3142,7 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     return temas;
   }
 
-  // ------------- Construir resumen por tema -------------
   async function construirResumenPorTema() {
-    // contador a partir del banco
     const mapCont = new Map();
     for (const row of bancoDataCache) {
       const temaId = row.tema_id ?? row.temaId ?? row.id_tema ?? 0;
@@ -2039,7 +3161,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       if (row.doc_sol_nombre) item.n_solucionarios++;
     }
 
-    // combinar con TODOS los temas existentes
     const temas = await fetchTemasAllBanco();
     const resumen = temas.map((t) => {
       const base = mapCont.get(t.id) || {
@@ -2048,7 +3169,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
         n_preguntas: 0,
         n_solucionarios: 0,
       };
-      // aseguramos nombre correcto del tema desde /temas
       base.tema = t.nombre;
       return base;
     });
@@ -2056,7 +3176,6 @@ function ponerLinksVista(docxUrl, pdfUrl) {
     return resumen;
   }
 
-  // ------------- DataTable RESUMEN -------------
  async function cargarBancoResumen() {
   await cargarBancoDesdeApi();
   const resumen = await construirResumenPorTema();
@@ -2067,6 +3186,16 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       autoWidth: false,
       responsive: true,
       pageLength: 8,
+      lengthMenu: [
+        [8, 12, 20, 50, -1],
+        [8, 12, 20, 50, "Todos"],
+      ],
+      dom: "<'mbanco-dt-toolbar mbanco-dt-toolbar--row'lf>rt<'mbanco-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
+      columnDefs: [
+        { targets: 1, width: "11%" },
+        { targets: 2, width: "13%" },
+        { targets: 3, width: "9rem", orderable: false },
+      ],
       columns: [
         { data: "tema", title: "Tema" },
         {
@@ -2084,21 +3213,50 @@ function ponerLinksVista(docxUrl, pdfUrl) {
           title: "Acciones",
           orderable: false,
           className: "text-center",
-          render: (row) =>
-            `<button class="btn btn-info btn-sm btn-banco-detalles"
+          render: (row) => {
+            const nom = String(row.tema ?? "")
+              .replace(/&/g, "&amp;")
+              .replace(/"/g, "&quot;")
+              .replace(/</g, "&lt;");
+            return `<button type="button" class="btn btn-outline-primary btn-sm btn-banco-detalles d-inline-flex align-items-center gap-1"
                       data-tema="${row.id_tema}"
-                      data-nombre="${row.tema}">
-                Detalles
-             </button>`,
+                      data-nombre="${nom}">
+                <i class="bi bi-journal-text" aria-hidden="true"></i>
+                <span>Detalles</span>
+             </button>`;
+          },
         },
       ],
-      language: window.DT_ES || {},
+      language: {
+        ...(window.DT_ES || {}),
+        search: "",
+        searchPlaceholder: "Buscar por nombre de tema…",
+        lengthMenu: "_MENU_",
+        zeroRecords: "No se encontraron resultados",
+        info: "_START_–_END_ de _TOTAL_",
+        infoEmpty: "0 temas",
+        infoFiltered: "(de _MAX_)",
+        paginate: {
+          first: "«",
+          last: "»",
+          next: "›",
+          previous: "‹",
+        },
+        processing: "Procesando…",
+      },
+      initComplete: function () {
+        wireMbancoDataTableToolbar(this.api(), {
+          hostSelector: "#bancoModalResumenDtToolbarHost",
+          lengthId: "mbancoResumenDtLength",
+          searchId: "mbancoResumenDtSearch",
+          searchPlaceholder: "Nombre del tema…",
+        });
+      },
     });
   } else {
     dtBancoResumen.clear().rows.add(resumen).draw(false);
   }
 
-  // SIEMPRE re-enlazar
   $(document).off("click", "#tabla-banco-resumen .btn-banco-detalles");
   $(document).on("click", "#tabla-banco-resumen .btn-banco-detalles", function () {
     console.log("[BANCO][CLICK DETALLE] botón pulsado");
@@ -2112,40 +3270,42 @@ function ponerLinksVista(docxUrl, pdfUrl) {
   });
 }
 
-  // Helper para renderizar las acciones (se usa en detalle)
   function renderAccionesBanco(row) {
     const id = row.id;
     const hasPreg = !!row.doc_preguntas_nombre;
     const hasSol = !!row.doc_sol_nombre;
 
     const disabledDesc = hasPreg ? "" : "disabled";
-    const solClass = hasSol ? "btn-info" : "btn-outline-info";
+    const solClass = hasSol ? "btn-outline-primary" : "btn-outline-secondary";
     const solText = hasSol ? "Cambiar sol." : "Agregar sol.";
 
     return `
-      <div class="btn-group btn-group-sm" role="group">
-        <button class="btn btn-success"
+      <div class="btn-group btn-group-sm mbanco-detalle-actions" role="group">
+        <button type="button" class="btn btn-outline-success btn-sm"
                 onclick="window.bancoDescPaquete(${id})"
                 ${disabledDesc}>
+          <i class="bi bi-download" aria-hidden="true"></i>
           Descargar
         </button>
-        <button class="btn ${solClass}"
+        <button type="button" class="btn ${solClass} btn-sm"
                 onclick="window.bancoAbrirSolucionario(${id})"
                 ${disabledDesc}>
+          <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
           ${solText}
         </button>
-        <button class="btn btn-primary"
+        <button type="button" class="btn btn-outline-primary btn-sm"
                 onclick="window.bancoAbrirEditar(${id})">
+          <i class="bi bi-pencil" aria-hidden="true"></i>
           Editar
         </button>
-        <button class="btn btn-danger"
+        <button type="button" class="btn btn-outline-danger btn-sm"
                 onclick="window.bancoEliminar(${id})">
+          <i class="bi bi-trash" aria-hidden="true"></i>
           Eliminar
         </button>
       </div>`;
   }
 
-  // ------------- DataTable DETALLE POR TEMA -------------
   function cargarBancoDetalle() {
   console.log("[BANCO][cargarBancoDetalle] INICIO");
   console.log("[BANCO][cargarBancoDetalle] temaSeleccionadoBanco =", temaSeleccionadoBanco);
@@ -2196,13 +3356,18 @@ function ponerLinksVista(docxUrl, pdfUrl) {
       responsive: true,
       pageLength: 8,
       destroy: true,
+      lengthMenu: [
+        [8, 12, 20, 50, -1],
+        [8, 12, 20, 50, "Todos"],
+      ],
+      dom: "<'mbanco-dt-toolbar mbanco-dt-toolbar--row'lf>rt<'mbanco-dt-bottom d-flex flex-wrap align-items-center justify-content-between gap-2 mt-2'ip>",
       columns: [
         {
           data: "doc_preguntas_nombre",
           title: "DOCX Preguntas",
           render: (d) =>
             d
-              ? `<span class="badge bg-secondary">${d}</span>`
+              ? `<span class="badge rounded-2 bg-secondary">${d}</span>`
               : '<span class="text-muted">No asignado</span>',
         },
         {
@@ -2210,25 +3375,48 @@ function ponerLinksVista(docxUrl, pdfUrl) {
           title: "Solucionario",
           render: (d) =>
             d
-              ? `<span class="badge bg-info">${d}</span>`
+              ? `<span class="badge rounded-2 bg-secondary">${d}</span>`
               : '<span class="text-muted">Sin solucionario</span>',
         },
         {
           data: null,
           title: "Acciones",
           orderable: false,
+          className: "text-nowrap",
           render: (row) => renderAccionesBanco(row),
         },
       ],
-      language: window.DT_ES || {},
+      language: {
+        ...(window.DT_ES || {}),
+        search: "",
+        searchPlaceholder: "Buscar por nombre de archivo…",
+        lengthMenu: "_MENU_",
+        zeroRecords: "No se encontraron resultados",
+        info: "_START_–_END_ de _TOTAL_",
+        infoEmpty: "0 registros",
+        infoFiltered: "(de _MAX_)",
+        paginate: {
+          first: "«",
+          last: "»",
+          next: "›",
+          previous: "‹",
+        },
+        processing: "Procesando…",
+      },
+      initComplete: function () {
+        wireMbancoDataTableToolbar(this.api(), {
+          hostSelector: "#bancoModalDetalleDtToolbarHost",
+          lengthId: "mbancoDetalleDtLength",
+          searchId: "mbancoDetalleDtSearch",
+          searchPlaceholder: "DOCX o solucionario…",
+        });
+      },
     });
   }
 
   console.log("[BANCO][cargarBancoDetalle] FIN");
 }
 
-  // ------------- Cambiar entre vistas -------------
- 
 function verDetalleTemaBanco(idTema, nombreTema) {
   console.log("[BANCO][verDetalleTemaBanco] INICIO");
   temaSeleccionadoBanco = idTema;
@@ -2322,7 +3510,6 @@ async function volverABancoResumen() {
     }
   }
 
-  // ------------- Cargar temas en selects (usando cache) -------------
   async function cargarTemasParaBanco() {
     const temas = await fetchTemasAllBanco();
 
@@ -2337,7 +3524,7 @@ async function volverABancoResumen() {
       selImp.innerHTML = opts;
       if (temaPreseleccionadoImport) {
         selImp.value = String(temaPreseleccionadoImport);
-        selImp.disabled = true; // <- bloquea el cambio cuando vienes del detalle
+        selImp.disabled = true;
       } else {
         selImp.disabled = false;
       }
@@ -2347,9 +3534,13 @@ async function volverABancoResumen() {
     }
   }
 
-  // ------------- Abrir modal principal -------------
   async function abrirModalBancoPreguntas() {
     try {
+      const mainEx = document.getElementById("modal-examen");
+      if (mainEx && mainEx.classList.contains("show")) {
+        cerrarModalExamen();
+      }
+
       temaSeleccionadoBanco = null;
       const vRes = document.getElementById("vista-banco-resumen");
       const vDet = document.getElementById("vista-banco-detalle");
@@ -2375,32 +3566,28 @@ async function volverABancoResumen() {
       }).show();
     } catch (e) {
       console.error(e);
-      alert("No se pudo cargar el banco de preguntas.");
+      await uiAlert("No se pudo cargar el banco de preguntas.");
     }
     console.log("[BANCO][abrirModalBancoPreguntas] modal mostrado");
   }
 
-  // ------------- Delegación de botones globales -------------
   document.addEventListener("click", async (ev) => {
-    // Abrir modal Banco de preguntas
     if (ev.target.closest("#btnBancoPreguntas")) {
       ev.preventDefault();
-      temaPreseleccionadoImport = null; // modo normal
+      temaPreseleccionadoImport = null;
       await abrirModalBancoPreguntas();
       return;
     }
 
-    // Volver del detalle al resumen
     if (ev.target.closest("#btnBancoVolverResumen")) {
       ev.preventDefault();
       await volverABancoResumen();
       return;
     }
 
-    // Abrir modal Importar (desde resumen)
     if (ev.target.closest("#btnBancoImportar")) {
       ev.preventDefault();
-      temaPreseleccionadoImport = null; // no fijar tema, usuario elige
+      temaPreseleccionadoImport = null;
       await cargarTemasParaBanco();
       const modalImportarEl = document.getElementById("modalBancoImportar");
       if (modalImportarEl && modalImportarEl.parentElement !== document.body) {
@@ -2411,10 +3598,9 @@ async function volverABancoResumen() {
       return;
     }
 
-    // Abrir modal Importar (desde detalle → fijar tema)
     if (ev.target.closest("#btnBancoImportarDetalle")) {
       ev.preventDefault();
-      temaPreseleccionadoImport = temaSeleccionadoBanco; // fijamos tema actual
+      temaPreseleccionadoImport = temaSeleccionadoBanco;
       await cargarTemasParaBanco();
      const modalImportarEl = document.getElementById("modalBancoImportar");
     if (modalImportarEl && modalImportarEl.parentElement !== document.body) {
@@ -2425,14 +3611,12 @@ async function volverABancoResumen() {
       return;
     }
 
-    // Guardar importación (tema + DOCX preguntas)
     if (ev.target.closest("#btnBancoImportarGuardar")) {
       ev.preventDefault();
       await importarTemaBanco();
       return;
     }
 
-    // Guardar edición (tema y posibles reemplazos de archivos)
     if (ev.target.closest("#btnBancoEditarGuardar")) {
       ev.preventDefault();
       await guardarEdicionBanco();
@@ -2440,12 +3624,11 @@ async function volverABancoResumen() {
     }
   });
 
-  // ---- Importar tema (docx preguntas) ----
   async function importarTemaBanco() {
     const temaId = document.getElementById("bancoTemaImportar").value;
     const file = document.getElementById("bancoFilePreguntas").files[0];
     if (!temaId || !file) {
-      alert("Selecciona un tema y un archivo DOCX.");
+      await uiAlert("Selecciona un tema y un archivo DOCX.");
       return;
     }
 
@@ -2459,7 +3642,7 @@ async function volverABancoResumen() {
     });
     const j = await r.json();
     if (!r.ok) {
-      alert(j.error || "Error al importar tema.");
+      await uiAlert(j.error || "Error al importar tema.");
       return;
     }
 
@@ -2470,20 +3653,28 @@ async function volverABancoResumen() {
     await recargarBancoDespuesDeCambio();
   }
 
-  // ---- Acciones globales (se usan en las filas de detalle) ----
   window.bancoDescPaquete = function (id) {
     const url = `${window.BANCO_API_BASE}/${id}/download`;
     window.open(url, "_blank");
   };
 
   window.bancoEliminar = async function (id) {
-    if (!confirm("¿Eliminar este registro del banco?")) return;
+    if (
+      !(await uiConfirm("¿Eliminar este registro del banco?", {
+        variant: "danger",
+        title: "Eliminar del banco",
+        confirmLabel: "Eliminar",
+        dangerous: true,
+      }))
+    ) {
+      return;
+    }
     const r = await fetch(`${window.BANCO_API_BASE}/${id}`, {
       method: "DELETE",
     });
     const j = await r.json();
     if (!r.ok) {
-      alert(j.error || "No se pudo eliminar.");
+      await uiAlert(j.error || "No se pudo eliminar.");
       return;
     }
     await recargarBancoDespuesDeCambio();
@@ -2513,7 +3704,7 @@ async function volverABancoResumen() {
   abrirModalSobre("modalBancoPreguntas", "modalBancoEditar");
 };
 
-  // 👉 Cambiar / agregar solucionario SOLO para ese item (sin abrir modal)
+  /** Solucionario vía input file oculto (sin modal propio). */
   window.bancoAbrirSolucionario = function (id) {
     const input = document.createElement("input");
     input.type = "file";
@@ -2522,7 +3713,7 @@ async function volverABancoResumen() {
 
     input.onchange = async (e) => {
       const file = e.target.files[0];
-      if (!file) return; // usuario canceló
+      if (!file) return;
 
       const fd = new FormData();
       fd.append("doc_solucionario", file);
@@ -2534,29 +3725,27 @@ async function volverABancoResumen() {
         );
         const j = await r.json();
         if (!r.ok) {
-          alert(j.error || "No se pudo guardar el solucionario.");
+          await uiAlert(j.error || "No se pudo guardar el solucionario.");
           return;
         }
 
-        alert("✅ Solucionario guardado correctamente.");
+        await uiAlert("✅ Solucionario guardado correctamente.");
         await recargarBancoDespuesDeCambio();
       } catch (err) {
         console.error(err);
-        alert("❌ Error de red al guardar el solucionario.");
+        await uiAlert("❌ Error de red al guardar el solucionario.");
       }
     };
 
     input.click();
   };
 
-  // ---- Guardar edición (tema + posibles reemplazos) ----
   async function guardarEdicionBanco() {
     const id = document.getElementById("bancoEditId").value;
     const temaId = document.getElementById("bancoTemaEditar").value;
     const filePreg = document.getElementById("bancoEditFilePreg").files[0];
     const fileSol = document.getElementById("bancoEditFileSol").files[0];
 
-    // 1) actualizar tema
     if (temaId) {
       const r = await fetch(`${window.BANCO_API_BASE}/${id}`, {
         method: "PUT",
@@ -2565,12 +3754,11 @@ async function volverABancoResumen() {
       });
       const j = await r.json();
       if (!r.ok) {
-        alert(j.error || "No se pudo actualizar el tema.");
+        await uiAlert(j.error || "No se pudo actualizar el tema.");
         return;
       }
     }
 
-    // 2) reemplazar DOCX de preguntas
     if (filePreg) {
       const fd = new FormData();
       fd.append("doc_preguntas", filePreg);
@@ -2580,12 +3768,11 @@ async function volverABancoResumen() {
       );
       const j = await r.json();
       if (!r.ok) {
-        alert(j.error || "No se pudo reemplazar DOCX de preguntas.");
+        await uiAlert(j.error || "No se pudo reemplazar DOCX de preguntas.");
         return;
       }
     }
 
-    // 3) reemplazar solucionario
     if (fileSol) {
       const fd = new FormData();
       fd.append("doc_solucionario", fileSol);
@@ -2595,7 +3782,7 @@ async function volverABancoResumen() {
       );
       const j = await r.json();
       if (!r.ok) {
-        alert(j.error || "No se pudo reemplazar solucionario.");
+        await uiAlert(j.error || "No se pudo reemplazar solucionario.");
         return;
       }
     }
@@ -2607,29 +3794,3 @@ async function volverABancoResumen() {
   }
 })();
 
-(function () {
-  function limpiarBackdropsHuerfanos() {
-    const abiertos = document.querySelectorAll(".modal.show").length;
-
-    if (abiertos === 0) {
-      document.body.classList.remove("modal-open");
-      document.body.style.removeProperty("padding-right");
-
-      document
-        .querySelectorAll(".modal-backdrop")
-        .forEach((el) => el.remove());
-    }
-  }
-
-  document.addEventListener("hidden.bs.modal", () => {
-    setTimeout(limpiarBackdropsHuerfanos, 50);
-  });
-
-  document.addEventListener("shown.bs.modal", () => {
-    const abiertos = document.querySelectorAll(".modal.show").length;
-    if (abiertos > 0) {
-      document.body.classList.add("modal-open");
-    }
-  });
-  
-})();

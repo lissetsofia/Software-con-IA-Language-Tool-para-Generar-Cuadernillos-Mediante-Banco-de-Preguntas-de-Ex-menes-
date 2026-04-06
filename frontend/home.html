@@ -1,25 +1,46 @@
-<main class="flex-grow-1 d-flex flex-column align-items-center justify-content-center p-4">
-
-  <!-- TARJETA DE BIENVENIDA -->
-  <div class="card login-card mx-auto p-4 text-center mt-4" style="max-width: 95%;">
-    <div class="mb-3">
-      <img src="./img/unamaba.jpg" alt="Imagen de bienvenida" class="img-fluid rounded shadow"
-           style="height: 500px; width: 100%; object-fit: cover;">
+<main class="home-page">
+  <section class="home-hero" aria-labelledby="home-welcome-title">
+    <div class="home-hero__media">
+      <img
+        src="./img/unamba.jpg"
+        alt="Ingreso principal de la Universidad Nacional Micaela Bastidas de Apurímac"
+        class="home-hero__img"
+      />
+      <div class="home-hero__overlay" aria-hidden="true"></div>
+      <div class="home-hero__inner container-fluid px-3 px-lg-4">
+        <div class="home-hero__copy">
+          <div class="home-hero__institution-logo-wrap">
+            <img
+              src="./img/logo-unamba-horizontal.png"
+              alt="Universidad Nacional Micaela Bastidas de Apurímac"
+              class="home-hero__institution-logo"
+            />
+          </div>
+          <p class="home-hero__kicker">
+            <i class="bi bi-stars" aria-hidden="true"></i>
+            Plataforma institucional
+          </p>
+          <h1 id="home-welcome-title" class="home-hero__title">
+            Bienvenido a <span>EVALUNIA</span>
+          </h1>
+          <p class="home-hero__lead">
+            Gestión de exámenes, generación de cuadernillos, banco de preguntas
+            y herramientas de corrección lingüística para la comunidad
+            universitaria.
+          </p>
+          <div class="home-hero__actions">
+            <a
+              href="./docs/guia.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-home-primary"
+            >
+              <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+              Manual y acerca del software
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
-
-    <!-- Botón Acerca del Software -->
-    <div class="text-center mt-4 mb-3">
-      <a href="./docs/guia.pdf" target="_blank" class="btn btn-acerca">
-        <i class="bi bi-file-earmark-text me-1"></i> Acerca del Software
-      </a>
-    </div>
-  </div>
-
-  <!-- Botón Cerrar sesión -->
-  <div class="logout-wrapper mt-4 mb-4">
-    <button id="btnLogout" class="btn btn-rojo">
-      <i class="bi bi-box-arrow-right me-1"></i> Cerrar sesión
-    </button>
-  </div>
-
+  </section>
 </main>

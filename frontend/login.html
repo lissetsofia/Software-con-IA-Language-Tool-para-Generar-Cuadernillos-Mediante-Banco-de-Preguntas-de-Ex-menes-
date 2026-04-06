@@ -1,31 +1,149 @@
-<div class="d-flex justify-content-center align-items-center" style="min-height: 80vh;">
-  <div class="card login-card shadow p-4" style="width: 100%; max-width: 400px;">
-    <div class="text-center mb-3">
-      <i class="bi bi-person-circle fs-1 icon-verde"></i>
+<section class="login-shell" aria-labelledby="login-heading">
+  <div class="login-shell__visual">
+    <div class="login-shell__visual-overlay"></div>
+    <div class="login-shell__visual-content">
+      <div class="login-shell__institution-brand">
+        <img
+          src="./img/logo-unamba-horizontal.png"
+          alt="Universidad Nacional Micaela Bastidas de Apurímac"
+          class="login-shell__institution-logo"
+        />
+      </div>
+      <p class="login-shell__badge">
+        <i class="bi bi-stars" aria-hidden="true"></i>
+        Plataforma académica
+      </p>
+      <h1 class="login-shell__visual-title">
+        <span class="login-shell__product-mark">EVALUNIA</span>
+        <span class="login-shell__visual-title-line"
+          >Exámenes y <span>cuadernillos</span></span
+        >
+      </h1>
+      <p class="login-shell__visual-text">
+        Herramienta institucional para banco de preguntas, generación de
+        cuadernillos y revisión lingüística de documentos.
+      </p>
     </div>
-    <h2 class="text-center mb-3">Iniciar Sesión</h2>
-
-    <div id="alerta" class="alert alert-danger d-none" role="alert">
-      Usuario o contraseña incorrectos.
-    </div>
-
-    <div class="mb-3">
-      <label for="usuario" class="form-label">Usuario</label>
-      <input type="text" id="usuario" class="form-control" placeholder="Usuario" required />
-    </div>
-    <div class="mb-3">
-      <label for="clave" class="form-label">Contraseña</label>
-      <input type="password" id="clave" class="form-control" placeholder="Contraseña" required />
-    </div>
-
-    <div class="d-grid">
-      <button id="btnLogin" class="btn btn-custom">
-        <i class="bi bi-box-arrow-in-right me-2"></i>Ingresar
-      </button>
-    </div>
-
-    <p class="text-muted text-center mt-3 mb-0" style="font-size: 0.85rem;">
-      © 2025 - Sistema de Exámenes Inteligente
-    </p>
   </div>
-</div>
+
+  <div class="login-shell__panel">
+    <div class="login-shell__panel-inner">
+      <div class="login-shell__brand-mobile d-lg-none text-center mb-4">
+        <img
+          src="./img/logo.png"
+          alt="EVALUNIA"
+          class="evalunia-login-logo evalunia-login-logo--compact"
+        />
+        <p class="login-shell__product-name mb-0">EVALUNIA</p>
+        <p class="login-shell__product-tag text-muted small mb-0">
+          Acceso al sistema
+        </p>
+      </div>
+
+      <div class="login-card login-shell__card">
+        <header class="login-shell__card-header">
+          <div class="d-flex align-items-center gap-3">
+            <img
+              src="./img/logo.png"
+              alt=""
+              class="evalunia-login-logo evalunia-login-logo--header d-none d-lg-block"
+            />
+            <div>
+              <p class="login-shell__eyebrow mb-1 d-none d-lg-block">
+                Bienvenido
+              </p>
+              <h2 id="login-heading" class="login-shell__title h5 mb-0">
+                Iniciar sesión
+              </h2>
+            </div>
+          </div>
+          <p
+            class="login-shell__subtitle text-muted small mt-2 mt-lg-3 mb-0 d-none d-lg-block"
+          >
+            Usa las credenciales asignadas para continuar.
+          </p>
+          <p class="text-muted small mb-0 mt-2 d-lg-none">
+            Credenciales de acceso al sistema
+          </p>
+        </header>
+
+        <div
+          id="alerta"
+          class="alert alert-danger login-shell__alert d-none"
+          role="alert"
+        >
+          <i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>
+          Usuario o contraseña incorrectos.
+        </div>
+
+        <form id="formLogin" class="login-shell__form">
+          <div class="mb-3">
+            <label for="usuario" class="form-label login-shell__label"
+              >Usuario</label
+            >
+            <div class="login-shell__input-wrap">
+              <i class="bi bi-person-fill login-shell__input-icon" aria-hidden="true"></i>
+              <input
+                type="text"
+                id="usuario"
+                class="form-control login-shell__input"
+                placeholder="Ej. admin"
+                required
+                autocomplete="username"
+                autofocus
+              />
+            </div>
+          </div>
+          <div class="mb-4">
+            <label for="clave" class="form-label login-shell__label"
+              >Contraseña</label
+            >
+            <div class="login-shell__input-wrap login-shell__input-wrap--password">
+              <i class="bi bi-shield-lock-fill login-shell__input-icon" aria-hidden="true"></i>
+              <input
+                type="password"
+                id="clave"
+                class="form-control login-shell__input login-shell__input--password"
+                placeholder="••••••••"
+                required
+                autocomplete="current-password"
+              />
+              <button
+                type="button"
+                id="btnTogglePassword"
+                class="login-shell__toggle-pw"
+                aria-label="Mostrar contraseña"
+                aria-pressed="false"
+                title="Mostrar contraseña"
+              >
+                <i class="bi bi-eye" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="d-grid">
+            <button type="submit" id="btnLogin" class="btn btn-custom btn-lg login-shell__submit">
+              <i class="bi bi-box-arrow-in-right me-2" aria-hidden="true"></i>
+              Ingresar
+            </button>
+          </div>
+        </form>
+
+        <div class="login-shell__card-footer">
+          <div class="login-shell__footer-note">
+            <span class="login-shell__dot"></span>
+            <p class="mb-0 small text-muted">
+              © 2025 · <strong class="text-secondary">EVALUNIA</strong> ·
+              UNAMBA
+            </p>
+          </div>
+          <p
+            class="login-shell__legal login-shell__legal--in-card text-center small text-muted mb-0"
+          >
+            Uso exclusivo de personal y docencia autorizada.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

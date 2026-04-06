@@ -1,21 +1,53 @@
-<nav class="navbar navbar-gris-claro shadow-sm px-4 sticky-top">
-  <div class="container-fluid d-flex justify-content-center align-items-center">
-    <ul class="nav menu-simetrico w-100 align-items-center">
+<nav class="navbar navbar-gris-claro shadow-sm px-2 px-md-3 sticky-top">
+  <div class="container-fluid flex-column py-0">
+    <div
+      class="evalunia-brand-row d-flex flex-wrap align-items-center justify-content-between gap-2 gap-md-3 w-100"
+    >
+      <div
+        class="evalunia-brand-bar d-flex align-items-center justify-content-center justify-content-md-start flex-wrap gap-3 flex-grow-1 min-w-0"
+      >
+        <img
+          src="./img/logo.png"
+          alt="EVALUNIA"
+          class="evalunia-brand-logo"
+        />
+        <div class="evalunia-brand-text text-center text-md-start">
+          <span class="evalunia-brand-name">EVALUNIA</span>
+          <span class="evalunia-brand-sub"
+            >Exámenes, cuadernillos y banco de preguntas</span
+          >
+        </div>
+      </div>
+      <div class="evalunia-header-actions flex-shrink-0 ms-auto ms-md-0">
+        <button
+          type="button"
+          id="btnLogout"
+          class="btn btn-evalunia-logout"
+          title="Cerrar sesión"
+        >
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+          <span class="d-none d-sm-inline ms-1">Cerrar sesión</span>
+        </button>
+      </div>
+    </div>
+    <ul class="nav menu-simetrico w-100 align-items-center justify-content-center">
       <li class="nav-item flex-fill">
         <a
           class="nav-link active"
           href="#"
           onclick="cargarPagina('home.html', this)"
+          ><i class="bi bi-house-door-fill nav-link-icon" aria-hidden="true"></i
           >Inicio</a
         >
       </li>
-      
+
       <li class="nav-item flex-fill">
         <a
           class="nav-link"
           href="#"
           onclick="cargarPagina('cuadernillos.html', this)"
-          >Generación de Cuadernillos</a
+          ><i class="bi bi-journals nav-link-icon" aria-hidden="true"></i
+          >Cuadernillos</a
         >
       </li>
       <li class="nav-item flex-fill">
@@ -24,7 +56,8 @@
           href="#"
           onclick="cargarPagina('generacion_preguntas.html', this)"
         >
-          Generación de Cuadernillos<br />por Banco de Preguntas
+          <i class="bi bi-collection nav-link-icon" aria-hidden="true"></i
+          >Banco de preguntas
         </a>
       </li>
 
@@ -33,7 +66,8 @@
           class="nav-link"
           href="#"
           onclick="cargarPagina('corrector_ortografico.html', this)"
-          >Sugerencias de corrección <br /> y adecuación lingüística</a
+          ><i class="bi bi-spellcheck nav-link-icon" aria-hidden="true"></i
+          >Corrección lingüística</a
         >
       </li>
     </ul>

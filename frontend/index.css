@@ -1,5 +1,10 @@
 body {
-  background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+  background: linear-gradient(
+    145deg,
+    #e4eaf2 0%,
+    #f7f5f0 45%,
+    #dde8f5 100%
+  );
 }
 
 .login-card {
@@ -24,8 +29,8 @@ body {
 }
 
 .form-control:focus {
-  box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25);
-  border-color: #198754;
+  box-shadow: 0 0 0 0.25rem rgba(61, 90, 128, 0.25);
+  border-color: #3d5a80;
 }
 #tabla-examenes {
   width: 100% !important;
@@ -40,4 +45,7 @@ body {
   .modal-temas-ancha { --bs-modal-width: 1250px; }   /* más grande en pantallas grandes */
 }
 /* Altura cómoda */
-#modalTemas .modal-content { min-height: 70vh; }
+/* Cuadernillos: modal temario (evita pisar generacion_preguntas con el mismo id) */
+.cuad-modal-temas .modal-content {
+  min-height: 70vh;
+}
