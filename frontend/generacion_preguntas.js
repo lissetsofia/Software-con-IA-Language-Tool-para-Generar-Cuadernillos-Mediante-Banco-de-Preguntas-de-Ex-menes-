@@ -356,29 +356,99 @@ if (!window.__evaluniaBsModalStackListeners) {
   });
 }
 
-function uiAlert(msg, opts) {
-  const p =
-    window.EvaluniaDialog && typeof window.EvaluniaDialog.alert === "function"
-      ? window.EvaluniaDialog.alert(msg, opts || {})
-      : Promise.resolve(window.alert(msg));
-  return p.then(() => {
-    setTimeout(repararEstadoModales, 0);
+let __evaluniaDialogQueue = Promise.resolve();
+
+function runDialogSerial(task) {
+  const next = __evaluniaDialogQueue.then(task, task);
+  __evaluniaDialogQueue = next.catch(() => {});
+  return next;
+}
+
+function nextDialogTick() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      setTimeout(resolve, 0);
+    });
   });
 }
 
-function uiConfirm(msg, opts) {
+function cleanupDialogArtifacts() {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      try {
+        const shown = document.querySelectorAll(".modal.show").length;
+        const backdrops = [...document.querySelectorAll(".modal-backdrop")];
+
+        while (backdrops.length > shown) {
+          backdrops.shift()?.remove();
+        }
+
+        const dialog = document.getElementById(EVALUNIA_DIALOG_MODAL_ID);
+        if (dialog && !dialog.classList.contains("show")) {
+          dialog.style.removeProperty("z-index");
+        }
+
+        limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible?.();
+        repararEstadoModales?.();
+      } catch (e) {
+        console.warn("[cleanupDialogArtifacts]", e);
+      }
+      resolve();
+    }, 30);
+  });
+}
+
+function uiAlert(msg, opts) {
   if (
     window.EvaluniaDialog &&
-    typeof window.EvaluniaDialog.confirm === "function"
+    typeof window.EvaluniaDialog.alert === "function"
   ) {
-    return window.EvaluniaDialog.confirm(msg, opts || {}).then((ok) => {
+    const p = window.EvaluniaDialog.alert(msg, opts || {});
+
+    setTimeout(repararEstadoModales, 0);
+    requestAnimationFrame(() => repararEstadoModales());
+
+    return p.finally(() => {
       setTimeout(repararEstadoModales, 0);
-      return ok;
+      requestAnimationFrame(() => repararEstadoModales());
     });
   }
-  const ok = window.confirm(msg);
+
+  window.alert(msg);
   setTimeout(repararEstadoModales, 0);
-  return Promise.resolve(ok);
+  return Promise.resolve();
+}
+
+function uiConfirm(msg, opts) {
+  return runDialogSerial(async () => {
+    await cleanupDialogArtifacts();
+    await nextDialogTick();
+
+    if (
+      window.EvaluniaDialog &&
+      typeof window.EvaluniaDialog.confirm === "function"
+    ) {
+      let ok = false;
+
+      try {
+        ok = await Promise.resolve().then(() =>
+          window.EvaluniaDialog.confirm(msg, opts || {})
+        );
+      } finally {
+        await nextDialogTick();
+        await cleanupDialogArtifacts();
+        requestAnimationFrame(() => repararEstadoModales());
+      }
+
+      return !!ok;
+    }
+
+    const ok = window.confirm(msg);
+    await nextDialogTick();
+    await cleanupDialogArtifacts();
+    requestAnimationFrame(() => repararEstadoModales());
+    return !!ok;
+  });
 }
 
 function uiChoose(msg, opts) {
@@ -386,11 +456,17 @@ function uiChoose(msg, opts) {
     window.EvaluniaDialog &&
     typeof window.EvaluniaDialog.choose === "function"
   ) {
-    return window.EvaluniaDialog.choose(msg, opts || {}).then((value) => {
+    const p = window.EvaluniaDialog.choose(msg, opts || {});
+
+    setTimeout(repararEstadoModales, 0);
+    requestAnimationFrame(() => repararEstadoModales());
+
+    return p.then((value) => value).finally(() => {
       setTimeout(repararEstadoModales, 0);
-      return value;
+      requestAnimationFrame(() => repararEstadoModales());
     });
   }
+
   setTimeout(repararEstadoModales, 0);
   return Promise.resolve(null);
 }
@@ -623,6 +699,25 @@ async function cargarExamenes() {
 
 window.initGeneracionPreguntas = function () {
   console.log("🔁 initGeneracionPreguntas() → recargar tabla y wiring");
+  const modalBuscar = ensureSingleModalBuscar();
+
+  try {
+    const tablaTemas = modalBuscar?.querySelector("#tabla-buscar-temas");
+    if (tablaTemas && $.fn.DataTable.isDataTable(tablaTemas)) {
+      $(tablaTemas).DataTable().clear().destroy();
+    }
+  } catch (_) {}
+
+  try {
+    const tablaPregs = modalBuscar?.querySelector("#tabla-preguntas-tema");
+    if (tablaPregs && $.fn.DataTable.isDataTable(tablaPregs)) {
+      $(tablaPregs).DataTable().clear().destroy();
+    }
+  } catch (_) {}
+
+  window.dtBuscarTemas = null;
+  window.dtPregsTema = null;
+  window.examenActual = null;
 
   if ($.fn.dataTable && $.fn.dataTable.ext) {
     $.fn.dataTable.ext.errMode = "console";
@@ -1219,12 +1314,34 @@ if (typeof window.dtBuscarPregs === "undefined") window.dtBuscarPregs = null;
 const GEN_CURSOS_TITULO_LISTA = "Cursos";
 const GEN_CURSOS_JOB_TIMEOUT_MS = 15 * 60 * 1000;
 
+function ensureSingleModalBuscar() {
+  const modals = [...document.querySelectorAll("#modalBuscar")];
+  if (!modals.length) return null;
+
+  // Preferir uno ya montado en body; si no, el último
+  let keep =
+    modals.find((el) => el.parentElement === document.body) ||
+    modals[modals.length - 1];
+
+  for (const el of modals) {
+    if (el === keep) continue;
+    try {
+      bootstrap.Modal.getInstance(el)?.dispose();
+    } catch (_) {}
+    try {
+      el.remove();
+    } catch (_) {}
+  }
+
+  if (keep.parentElement !== document.body) {
+    document.body.appendChild(keep);
+  }
+
+  return keep;
+}
+
 function getModalBuscarEl() {
-  const els = [...document.querySelectorAll("#modalBuscar")];
-  const enContenido = els.find((el) =>
-    document.getElementById("contenido")?.contains(el)
-  );
-  return enContenido || els[els.length - 1] || null;
+  return ensureSingleModalBuscar();
 }
 
 function mostrarVistaGenCursos(vista) {
@@ -1501,15 +1618,25 @@ $(document).on("click", ".btn-buscar", async function () {
 });
 
 async function cargarTemasDelExamen(id) {
-  const url = `http://localhost:5050/api/examenes/${encodeURIComponent(
-    id
-  )}/temas`;
+  const modalBuscar = getModalBuscarEl();
+  const tablaEl = modalBuscar?.querySelector("#tabla-buscar-temas");
+
+  if (!tablaEl) {
+    throw new Error("No se encontró la tabla de cursos.");
+  }
+
+  const url = `http://localhost:5050/api/examenes/${encodeURIComponent(id)}/temas`;
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Temas HTTP ${r.status}`);
   const temas = await r.json();
 
-  if (!$.fn.DataTable.isDataTable("#tabla-buscar-temas")) {
-    dtBuscarTemas = $("#tabla-buscar-temas").DataTable({
+  const $tabla = $(tablaEl);
+
+  if ($.fn.DataTable.isDataTable(tablaEl)) {
+    dtBuscarTemas = $tabla.DataTable();
+    dtBuscarTemas.clear().rows.add(temas).draw(false);
+  } else {
+    dtBuscarTemas = $tabla.DataTable({
       data: temas,
       paging: false,
       searching: false,
@@ -1538,9 +1665,13 @@ async function cargarTemasDelExamen(id) {
       ],
       language: DT_ES,
     });
-  } else {
-    dtBuscarTemas.clear().rows.add(temas).draw(false);
   }
+
+  requestAnimationFrame(() => {
+    try {
+      dtBuscarTemas?.columns.adjust();
+    } catch (_) {}
+  });
 }
 
 if (typeof window.dtPregsTema === "undefined") window.dtPregsTema = null;
@@ -1560,8 +1691,13 @@ $(document).on("click", ".btn-ver-tema", async function () {
     if (!r.ok) throw new Error(`Preguntas HTTP ${r.status}`);
     const pregs = await r.json();
 
-    if (!$.fn.DataTable.isDataTable("#tabla-preguntas-tema")) {
-      dtPregsTema = $("#tabla-preguntas-tema").DataTable({
+        const tablaEl = modalBuscar?.querySelector("#tabla-preguntas-tema");
+    if (!tablaEl) throw new Error("No se encontró la tabla de preguntas.");
+
+    const $tabla = $(tablaEl);
+
+    if (!$.fn.DataTable.isDataTable(tablaEl)) {
+      dtPregsTema = $tabla.DataTable({
         data: pregs,
         paging: true,
         searching: false,
@@ -1584,6 +1720,7 @@ $(document).on("click", ".btn-ver-tema", async function () {
         language: DT_ES,
       });
     } else {
+      dtPregsTema = $tabla.DataTable();
       dtPregsTema.clear().rows.add(pregs).draw(false);
     }
 
@@ -1795,64 +1932,88 @@ async function renderGruposLeftPanel() {
         "btn gen-examen-grupo-act gen-examen-grupo-act--delete btnQuitarCuota";
       btnDel.title = "Eliminar";
       btnDel.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
-      btnDel.onclick = async (ev) => {
-        ev.stopPropagation();
-        try {
-          if (
-            !(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" }))
-          ) {
-            return;
-          }
+     btnDel.onclick = async (ev) => {
+  ev.stopPropagation();
 
-          let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
-            method: "DELETE",
-          });
-          let d = await r.json();
+  if (btnDel.dataset.busy === "1") return;
 
-          console.log("[GRUPO DELETE] status inicial =", r.status, d);
+  const lockBtn = () => {
+    btnDel.dataset.busy = "1";
+    btnDel.disabled = true;
+  };
 
-          if (!r.ok && r.status === 409) {
-            const continuar = await uiConfirm(
-              (d.error || "El grupo tiene cuotas asociadas.") +
-                "\n\n¿Deseas eliminarlo de todas formas?",
-              {
-                variant: "warning",
-                title: "Forzar eliminación",
-                confirmLabel: "Sí, eliminar",
-                dangerous: true,
-              }
-            );
-            if (!continuar) return;
+  const unlockBtn = () => {
+    btnDel.dataset.busy = "0";
+    btnDel.disabled = false;
+  };
 
-            r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}?force=1`, {
-              method: "DELETE",
-            });
-            d = await r.json();
+  try {
+    // 1) intento directo, sin primer confirm
+    lockBtn();
 
-            console.log("[GRUPO DELETE] status force =", r.status, d);
-          }
+    let r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}`, {
+      method: "DELETE",
+    });
+    let d = await r.json().catch(() => ({}));
 
-          if (!r.ok) {
-            await uiAlert(d.error || "No se pudo eliminar");
-            return;
-          }
+    console.log("[GRUPO DELETE] status inicial =", r.status, d);
 
-          if (window.grupoSeleccionado?.id === g.idgrupo) {
-            window.grupoSeleccionado = null;
-          }
+    // 2) solo si hay cuotas/relaciones, preguntar forzado
+    if (!r.ok && r.status === 409) {
+      unlockBtn();
 
-          await uiAlert("✅ Grupo eliminado correctamente");
-
-          setTimeout(() => {
-            limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible();
-          }, 50);
-
-          await renderGruposLeftPanel();
-        } catch (e) {
-          console.error(e);
-          await uiAlert("Error de red.");
+      const continuar = await uiConfirm(
+        (d.error || "No se puede borrar: tiene cuotas asociadas.") +
+          "\n\n¿Deseas eliminarlo de todas formas?",
+        {
+          variant: "warning",
+          title: "Forzar eliminación",
+          confirmLabel: "Sí, eliminar",
+          dangerous: true,
         }
-      };
+      );
+
+      if (!continuar) return;
+
+      lockBtn();
+
+      await cleanupDialogArtifacts();
+      await nextDialogTick();
+      repararEstadoModales();
+
+      r = await fetch(`${window.GRUPOS_API_BASE}/${g.idgrupo}?force=1`, {
+        method: "DELETE",
+      });
+      d = await r.json().catch(() => ({}));
+
+      console.log("[GRUPO DELETE] status force =", r.status, d);
+    }
+
+    if (!r.ok) {
+      await uiAlert(d.error || "No se pudo eliminar");
+      return;
+    }
+
+    if (window.grupoSeleccionado?.id === g.idgrupo) {
+      window.grupoSeleccionado = null;
+    }
+
+    await uiAlert("✅ Grupo eliminado correctamente");
+
+    setTimeout(() => {
+      limpiarBackdropsHuerfanosSoloSiNoHayBootstrapVisible();
+      repararEstadoModales();
+    }, 50);
+
+    await renderGruposLeftPanel();
+  } catch (e) {
+    console.error(e);
+    await uiAlert("Error de red.");
+  } finally {
+    unlockBtn();
+    setTimeout(repararEstadoModales, 0);
+  }
+};
 
       actions.appendChild(btnCfg);
       actions.appendChild(btnDel);

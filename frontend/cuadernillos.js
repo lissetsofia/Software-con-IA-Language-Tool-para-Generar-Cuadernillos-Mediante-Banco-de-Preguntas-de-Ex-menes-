@@ -15,11 +15,18 @@ window.descargarDocBanco = async function (id) {
       return;
     }
 
-    const url = apiURL(`/api/banco_preguntas/${id}/download/preguntas`);
-    window.open(url, "_blank", "noopener");
+    const res = await fetch(apiURL(`/api/banco_preguntas/${id}/preview`));
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      await uiAlert(data.error || "No se pudo generar la vista.");
+      return;
+    }
+
+    window.open(apiURL(data.url), "_blank", "noopener");
   } catch (e) {
     console.error(e);
-    await uiAlert("No se pudo abrir el documento.");
+    await uiAlert("No se pudo abrir la vista previa.");
   }
 };
 
@@ -113,6 +120,7 @@ function repararEstadoModales() {
       ?.focus();
   }, 0);
 }
+
 
 if (!window.__evaluniaBsModalStackListeners) {
   window.__evaluniaBsModalStackListeners = true;
@@ -296,7 +304,13 @@ document.querySelectorAll("body > #modalBancoPreguntasCuad").forEach((el, i, arr
     el.remove();
   }
 });
-
+  limpiarDuplicadosModalCuad("modalGrupos");
+  limpiarDuplicadosModalCuad("modalGrupoForm");
+  limpiarDuplicadosModalCuad("modalMatriz");
+  limpiarDuplicadosModalCuad("modalImportarMatriz");
+  limpiarDuplicadosModalCuad("modalAleatorizacion");
+  limpiarDuplicadosModalCuad("modalTipoPrueba");
+  limpiarDuplicadosModalCuad("modalTiposTema");
 };
 
 
@@ -596,6 +610,119 @@ function validarTemasUnicosMatriz() {
   $totalCursos.textContent = totalCursos;
   $totalPreguntas.textContent = totalPreguntas;
 }
+
+let __matrizProgressTimer = null;
+
+function getMatrizProgressEls() {
+  return {
+    ov: document.getElementById("matriz-generar-progress"),
+    bar: document.getElementById("matriz-generar-progress-bar"),
+    lbl: document.getElementById("matriz-generar-progress-label"),
+    pct: document.getElementById("matriz-generar-progress-pct"),
+  };
+}
+
+function clearMatrizProgressTimer() {
+  if (__matrizProgressTimer) {
+    clearInterval(__matrizProgressTimer);
+    __matrizProgressTimer = null;
+  }
+}
+
+function setMatrizProgressVisible(visible) {
+  const { ov, bar, lbl, pct } = getMatrizProgressEls();
+  if (!ov || !bar || !lbl || !pct) return;
+
+  clearMatrizProgressTimer();
+
+  if (visible) {
+    ov.classList.remove("d-none", "cuad-matriz-generar-overlay--success");
+    bar.classList.add("progress-bar-striped", "progress-bar-animated", "bg-primary");
+    bar.classList.remove("bg-success");
+    bar.style.width = "0%";
+    bar.setAttribute("aria-valuenow", "0");
+    pct.textContent = "0%";
+    lbl.textContent = "Preparando matriz…";
+  } else {
+    ov.classList.add("d-none");
+    ov.classList.remove("cuad-matriz-generar-overlay--success");
+  }
+}
+
+function updateMatrizProgress(done, total, message) {
+  const { bar, lbl, pct } = getMatrizProgressEls();
+  if (!bar || !lbl || !pct) return;
+
+  const t = Math.max(1, Number(total) || 1);
+  const d = Math.min(Math.max(0, Number(done) || 0), t);
+  const percent = Math.min(100, Math.round((100 * d) / t));
+
+  bar.style.width = `${percent}%`;
+  bar.setAttribute("aria-valuenow", String(percent));
+  pct.textContent = `${percent}%`;
+  lbl.textContent = String(message || "Procesando matriz…");
+}
+
+function showMatrizProgressDone(msg) {
+  const { ov, bar, lbl, pct } = getMatrizProgressEls();
+  if (!ov || !bar || !lbl || !pct) return;
+
+  clearMatrizProgressTimer();
+
+  bar.style.width = "100%";
+  bar.setAttribute("aria-valuenow", "100");
+  pct.textContent = "100%";
+  lbl.textContent = String(msg || "Matriz generada correctamente.");
+  bar.classList.remove("progress-bar-striped", "progress-bar-animated", "bg-primary");
+  bar.classList.add("bg-success");
+  ov.classList.add("cuad-matriz-generar-overlay--success");
+}
+
+function startMatrizGenerateTicker(startAt = 70, limit = 94) {
+  clearMatrizProgressTimer();
+
+  let current = Math.max(0, Math.min(limit, Number(startAt) || 0));
+  updateMatrizProgress(current, 100, "Generando documento Word…");
+
+  __matrizProgressTimer = setInterval(() => {
+    if (current >= limit) return;
+    current += 1;
+    updateMatrizProgress(current, 100, "Generando documento Word…");
+  }, 420);
+}
+
+function setMatrizUiLocked(modalEl, locked, btnGen, oldText = "Generar matriz") {
+  if (btnGen) {
+    btnGen.disabled = !!locked;
+    btnGen.textContent = locked ? "Generando..." : oldText;
+  }
+
+  const closeBtn = modalEl?.querySelector(".btn-close");
+  if (closeBtn) {
+    closeBtn.disabled = !!locked;
+    closeBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+  }
+
+  modalEl?.setAttribute("data-matriz-generando", locked ? "1" : "0");
+}
+
+
+
+
+document.addEventListener("hide.bs.modal", (ev) => {
+  if (ev.target.id !== "modalMatriz") return;
+  if (ev.target.getAttribute("data-matriz-generando") === "1") {
+    ev.preventDefault();
+  }
+});
+
+document.addEventListener("hidden.bs.modal", (ev) => {
+  if (ev.target.id !== "modalMatriz") return;
+  clearMatrizProgressTimer();
+  setMatrizProgressVisible(false);
+  ev.target.removeAttribute("data-matriz-generando");
+});
+
   // ================= Cableado al abrir el modal =================
   $(document).on("show.bs.modal", "#modalMatriz", async function () {
     // DOM refs
@@ -604,7 +731,7 @@ function validarTemasUnicosMatriz() {
     const $btnClr = document.getElementById("btn-limpiar-filas");
     const $btnGen = document.getElementById("btn-generar-matriz");
     const $nombre = document.getElementById("matriz-nombre");
-
+  
     // Estado inicial
     TEMAS = await getTemasActivos().catch(() => []);
     FILAS = [];
@@ -711,17 +838,20 @@ function validarTemasUnicosMatriz() {
     };
 
     // Botón: generar matriz
-    $btnGen.onclick = async () => {
+   // Botón: generar matriz
+$btnGen.onclick = async () => {
   if (!FILAS.length) {
     await uiAlert("Agrega al menos un tema.");
     return;
   }
-    try {
-      validarTemasUnicosMatriz();
-    } catch (e) {
-      await uiAlert(e.message || "Hay temas repetidos.");
-      return;
-    }
+
+  try {
+    validarTemasUnicosMatriz();
+  } catch (e) {
+    await uiAlert(e.message || "Hay temas repetidos.");
+    return;
+  }
+
   for (const r of FILAS) {
     if (!r.tema_id) {
       await uiAlert("Selecciona el tema en todas las filas.");
@@ -733,9 +863,12 @@ function validarTemasUnicosMatriz() {
     }
   }
 
+  const modalEl = document.getElementById("modalMatriz");
   const oldText = $btnGen.textContent;
-  $btnGen.disabled = true;
-  $btnGen.textContent = "Generando...";
+
+  setMatrizUiLocked(modalEl, true, $btnGen, oldText);
+  setMatrizProgressVisible(true);
+  updateMatrizProgress(4, 100, "Creando matriz…");
 
   try {
     // 1) crear matriz
@@ -751,25 +884,48 @@ function validarTemasUnicosMatriz() {
     });
 
     const matriz_id = js.matriz_id;
+    updateMatrizProgress(12, 100, "Matriz creada. Preparando carga de archivos…");
 
     // 2) subir archivos
-    for (const r of FILAS) {
+    const totalFiles = FILAS.length || 1;
+
+    for (let i = 0; i < FILAS.length; i++) {
+      const r = FILAS[i];
       const fd = new FormData();
       fd.append("file", r.file);
       fd.append("tema_id", String(r.tema_id));
       fd.append("cantidad", String(r.cantidad || 0));
+
+      updateMatrizProgress(
+        15 + Math.round((i / totalFiles) * 45),
+        100,
+        `Subiendo archivos (${i + 1}/${totalFiles})…`
+      );
+
       await postForm(`/api/matriz/${matriz_id}/upload`, fd);
+
+      updateMatrizProgress(
+        15 + Math.round(((i + 1) / totalFiles) * 45),
+        100,
+        `Subiendo archivos (${i + 1}/${totalFiles})…`
+      );
     }
 
     // 3) generar y descargar
+    updateMatrizProgress(68, 100, "Generando documento Word…");
+    startMatrizGenerateTicker(68, 94);
+
     const res = await fetch(apiURL(`/api/matriz/${matriz_id}/generar`), {
       method: "POST",
     });
+
+    clearMatrizProgressTimer();
 
     if (!res.ok) {
       let msg = "Error generando.";
       try {
         const j = await res.json();
+
         if (j?.faltantes?.length) {
           msg =
             "No hay suficientes preguntas:\n" +
@@ -779,12 +935,34 @@ function validarTemasUnicosMatriz() {
                   `• ${f.tema}: pedidas ${f.pedidas}, detectadas ${f.detectadas}`
               )
               .join("\n");
+        } else if (j?.detalles?.length) {
+          msg =
+            (j.error || "No se pudo armar la matriz.") +
+            "\n\n" +
+            j.detalles
+              .map((d) => {
+                const tema = d.tema ? `Tema: ${d.tema}` : null;
+                const archivo =
+                  d.archivo_nombre ||
+                  d.archivo_origen ||
+                  d.path ||
+                  "archivo desconocido";
+                const motivo = d.motivo ? `Motivo: ${d.motivo}` : null;
+
+                return `• ${[tema, `Archivo: ${archivo}`, motivo]
+                  .filter(Boolean)
+                  .join(" | ")}`;
+              })
+              .join("\n");
         } else if (j?.error) {
           msg = j.error;
         }
       } catch {}
+
       throw new Error(msg);
     }
+
+    updateMatrizProgress(97, 100, "Descargando matriz…");
 
     const blob = await res.blob();
     const a = document.createElement("a");
@@ -793,14 +971,40 @@ function validarTemasUnicosMatriz() {
     document.body.appendChild(a);
     a.click();
     a.remove();
+    URL.revokeObjectURL(a.href);
 
-    (bootstrap.Modal.getInstance(this) || new bootstrap.Modal(this)).hide();
+   showMatrizProgressDone("Matriz generada correctamente.");
+await new Promise((r) => setTimeout(r, 350));
+
+// desbloquear antes de cerrar
+setMatrizUiLocked(modalEl, false, $btnGen, oldText);
+
+// ocultar overlay también por seguridad
+setMatrizProgressVisible(false);
+
+// cerrar en el siguiente tick
+setTimeout(() => {
+  const inst =
+    bootstrap.Modal.getInstance(modalEl) ||
+    bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  inst.hide();
+}, 30);
+
+return;
   } catch (e) {
+    clearMatrizProgressTimer();
+    setMatrizProgressVisible(false);
     await uiAlert(e.message || "No se pudo generar.");
-  } finally {
-    $btnGen.textContent = oldText;
-    actualizarEstadoBtnGenerarMatriz();
+  }  finally {
+  clearMatrizProgressTimer();
+
+  if (modalEl?.classList.contains("show")) {
+    setMatrizUiLocked(modalEl, false, $btnGen, oldText);
   }
+
+  actualizarEstadoBtnGenerarMatriz();
+}
 };
   });
 })();
@@ -808,6 +1012,15 @@ function validarTemasUnicosMatriz() {
 // ====== Utilidades (SEGUNDO BLOQUE) ======
 
 // helpers globales (deben ir ANTES de usarse)
+
+function getExamenImportadoPorClaveGrupo(claveBuscada = "") {
+  const clave = String(claveBuscada || "").trim().toUpperCase();
+  if (!clave) return null;
+
+  return (Array.isArray(EXAMENES) ? EXAMENES : []).find((ex) => {
+    return inferirClaveGrupoDesdeNombreImportado(ex.nombre) === clave;
+  }) || null;
+}
 
 window.$$ =
   window.$$ ||
@@ -1251,8 +1464,15 @@ async function cargarResumenTemas() {
         '<tr><td colspan="3" class="cuad-table-empty">No hay temas con banco de preguntas.</td></tr>';
       return;
     }
+    const temasConPreguntas = data.filter((t) => Number(t.n_docs || 0) > 0);
 
-    const html = data
+    if (!temasConPreguntas.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="3" class="cuad-table-empty">No hay temas con banco de preguntas.</td></tr>';
+      return;
+    }
+
+    const html = temasConPreguntas
       .map((t) => {
         const setSel = getSet(t.tema_id);
         const nSel = setSel.size;
@@ -1274,6 +1494,8 @@ async function cargarResumenTemas() {
         `;
       })
       .join("");
+
+      
 
     console.log("[BANCO] html generado length =", html.length);
 
@@ -1367,7 +1589,7 @@ function renderDetalleBancoTbody(tema_id, docs) {
 
   if (!docs.length) {
     tbody.innerHTML =
-      '<tr><td colspan="4" class="text-center text-muted">No hay preguntas para este tema.</td></tr>';
+      '<tr><td colspan="5" class="text-center text-muted">No hay preguntas para este tema.</td></tr>';
     return;
   }
 
@@ -1377,21 +1599,32 @@ function renderDetalleBancoTbody(tema_id, docs) {
       const nombreDoc =
         d.nombre || d.doc_name || d.doc_preguntas_nombre || "(Sin nombre)";
 
+      const tieneSol = !!(d.doc_sol_nombre || d.doc_sol_ruta);
+
+      const solHtml = tieneSol
+        ? `<span class="badge bg-success-subtle text-success border border-success-subtle">
+             <i class="bi bi-check-circle me-1"></i> Con solución
+           </span>`
+        : `<span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle">
+             <i class="bi bi-dash-circle me-1"></i> Sin solución
+           </span>`;
+
       return `
-          <tr data-doc-id="${d.id}">
-            <td class="text-center">
-              <input type="checkbox" value="${d.id}" class="banco-chk" ${checked}>
-            </td>
-            <td>${d.id}</td>
-            <td>${nombreDoc}</td>
-            <td class="text-end">
-              <button type="button" class="btn btn-sm btn-outline-secondary btn-banco-ver-doc" onclick="descargarDocBanco(${d.id})">
-                <i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i>
-                Ver
-              </button>
-            </td>
-          </tr>
-        `;
+        <tr data-doc-id="${d.id}">
+          <td class="text-center">
+            <input type="checkbox" value="${d.id}" class="banco-chk" ${checked}>
+          </td>
+          <td>${d.id}</td>
+          <td>${esc(nombreDoc)}</td>
+          <td class="text-center">${solHtml}</td>
+          <td class="text-end">
+            <button type="button" class="btn btn-sm btn-outline-secondary btn-banco-ver-doc" onclick="descargarDocBanco(${d.id})">
+              <i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i>
+              Ver
+            </button>
+          </td>
+        </tr>
+      `;
     })
     .join("");
 }
@@ -1499,89 +1732,168 @@ document.addEventListener("click", (ev) => {
 
 
   // ---------- GENERAR MATRIZ DESDE BANCO (preguntas) ----------
+// ---------- GENERAR MATRIZ DESDE BANCO (preguntas) ----------
 
-  async function generarMatrizDesdeBanco(solucionario = false) {
-    const items = Object.entries(SELECCION)
-      .map(([temaId, setSel]) => ({
-        tema_id: Number(temaId),
-        doc_ids: Array.from(setSel || []),
-      }))
-      .filter((it) => it.tema_id && it.doc_ids.length);
+let BANCO_MATRIZ_GENERANDO = false;
 
-    if (!items.length) {
-      await uiAlert("Selecciona al menos una pregunta en el banco.");
-      return;
+function setBancoMatrizGenerando(generando, solucionario = false) {
+  const btnNormal = document.getElementById("btnBancoGenerarMatriz");
+  const btnSol = document.getElementById("btn-generar-matriz-banco-sol");
+  const modalBancoEl = getModalBancoEl();
+
+  const closeBtn = modalBancoEl?.querySelector(".cuad-banco-header-close");
+  const btnDetalle = modalBancoEl?.querySelectorAll(".btn-banco-detalle");
+  const btnVolver = document.getElementById("btnCuadBancoVolver");
+  const btnGuardarSel = document.getElementById("btnBancoGuardarSeleccion");
+
+  if (!btnNormal || !btnSol) return () => {};
+
+  const oldNormalHtml = btnNormal.innerHTML;
+  const oldSolHtml = btnSol.innerHTML;
+
+  const btnActivo = solucionario ? btnSol : btnNormal;
+
+  if (generando) {
+    btnNormal.disabled = true;
+    btnSol.disabled = true;
+
+    // Solo el botón presionado cambia a Generando...
+    btnActivo.innerHTML = `
+      <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+      Generando...
+    `;
+
+    if (closeBtn) {
+      closeBtn.disabled = true;
+      closeBtn.setAttribute("aria-disabled", "true");
     }
 
-    const nombre =
-      (document.getElementById("matriz-nombre")?.value ||
-        "Matriz desde banco").trim() || "Matriz desde banco";
+    btnDetalle?.forEach((b) => {
+      b.disabled = true;
+    });
 
-    const url = solucionario
-      ? apiURL("/api/matriz/generar_desde_banco/solucionario")
-      : apiURL("/api/matriz/generar_desde_banco");
+    if (btnVolver) btnVolver.disabled = true;
+    if (btnGuardarSel) btnGuardarSel.disabled = true;
 
-    try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nombre, items }),
-      });
-
-      if (res.status === 409) {
-        // caso especial: faltan solucionarios
-        let data = {};
-        try {
-          data = await res.json();
-        } catch {}
-        if (data?.faltantes?.length) {
-          const temas = data.faltantes
-            .map((f) => f.tema_nombre || f.tema || "")
-            .filter(Boolean);
-          await uiAlert(
-            "No se puede generar el solucionario.\nFaltan solucionarios de:\n- " +
-              [...new Set(temas)].join("\n- ")
-          );
-          return;
-        }
-      }
-
-      if (!res.ok) {
-        let data = {};
-        try {
-          data = await res.json();
-        } catch {}
-        throw new Error(data.error || `Error HTTP ${res.status}`);
-      }
-
-      const blob = await res.blob();
-      const urlBlob = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = urlBlob;
-      a.download = solucionario
-        ? "matriz_solucionario.docx"
-        : "matriz_desde_banco.docx";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(urlBlob);
-
-      // cerrar modal Banco
-     const modalBancoEl = document.getElementById("modalBancoPreguntasCuad");
-      if (modalBancoEl) {
-        const mBanco =
-          bootstrap.Modal.getInstance(modalBancoEl) ||
-          bootstrap.Modal.getOrCreateInstance(modalBancoEl);
-        mBanco.hide();
-      }
-    } catch (e) {
-      console.error(e);
-      await uiAlert(e.message || "No se pudo generar la matriz desde el banco.");
-    }
+    modalBancoEl?.setAttribute("data-banco-generando", "1");
   }
 
-  // Botón verde "Generar matriz desde banco de preguntas"
- document.addEventListener("click", (ev) => {
+  return () => {
+    btnNormal.disabled = false;
+    btnSol.disabled = false;
+
+    btnNormal.innerHTML = oldNormalHtml;
+    btnSol.innerHTML = oldSolHtml;
+
+    if (closeBtn) {
+      closeBtn.disabled = false;
+      closeBtn.removeAttribute("aria-disabled");
+    }
+
+    btnDetalle?.forEach((b) => {
+      b.disabled = false;
+    });
+
+    if (btnVolver) btnVolver.disabled = false;
+    if (btnGuardarSel) btnGuardarSel.disabled = false;
+
+    modalBancoEl?.removeAttribute("data-banco-generando");
+  };
+}
+
+async function generarMatrizDesdeBanco(solucionario = false) {
+  if (BANCO_MATRIZ_GENERANDO) return;
+
+  const items = Object.entries(SELECCION)
+    .map(([temaId, setSel]) => ({
+      tema_id: Number(temaId),
+      doc_ids: Array.from(setSel || []),
+    }))
+    .filter((it) => it.tema_id && it.doc_ids.length);
+
+  if (!items.length) {
+    await uiAlert("Selecciona al menos una pregunta en el banco.");
+    return;
+  }
+
+  const nombre =
+    (document.getElementById("matriz-nombre")?.value ||
+      "Matriz desde banco").trim() || "Matriz desde banco";
+
+  const url = solucionario
+    ? apiURL("/api/matriz/generar_desde_banco/solucionario")
+    : apiURL("/api/matriz/generar_desde_banco");
+
+  BANCO_MATRIZ_GENERANDO = true;
+  const restaurarBotones = setBancoMatrizGenerando(true, solucionario);
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombre, items }),
+    });
+
+    if (res.status === 409) {
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {}
+
+      if (data?.faltantes?.length) {
+        const temas = data.faltantes
+          .map((f) => f.tema_nombre || f.tema || "")
+          .filter(Boolean);
+
+        await uiAlert(
+          "No se puede generar el solucionario.\nFaltan solucionarios de:\n- " +
+            [...new Set(temas)].join("\n- ")
+        );
+        return;
+      }
+    }
+
+    if (!res.ok) {
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {}
+      throw new Error(data.error || `Error HTTP ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const urlBlob = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = urlBlob;
+    a.download = solucionario
+      ? "matriz_solucionario.docx"
+      : "matriz_desde_banco.docx";
+
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(urlBlob);
+
+    const modalBancoEl = getModalBancoEl();
+    if (modalBancoEl) {
+      const mBanco =
+        bootstrap.Modal.getInstance(modalBancoEl) ||
+        bootstrap.Modal.getOrCreateInstance(modalBancoEl);
+
+      mBanco.hide();
+    }
+  } catch (e) {
+    console.error(e);
+    await uiAlert(e.message || "No se pudo generar la matriz desde el banco.");
+  } finally {
+    BANCO_MATRIZ_GENERANDO = false;
+    restaurarBotones();
+  }
+}
+
+// Botones "Generar matriz desde banco" y "Generar matriz solucionario"
+document.addEventListener("click", (ev) => {
   const btnNormal = ev.target.closest("#btnBancoGenerarMatriz");
   if (btnNormal) {
     ev.preventDefault();
@@ -1595,7 +1907,6 @@ document.addEventListener("click", (ev) => {
     generarMatrizDesdeBanco(true);
   }
 });
-
   if (!window.__CUAD_BANCO_HEADER_CLOSE_DELEGATED__) {
     window.__CUAD_BANCO_HEADER_CLOSE_DELEGATED__ = true;
     document.addEventListener(
@@ -1623,68 +1934,198 @@ document.addEventListener("click", (ev) => {
 
 
 document.addEventListener("hidden.bs.modal", (ev) => {
-  if (ev.target.id !== "modalBancoPreguntasCuad") return;
+  if (ev.target.id !== "modalMatriz") return;
 
-  console.log("[BANCO] hidden modalBancoPreguntas");
-  console.log("[BANCO] returnTo =", ev.target.dataset.returnTo);
-  console.log("[BANCO] goingDetail =", ev.target.dataset.goingDetail);
-
-  if (ev.target.dataset.goingDetail === "1") {
-    delete ev.target.dataset.goingDetail;
+  try {
+    clearMatrizProgressTimer();
+    setMatrizProgressVisible(false);
+  } catch (e) {
+    console.warn("[MATRIZ] cleanup hidden falló:", e);
   }
+
+  ev.target.removeAttribute("data-matriz-generando");
 });
 
 
+let __gruposProgressTimer = null;
 
+function getGruposProgressEls() {
+  return {
+    ov: document.getElementById("grupos-generar-progress"),
+    bar: document.getElementById("grupos-generar-progress-bar"),
+    lbl: document.getElementById("grupos-generar-progress-label"),
+    pct: document.getElementById("grupos-generar-progress-pct"),
+  };
+}
 
+function clearGruposProgressTimer() {
+  if (__gruposProgressTimer) {
+    clearInterval(__gruposProgressTimer);
+    __gruposProgressTimer = null;
+  }
+}
+
+function setGruposProgressVisible(visible) {
+  const { ov, bar, lbl, pct } = getGruposProgressEls();
+  if (!ov || !bar || !lbl || !pct) return;
+
+  clearGruposProgressTimer();
+
+  if (visible) {
+    ov.classList.remove("d-none", "cuad-grupos-generar-overlay--success");
+    bar.classList.add("progress-bar-striped", "progress-bar-animated", "bg-primary");
+    bar.classList.remove("bg-success");
+    bar.style.width = "0%";
+    bar.setAttribute("aria-valuenow", "0");
+    pct.textContent = "0%";
+    lbl.textContent = "Preparando grupos…";
+  } else {
+    ov.classList.add("d-none");
+    ov.classList.remove("cuad-grupos-generar-overlay--success");
+  }
+}
+
+function updateGruposProgress(done, total, message) {
+  const { bar, lbl, pct } = getGruposProgressEls();
+  if (!bar || !lbl || !pct) return;
+
+  const t = Math.max(1, Number(total) || 1);
+  const d = Math.min(Math.max(0, Number(done) || 0), t);
+  const percent = Math.min(100, Math.round((100 * d) / t));
+
+  bar.style.width = `${percent}%`;
+  bar.setAttribute("aria-valuenow", String(percent));
+  pct.textContent = `${percent}%`;
+  lbl.textContent = String(message || "Procesando grupos…");
+}
+
+function showGruposProgressDone(msg) {
+  const { ov, bar, lbl, pct } = getGruposProgressEls();
+  if (!ov || !bar || !lbl || !pct) return;
+
+  clearGruposProgressTimer();
+
+  bar.style.width = "100%";
+  bar.setAttribute("aria-valuenow", "100");
+  pct.textContent = "100%";
+  lbl.textContent = String(msg || "Grupos generados correctamente.");
+  bar.classList.remove("progress-bar-striped", "progress-bar-animated", "bg-primary");
+  bar.classList.add("bg-success");
+  ov.classList.add("cuad-grupos-generar-overlay--success");
+}
+
+function startGruposGenerateTicker(startAt = 70, limit = 94) {
+  clearGruposProgressTimer();
+
+  let current = Math.max(0, Math.min(limit, Number(startAt) || 0));
+  updateGruposProgress(current, 100, "Generando archivos de grupos…");
+
+  __gruposProgressTimer = setInterval(() => {
+    if (current >= limit) return;
+    current += 1;
+    updateGruposProgress(current, 100, "Generando archivos de grupos…");
+  }, 420);
+}
+
+function setGruposUiLocked(modalEl, locked, btnGen, oldText = "Descargar grupos") {
+  if (btnGen) {
+    btnGen.disabled = !!locked;
+    btnGen.innerHTML = locked
+      ? '<i class="bi bi-hourglass-split" aria-hidden="true"></i> Generando...'
+      : oldText;
+  }
+
+  const closeBtn = modalEl?.querySelector(".btn-close");
+  if (closeBtn) {
+    closeBtn.disabled = !!locked;
+    closeBtn.setAttribute("aria-disabled", locked ? "true" : "false");
+  }
+
+  modalEl?.setAttribute("data-grupos-generando", locked ? "1" : "0");
+}
+
+document.addEventListener("hide.bs.modal", (ev) => {
+  if (ev.target.id !== "modalGrupos") return;
+  if (ev.target.getAttribute("data-grupos-generando") === "1") {
+    ev.preventDefault();
+  }
+});
+
+document.addEventListener("hidden.bs.modal", (ev) => {
+  if (ev.target.id !== "modalGrupos") return;
+
+  try {
+    clearGruposProgressTimer();
+    setGruposProgressVisible(false);
+  } catch (e) {
+    console.warn("[GRUPOS] cleanup hidden falló:", e);
+  }
+
+  ev.target.removeAttribute("data-grupos-generando");
+});
+
+// ====== Generar/Descargar grupos ======
 // ====== Generar/Descargar grupos ======
 (function bindGenerarGruposOnce() {
   document.addEventListener("click", async (ev) => {
     const btn = ev.target.closest("#btnGenerarGrupos");
     if (!btn) return;
 
-    // si ya está corriendo, ignorar
     if (window.__GEN_GRUPOS_RUNNING__) return;
 
     window.__GEN_GRUPOS_RUNNING__ = true;
-    const oldTxt = btn.innerText;
-    btn.disabled = true;
-    btn.innerText = "Generando...";
 
-    // helper para dejar el botón SIEMPRE bien
+    const modalEl = document.getElementById("modalGrupos");
+    const oldHtml = btn.innerHTML;
+
     const resetBtn = () => {
       btn.disabled = false;
-      btn.innerText = oldTxt;
+      btn.innerHTML = oldHtml;
       window.__GEN_GRUPOS_RUNNING__ = false;
     };
+
+    setGruposUiLocked(modalEl, true, btn, oldHtml);
+    setGruposProgressVisible(true);
+    updateGruposProgress(6, 100, "Validando matriz importada…");
 
     try {
       const sel = window.__matrizSeleccionada;
       if (!sel) {
-        await uiAlert("Primero importa/selecciona una matriz.");
-        resetBtn();
-        return;
+        throw new Error("Primero importa/selecciona una matriz.");
       }
 
       let res, j;
 
+      updateGruposProgress(15, 100, "Preparando generación de grupos…");
+
       if (sel.tipo === "db") {
-        // 👉 MODO 1: matriz desde BD
+        updateGruposProgress(24, 100, "Generando grupos desde base de datos…");
+
         const body = { matriz_id: sel.id };
+        startGruposGenerateTicker(24, 72);
+
         res = await fetch(apiURL("/api/grupos/generar"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+
+        clearGruposProgressTimer();
         j = await res.json().catch(() => ({}));
       } else if (sel.tipo === "docx") {
-        // 👉 MODO 2: matriz desde archivo DOCX
+        updateGruposProgress(24, 100, "Procesando matriz DOCX…");
+
         const fd = new FormData();
         fd.append("file", sel.file);
+
+        startGruposGenerateTicker(24, 72);
+
         res = await fetch(apiURL("/api/grupos/generar_from_docx"), {
           method: "POST",
           body: fd,
         });
+
+        clearGruposProgressTimer();
         j = await res.json().catch(() => ({}));
       } else {
         throw new Error("Tipo de matriz no soportado.");
@@ -1698,26 +2139,51 @@ document.addEventListener("hidden.bs.modal", (ev) => {
         throw new Error(j.error || "Error generando.");
       }
 
-      // descarga ZIP si viene url
+      updateGruposProgress(82, 100, "Preparando descarga del ZIP…");
+
       if (j.zip_url) {
-  const resZip = await fetch(apiURL(j.zip_url));
-  if (!resZip.ok) throw new Error("No se pudo descargar el ZIP.");
+        const resZip = await fetch(apiURL(j.zip_url));
+        if (!resZip.ok) throw new Error("No se pudo descargar el ZIP.");
 
-  const blob = await resZip.blob();
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `grupos_${j.lote_id}.zip`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(a.href);
-}
+        updateGruposProgress(92, 100, "Descargando grupos…");
 
-      await uiAlert("Exámenes por grupo generados correctamente.");
-      resetBtn();
+        const blob = await resZip.blob();
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `grupos_${j.lote_id}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(a.href);
+      }
+
+      showGruposProgressDone("Grupos generados correctamente.");
+      await new Promise((r) => setTimeout(r, 350));
+
+      setGruposUiLocked(modalEl, false, btn, oldHtml);
+      setGruposProgressVisible(false);
+
+      setTimeout(() => {
+        const inst =
+          bootstrap.Modal.getInstance(modalEl) ||
+          bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        inst.hide();
+      }, 30);
+
+      return;
     } catch (e) {
       console.error(e);
+      clearGruposProgressTimer();
+      setGruposProgressVisible(false);
       await uiAlert(e.message || "No se pudieron generar los exámenes.");
+    } finally {
+      clearGruposProgressTimer();
+
+      if (modalEl?.classList.contains("show")) {
+        setGruposUiLocked(modalEl, false, btn, oldHtml);
+      }
+
       resetBtn();
     }
   });
@@ -1777,27 +2243,76 @@ function rowGrupoHTML(g) {
     </tr>`;
 }
 
+
+function getModalGruposEl() {
+  const els = [...document.querySelectorAll("#modalGrupos")];
+  if (!els.length) return null;
+
+  return (
+    els.find((el) => el.classList.contains("show")) ||
+    els.find((el) => el.parentElement === document.body) ||
+    els.find((el) => document.getElementById("contenido")?.contains(el)) ||
+    els[els.length - 1]
+  );
+}
+
+function getGruposTbody() {
+  const modal = getModalGruposEl();
+  if (!modal) return null;
+  return modal.querySelector("#tablaGrupos tbody, #tbodyGrupos");
+}
+
+function limpiarDuplicadosModalCuad(id) {
+  const els = [...document.querySelectorAll(`#${id}`)];
+  if (els.length <= 1) return;
+
+  const keep =
+    els.find((el) => el.classList.contains("show")) ||
+    els.find((el) => el.parentElement === document.body) ||
+    els.find((el) => document.getElementById("contenido")?.contains(el)) ||
+    els[els.length - 1];
+
+  els.forEach((el) => {
+    if (el === keep) return;
+    try {
+      bootstrap.Modal.getInstance(el)?.hide();
+    } catch {}
+    el.remove();
+  });
+}
 // Render tabla simple
+
 async function renderGruposCuadSimple() {
-  const tb =
-    document.querySelector("#tablaGrupos tbody") ||
-    document.getElementById("tbodyGrupos");
-  if (!tb) return;
+  const tb = getGruposTbody();
+  if (!tb) {
+    console.warn("[GRUPOS] No se encontró tbody del modalGrupos");
+    return;
+  }
+
   tb.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">
-    <span class="d-inline-flex align-items-center gap-2 justify-content-center"><i class="bi bi-hourglass-split" aria-hidden="true"></i> Cargando…</span>
+    <span class="d-inline-flex align-items-center gap-2 justify-content-center">
+      <i class="bi bi-hourglass-split" aria-hidden="true"></i> Cargando…
+    </span>
   </td></tr>`;
+
   try {
     const data = await fetchGruposAll();
     tb.innerHTML = data.length
       ? data.map(rowGrupoHTML).join("")
       : `<tr><td colspan="5" class="text-center text-muted py-4">
-    <span class="d-inline-flex flex-column align-items-center gap-2"><i class="bi bi-inbox fs-3 opacity-50" aria-hidden="true"></i> Sin grupos aún</span>
-  </td></tr>`;
+          <span class="d-inline-flex flex-column align-items-center gap-2">
+            <i class="bi bi-inbox fs-3 opacity-50" aria-hidden="true"></i>
+            Sin grupos aún
+          </span>
+        </td></tr>`;
   } catch (e) {
     console.error(e);
     tb.innerHTML = `<tr><td colspan="5" class="text-center text-danger py-4">
-    <span class="d-inline-flex align-items-center gap-2 justify-content-center"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> Error cargando grupos</span>
-  </td></tr>`;
+      <span class="d-inline-flex align-items-center gap-2 justify-content-center">
+        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+        Error cargando grupos
+      </span>
+    </td></tr>`;
   }
 }
 
@@ -1999,30 +2514,50 @@ bootstrap.Modal.getOrCreateInstance(modalGrupoFormEl, {
 }
 
 // Submit guardar (crear/editar)
-document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
+$(document).off("submit.cuadGrupoForm", "#formGrupo");
+$(document).on("submit.cuadGrupoForm", "#formGrupo", async function (ev) {
   ev.preventDefault();
+  ev.stopPropagation();
 
-  const id = document.getElementById("grupo-id").value.trim();
-  const clave = document
-    .getElementById("grupo-clave")
-    .value.trim()
-    .toUpperCase();
-  const nombre = document.getElementById("grupo-nombre").value.trim();
+  const form = this;
+  if (form.dataset.saving === "1") return;
 
-  if (!clave) return await uiAlert("La clave es requerida");
+  form.dataset.saving = "1";
 
-  let cuotas = [];
-  try {
-    cuotas = leerCuotasGrupoCuad("#cuotasWrap").map((c, idx) => ({
-      ...c,
-      orden: idx + 1,
-    }));
-  } catch (e) {
-    await uiAlert(e.message || "No se pudieron leer las cuotas.");
-    return;
-  }
+  const btnGuardar =
+    form.querySelector('button[type="submit"]') ||
+    document.getElementById("btnGuardarGrupo");
+
+  const oldHtml = btnGuardar ? btnGuardar.innerHTML : "";
 
   try {
+    if (btnGuardar) {
+      btnGuardar.disabled = true;
+      btnGuardar.innerHTML = "Guardando...";
+    }
+
+    const id = document.getElementById("grupo-id")?.value.trim() || "";
+    const clave = (document.getElementById("grupo-clave")?.value || "")
+      .trim()
+      .toUpperCase();
+    const nombre = (document.getElementById("grupo-nombre")?.value || "").trim();
+
+    if (!clave) {
+      await uiAlert("La clave es requerida");
+      return;
+    }
+
+    let cuotas = [];
+    try {
+      cuotas = leerCuotasGrupoCuad("#cuotasWrap").map((c, idx) => ({
+        ...c,
+        orden: idx + 1,
+      }));
+    } catch (e) {
+      await uiAlert(e.message || "No se pudieron leer las cuotas.");
+      return;
+    }
+
     const { ok, data } = await __getJSON(
       id ? `${GRUPOS_API}/${id}` : GRUPOS_API,
       {
@@ -2032,21 +2567,36 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
       }
     );
 
-    if (!ok) return await uiAlert(data?.error || "No se pudo guardar el grupo.");
+    if (!ok) {
+      await uiAlert(data?.error || "No se pudo guardar el grupo.");
+      return;
+    }
 
     const idgrupo = id || data.idgrupo || data.id;
     if (!idgrupo) throw new Error("No se obtuvo el id del grupo.");
 
     await saveCuotasGrupo2(idgrupo, cuotas);
 
-    bootstrap.Modal.getInstance(
-      document.getElementById("modalGrupoForm")
-    )?.hide();
+    const modalEl = document.getElementById("modalGrupoForm");
+    bootstrap.Modal.getInstance(modalEl)?.hide();
 
     await renderGruposCuadSimple();
+
+    setTimeout(() => {
+      repararEstadoModales?.();
+    }, 30);
   } catch (e) {
-    console.error(e);
+    console.error("[CUAD][GUARDAR GRUPO]", e);
     await uiAlert(e.message || "No se pudo guardar.");
+  } finally {
+    form.dataset.saving = "0";
+    if (btnGuardar) {
+      btnGuardar.disabled = false;
+      btnGuardar.innerHTML = oldHtml || "Guardar";
+    }
+    setTimeout(() => {
+      repararEstadoModales?.();
+    }, 0);
   }
 });
 
@@ -2080,62 +2630,100 @@ document.getElementById("formGrupo")?.addEventListener("submit", async (ev) => {
     }
 
     // ELIMINAR
-    if (btn.classList.contains("btn-del")) {
-      if (!(await uiConfirm("¿Eliminar este grupo?", { variant: "danger" })))
-        return;
+    // ELIMINAR
+if (btn.classList.contains("btn-del")) {
+  ev.preventDefault();
+  ev.stopPropagation();
 
-      // intento normal
-      let res = await __getJSON(`${GRUPOS_API}/${id}`, { method: "DELETE" });
+  if (btn.dataset.busy === "1") return;
 
-      // si el backend devuelve mensaje tipo “usa force=1”
-      const msg = (res.data?.error || "").toLowerCase();
-      if (!res.ok && (msg.includes("force=1") || msg.includes("forzar"))) {
-        const okForce = await uiConfirm(
-          "El grupo tiene cuotas/relaciones. ¿Eliminar de todos modos (force)?",
-          {
-            variant: "warning",
-            title: "Eliminar grupo",
-            confirmLabel: "Sí, eliminar",
-            dangerous: true,
-          }
-        );
-        if (okForce) {
-          // prueba con querystring
-          res = await __getJSON(`${GRUPOS_API}/${id}?force=1`, {
-            method: "DELETE",
-          });
-          // fallback con body si el backend no toma querystring
-          if (!res.ok) {
-            res = await __getJSON(`${GRUPOS_API}/${id}`, {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ force: 1 }),
-            });
-          }
+  const lockBtn = () => {
+    btn.dataset.busy = "1";
+    btn.disabled = true;
+  };
+
+  const unlockBtn = () => {
+    btn.dataset.busy = "0";
+    btn.disabled = false;
+  };
+
+  try {
+    // 1) Intento normal DIRECTO, sin primer confirm
+    lockBtn();
+
+    let r = await fetch(`${GRUPOS_API}/${id}`, {
+      method: "DELETE",
+    });
+    let d = await r.json().catch(() => ({}));
+
+    console.log("[CUAD GRUPO DELETE] status inicial =", r.status, d);
+
+    // 2) Si hay cuotas/relaciones -> pedir confirm de forzar
+    if (!r.ok && r.status === 409) {
+      unlockBtn();
+
+      const continuar = await uiConfirm(
+        (d.error || "No se puede borrar: tiene cuotas asociadas.") +
+          "\n\n¿Deseas eliminarlo de todas formas?",
+        {
+          variant: "warning",
+          title: "Forzar eliminación",
+          confirmLabel: "Sí, eliminar",
+          dangerous: true,
         }
-      }
+      );
 
-      if (!res.ok) {
-        await uiAlert(res.data?.error || "No se pudo eliminar.");
-        return;
+      if (!continuar) return;
 
-      }
-      await renderGruposCuadSimple();
-      repararEstadoModales();
+      lockBtn();
+
+      setTimeout(repararEstadoModales, 0);
+
+      r = await fetch(`${GRUPOS_API}/${id}?force=1`, {
+        method: "DELETE",
+      });
+      d = await r.json().catch(() => ({}));
+
+      console.log("[CUAD GRUPO DELETE] status force =", r.status, d);
     }
+
+    if (!r.ok) {
+      await uiAlert(d.error || "No se pudo eliminar.");
+      return;
+    }
+
+    await renderGruposCuadSimple();
+    await uiAlert("✅ Grupo eliminado correctamente");
+
+    setTimeout(() => {
+      repararEstadoModales();
+    }, 50);
+  } catch (e) {
+    console.error("[CUAD GRUPO DELETE]", e);
+    await uiAlert("Error de red.");
+  } finally {
+    unlockBtn();
+    setTimeout(repararEstadoModales, 0);
+  }
+
+  return;
+}
   });
 
 })();
 
 // Botón "Agregar grupo"
-document.getElementById("btnNuevoGrupo")?.addEventListener("click", () => {
-  abrirEditorGrupoCuadSimple(null);
-});
+//document.getElementById("btnNuevoGrupo")?.addEventListener("click", () => {
+ // abrirEditorGrupoCuadSimple(null);
+//});
 
 // Al abrir tu modal #modalGrupos recarga la tabla simple
 document.addEventListener("shown.bs.modal", (ev) => {
   if (ev.target.id === "modalGrupos") {
-    renderGruposCuadSimple();
+    requestAnimationFrame(() => {
+      renderGruposCuadSimple();
+      repararEstadoModales();
+    });
   }
 });
 // ===========================
@@ -2261,6 +2849,76 @@ function renderAleaCounter(examenId, grupoId) {
   }
 }
 
+const ALEA_DONE_KEY = "evalunia_alea_done_v1";
+
+function getAleaDoneStore() {
+  try {
+    return JSON.parse(localStorage.getItem(ALEA_DONE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function setAleaDoneStore(data) {
+  localStorage.setItem(ALEA_DONE_KEY, JSON.stringify(data || {}));
+}
+
+function marcarGrupoAleatorizado(examenId, grupoId) {
+  if (!examenId || !grupoId) return;
+
+  const store = getAleaDoneStore();
+  const key = aleaCounterKey(examenId, grupoId);
+
+  store[key] = true;
+  setAleaDoneStore(store);
+}
+
+function grupoYaFueAleatorizado(examenId, grupoId) {
+  if (!examenId || !grupoId) return false;
+
+  const store = getAleaDoneStore();
+  const key = aleaCounterKey(examenId, grupoId);
+
+  // Si alguna vez fue aleatorizado, queda habilitado aunque el contador vuelva a 0
+  return !!store[key] || getAleaCounter(examenId, grupoId) > 0;
+}
+
+function setBotonPostAlea(btn, habilitado) {
+  if (!btn) return;
+
+  if (btn.dataset.originalTitle === undefined) {
+    btn.dataset.originalTitle = btn.getAttribute("title") || "";
+  }
+
+  btn.disabled = !habilitado;
+  btn.classList.toggle("disabled", !habilitado);
+  btn.setAttribute("aria-disabled", habilitado ? "false" : "true");
+
+  if (!habilitado) {
+    btn.setAttribute(
+      "title",
+      "Primero debes aleatorizar este grupo al menos una vez."
+    );
+  } else {
+    const oldTitle = btn.dataset.originalTitle || "";
+    if (oldTitle) {
+      btn.setAttribute("title", oldTitle);
+    } else {
+      btn.removeAttribute("title");
+    }
+  }
+}
+
+function actualizarEstadoBotonesPostAlea(examenId, grupoId) {
+  const ok = grupoYaFueAleatorizado(examenId, grupoId);
+
+  setBotonPostAlea(document.getElementById("btnNuevoTema"), ok);
+  setBotonPostAlea(document.getElementById("btnImprimirClaves"), ok);
+  setBotonPostAlea(document.getElementById("btnDescargarPruebas"), ok);
+
+  return ok;
+}
+
   const btnDescargar = document.getElementById("btnDescargarPruebas");
   const btnImprimirClaves = document.getElementById("btnImprimirClaves");
 
@@ -2302,49 +2960,74 @@ function getGruposFiltradosPorImportados(grupos = []) {
 }
 
   // Estado
-  let EXAMENES = []; // {id, nombre, total_preguntas}
-  let GRUPOS = []; // [{id, clave, nombre}]
-  let CLAVES = [];      // filas dinámicas: [{numero_pregunta, origen, P:"A", Q:"B", R:"C"...}]
-  let TIPOS = ["P","Q"]; // tipos activos que vienen del backend
+  // Estado
+let EXAMENES = []; // {id, nombre, total_preguntas}
+let GRUPOS = [];   // [{id, clave, nombre}]
+let CLAVES = [];   // filas dinámicas
+let TIPOS = ["P", "Q"];
+let EXAMEN_ID_ACTUAL = null;
 
-  let EXAMEN_ID_ACTUAL = null; // examen elegido (por ahora tomamos el primero)
+// cache compartida segura
+window.__CUAD__ = window.__CUAD__ || {};
+window.__CUAD__.EXAMENES = EXAMENES;
 
-  // Helpers
-  const LTRS = ["A", "B", "C", "D", "E"];
+function syncExamenesCache() {
+  window.__CUAD__.EXAMENES = Array.isArray(EXAMENES) ? EXAMENES : [];
+}
 
-  // elige una letra cualquiera excepto las que le digas
-  const pickExcept = (except = []) => {
-    const pool = LTRS.filter((x) => !except.includes(x));
-    return pool[Math.floor(Math.random() * pool.length)] || "A";
-  };
+function getExamenesImportadosSafe() {
+  if (Array.isArray(EXAMENES)) return EXAMENES;
+  if (Array.isArray(window.__CUAD__?.EXAMENES)) return window.__CUAD__.EXAMENES;
+  return [];
+}
 
-    //importar varios examenes 
-  function getExamenIdsImportados() {
-    return (Array.isArray(EXAMENES) ? EXAMENES : [])
-      .map((e) => Number(e.id))
-      .filter((id) => Number.isFinite(id) && id > 0);
-  }
+function getExamenImportadoPorClaveGrupo(claveBuscada = "") {
+  const clave = String(claveBuscada || "").trim().toUpperCase();
+  if (!clave) return null;
+
+  return getExamenesImportadosSafe().find((ex) => {
+    return inferirClaveGrupoDesdeNombreImportado(ex.nombre) === clave;
+  }) || null;
+}
 
   // ✅ SOLO garantiza: P != Q y que estén dentro de A–E
-  const enforceRules = () => {
+ const enforceRules = () => {
   if (!Array.isArray(CLAVES)) CLAVES = [];
-  const tipos = (TIPOS || []).slice();
-  CLAVES = CLAVES.map((r) => {
-    r.origen = (r.origen || "A").toUpperCase();
+
+  const LTRS = ["A", "B", "C", "D", "E"];
+  const tipos = Array.isArray(TIPOS) && TIPOS.length ? [...TIPOS] : ["P", "Q"];
+
+  const pickExcept = (used = []) => {
+    const pool = LTRS.filter((x) => !used.includes(x));
+    return pool.length
+      ? pool[Math.floor(Math.random() * pool.length)]
+      : LTRS[Math.floor(Math.random() * LTRS.length)];
+  };
+
+  CLAVES = CLAVES.map((row) => {
+    const r = { ...row };
+
+    r.origen = String(r.origen || "A").trim().toUpperCase();
     if (!LTRS.includes(r.origen)) r.origen = "A";
 
-    const usados = new Set([r.origen]);
+    // IMPORTANTE:
+    // NO excluimos origen. Solo evitamos repetidos entre tipos P/Q/R/...
+    const usadosTipos = new Set();
 
     for (const t of tipos) {
-      let v = (r[t] || "").toUpperCase();
-      if (!LTRS.includes(v) || usados.has(v)) {
-        // asigna una letra que no esté usada
-        const pool = LTRS.filter(x => !usados.has(x));
-        v = pool.length ? pool[Math.floor(Math.random()*pool.length)] : pickExcept([]);
+      let v = String(r[t] ?? "").trim().toUpperCase();
+
+      if (!LTRS.includes(v) || usadosTipos.has(v)) {
+        const pool = LTRS.filter((x) => !usadosTipos.has(x));
+        v = pool.length
+          ? pool[Math.floor(Math.random() * pool.length)]
+          : pickExcept([]);
       }
+
       r[t] = v;
-      usados.add(v);
+      usadosTipos.add(v);
     }
+
     return r;
   });
 };
@@ -2573,23 +3256,27 @@ function getGruposFiltradosPorImportados(grupos = []) {
 
   const renderClaves = () => {
   const tbody = document.querySelector("#tblClaves tbody");
-  const thead = document.getElementById("theadClaves") || document.querySelector("#tblClaves thead");
+  const thead =
+    document.getElementById("theadClaves") ||
+    document.querySelector("#tblClaves thead");
+
   if (!tbody || !thead) return;
 
-  // 1) THEAD dinámico
-  let th = `<tr>
-    <th class="cuad-tipo-prueba-th-num">Pregunta</th>
-    <th class="cuad-tipo-prueba-th-letra">Origen</th>
-    ${TIPOS.map((t) => `<th class="cuad-tipo-prueba-th-letra">${t}</th>`).join("")}
-  </tr>`;
-  thead.innerHTML = th;
+  const letras = ["A", "B", "C", "D", "E"];
 
-  // 2) TBODY dinámico
+  thead.innerHTML = `
+    <tr>
+      <th class="cuad-tipo-prueba-th-num">Pregunta</th>
+      <th class="cuad-tipo-prueba-th-letra">Origen</th>
+      ${TIPOS.map((t) => `<th class="cuad-tipo-prueba-th-letra">${t}</th>`).join("")}
+    </tr>
+  `;
+
   tbody.innerHTML = CLAVES.map((r) => {
     const cellsTipos = TIPOS.map((t) => `
       <td>
         <select class="form-select form-select-sm sel-tipo" data-t="${t}" data-i="${r.numero_pregunta}">
-          ${LTRS.map(l => `<option ${l === (r[t]||"") ? "selected":""}>${l}</option>`).join("")}
+          ${letras.map((l) => `<option value="${l}" ${l === (r[t] || "") ? "selected" : ""}>${l}</option>`).join("")}
         </select>
       </td>
     `).join("");
@@ -2599,7 +3286,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
         <td>${r.numero_pregunta}</td>
         <td>
           <select class="form-select form-select-sm sel-origen" data-i="${r.numero_pregunta}">
-            ${LTRS.map(l => `<option ${l === r.origen ? "selected":""}>${l}</option>`).join("")}
+            ${letras.map((l) => `<option value="${l}" ${l === (r.origen || "") ? "selected" : ""}>${l}</option>`).join("")}
           </select>
         </td>
         ${cellsTipos}
@@ -2729,23 +3416,26 @@ function getGruposFiltradosPorImportados(grupos = []) {
 
   // --- listar exámenes importados (SIEMPRE desde BD) ---
   async function listarExamenesImportados() {
-    try {
-      const r = await fetch(apiURL("/api/examenes/importados"));
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const data = await r.json().catch(() => []);
+  try {
+    const r = await fetch(apiURL("/api/examenes/importados"));
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json().catch(() => []);
 
-      // ✅ dedupe por id (por si el backend repite algo)
-      const map = new Map();
-      for (const it of Array.isArray(data) ? data : []) {
-        map.set(Number(it.id), it);
-      }
-      EXAMENES = [...map.values()];
-    } catch (e) {
-      console.error("Error listando importados:", e);
-      EXAMENES = [];
+    const map = new Map();
+    for (const it of Array.isArray(data) ? data : []) {
+      map.set(Number(it.id), it);
     }
-    renderExamenes();
+
+    EXAMENES = [...map.values()];
+    syncExamenesCache();
+  } catch (e) {
+    console.error("Error listando importados:", e);
+    EXAMENES = [];
+    syncExamenesCache();
   }
+
+  renderExamenes();
+}
 
   // 👉 la hacemos accesible desde fuera (openTipoPrueba)
   window.__listarExamenesImportados = listarExamenesImportados;
@@ -2908,6 +3598,7 @@ function getGruposFiltradosPorImportados(grupos = []) {
       }
 
       EXAMENES = EXAMENES.filter((x) => Number(x.id) !== id);
+      syncExamenesCache();
       renderExamenes();
       if (EXAMEN_ID_ACTUAL === id) EXAMEN_ID_ACTUAL = null;
     } catch (err) {
@@ -2970,14 +3661,31 @@ function getGruposFiltradosPorImportados(grupos = []) {
         
           renderClaves();
   renderAleaCounter(0, 0);
+  actualizarEstadoBotonesPostAlea(0, 0);
       } else {
         // si el select existe pero está vacío, lo sincronizamos con el gid elegido
         if (selGrupo && !selGrupo.value) {
           selGrupo.value = String(gid);
         }
-       await cargarClaves(EXAMEN_ID_ACTUAL, gid);
-        setAleaCounter(EXAMEN_ID_ACTUAL, gid, 0);
-        renderAleaCounter(EXAMEN_ID_ACTUAL, gid);
+      const grupoSel = GRUPOS.find((g) => Number(g.id) === gid);
+      const claveGrupo = String(grupoSel?.clave || "").trim().toUpperCase();
+      const examenMatch = getExamenImportadoPorClaveGrupo(claveGrupo);
+
+      if (!examenMatch) {
+        CLAVES = [];
+        renderClaves();
+        renderAleaCounter(0, 0);
+        actualizarEstadoBotonesPostAlea(0, 0);
+        await uiAlert(`No existe examen importado para el grupo ${claveGrupo}.`);
+        return;
+      }
+
+      EXAMEN_ID_ACTUAL = Number(examenMatch.id);
+
+      await cargarClaves(EXAMEN_ID_ACTUAL, gid);
+      setAleaCounter(EXAMEN_ID_ACTUAL, gid, 0);
+      renderAleaCounter(EXAMEN_ID_ACTUAL, gid);
+      actualizarEstadoBotonesPostAlea(EXAMEN_ID_ACTUAL, gid);
       }
 
       const elTipo = document.getElementById("modalTipoPrueba");
@@ -2999,18 +3707,34 @@ document.addEventListener("change", async (e) => {
   if (!sel) return;
 
   const gid = Number(sel.value || 0);
-  const permitido = GRUPOS.some((g) => Number(g.id) === gid);
+  const grupoSel = GRUPOS.find((g) => Number(g.id) === gid);
 
-  if (!EXAMEN_ID_ACTUAL || !gid || !permitido) {
+  if (!gid || !grupoSel) {
     CLAVES = [];
     renderClaves();
     renderAleaCounter(0, 0);
+    actualizarEstadoBotonesPostAlea(0, 0);
     return;
   }
+
+  const claveGrupo = String(grupoSel.clave || "").trim().toUpperCase();
+  const examenMatch = getExamenImportadoPorClaveGrupo(claveGrupo);
+
+  if (!examenMatch) {
+    CLAVES = [];
+    renderClaves();
+    renderAleaCounter(0, 0);
+    actualizarEstadoBotonesPostAlea(0, 0);
+    await uiAlert(`No existe examen importado para el grupo ${claveGrupo}.`);
+    return;
+  }
+
+  EXAMEN_ID_ACTUAL = Number(examenMatch.id);
 
   await cargarClaves(EXAMEN_ID_ACTUAL, gid);
   setAleaCounter(EXAMEN_ID_ACTUAL, gid, 0);
   renderAleaCounter(EXAMEN_ID_ACTUAL, gid);
+  actualizarEstadoBotonesPostAlea(EXAMEN_ID_ACTUAL, gid);
 });
 
   // Edición manual en tabla (enforce rules)
@@ -3030,40 +3754,90 @@ document.addEventListener("change", async (e) => {
   });
 
   // Aleatorizar P/Q (cliente) – si prefieres en servidor, llama /api/claves/aleatorizar
-btnAleatorizarPQ?.addEventListener("click", async () => {
-  try {
-    const selGrupo = document.getElementById("selGrupo");
-    const grupoId = Number(selGrupo?.value || 0);
-    if (!EXAMEN_ID_ACTUAL || !grupoId) {
-      await uiAlert("Selecciona examen y grupo.");
-      return;
-    }
+// Aleatorizar tipos P/Q/R/... — delegado y robusto
+if (!window.__CUAD_ALEATORIZAR_TIPOS_BOUND__) {
+  window.__CUAD_ALEATORIZAR_TIPOS_BOUND__ = true;
 
-    const tiposActivos = Array.isArray(TIPOS) && TIPOS.length ? [...TIPOS] : ["P", "Q"];
+  document.addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("#btnAleatorizarPQ");
+    if (!btn) return;
 
-    await aleatorizarClavesServer(EXAMEN_ID_ACTUAL, grupoId, tiposActivos);
+    ev.preventDefault();
+    ev.stopPropagation();
 
-    const resp = await getClavesOrigen(EXAMEN_ID_ACTUAL, grupoId);
-    if (!resp.ok) throw new Error(resp.error || "No se pudieron cargar claves.");
+    if (btn.dataset.running === "1") return;
 
-    TIPOS = Array.isArray(resp.tipos) && resp.tipos.length ? resp.tipos : tiposActivos;
-    CLAVES = Array.isArray(resp.filas) ? resp.filas : [];
+    const oldHtml = btn.innerHTML;
 
-    renderClaves();
+    try {
+      btn.dataset.running = "1";
+      btn.disabled = true;
+      btn.innerHTML = `
+        <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+        Aleatorizando...
+      `;
 
-    const total = incrementAleaCounter(EXAMEN_ID_ACTUAL, grupoId);
-    renderAleaCounter(EXAMEN_ID_ACTUAL, grupoId);
+      const selGrupo = document.getElementById("selGrupo");
+      const grupoId = Number(selGrupo?.value || 0);
 
-    await uiAlert(`✅ Aleatorización aplicada. Total: ${total}`);
-  } catch (e) {
-    console.error(e);
-    await uiAlert(e.message || "No se pudo aleatorizar.");
-  }
-});
+      if (!EXAMEN_ID_ACTUAL || !grupoId) {
+        await uiAlert("Selecciona examen y grupo.");
+        return;
+      }
+
+      const tiposActivos =
+        Array.isArray(TIPOS) && TIPOS.length ? [...TIPOS] : ["P", "Q"];
+
+      await aleatorizarClavesServer(EXAMEN_ID_ACTUAL, grupoId, tiposActivos);
+
+      const resp = await getClavesOrigen(EXAMEN_ID_ACTUAL, grupoId);
+
+      if (!resp.ok) {
+        throw new Error(resp.error || "No se pudieron cargar claves.");
+      }
+
+      TIPOS =
+        Array.isArray(resp.tipos) && resp.tipos.length
+          ? resp.tipos
+          : tiposActivos;
+
+      CLAVES = Array.isArray(resp.filas) ? resp.filas : [];
+
+      renderClaves();
+
+      const total = incrementAleaCounter(EXAMEN_ID_ACTUAL, grupoId);
+
+      // Marca persistente: este grupo ya fue aleatorizado al menos una vez
+      marcarGrupoAleatorizado(EXAMEN_ID_ACTUAL, grupoId);
+
+      renderAleaCounter(EXAMEN_ID_ACTUAL, grupoId);
+      actualizarEstadoBotonesPostAlea(EXAMEN_ID_ACTUAL, grupoId);
+
+      await uiAlert(`✅ Aleatorización aplicada. Total: ${total}`);
+    }  catch (e) {
+  console.error(e);
+  await uiAlert(e.message || "No se pudo aleatorizar.");
+} finally {
+  btn.dataset.running = "0";
+  btn.disabled = false;
+  btn.innerHTML = oldHtml;
+
+  const grupoIdActual = Number(document.getElementById("selGrupo")?.value || 0);
+
+  renderAleaCounter(EXAMEN_ID_ACTUAL, grupoIdActual);
+
+  actualizarEstadoBotonesPostAlea(
+    EXAMEN_ID_ACTUAL,
+    grupoIdActual
+  );
+}
+  });
+}
 
 
   // Descargar solo temas
-btnDescargar?.addEventListener("click", async () => {
+
+  btnDescargar?.addEventListener("click", async () => {
   const btn = btnDescargar;
   const oldHtml = btn.innerHTML;
 
@@ -3074,30 +3848,43 @@ btnDescargar?.addEventListener("click", async () => {
     const selGrupo = document.getElementById("selGrupo");
     const grupoIdSel = Number(selGrupo?.value || 0);
 
-    if (!EXAMEN_ID_ACTUAL || !grupoIdSel) {
-      await uiAlert("Selecciona examen y grupo.");
+    if (!grupoIdSel) {
+      await uiAlert("Selecciona grupo.");
       return;
     }
+
+    const grupoSel = GRUPOS.find((g) => Number(g.id) === grupoIdSel);
+    const grupoClave = String(grupoSel?.clave || "").trim().toUpperCase();
+
+    if (!grupoClave) {
+      await uiAlert("No se pudo determinar la clave del grupo.");
+      return;
+    }
+
+    const examenMatch = getExamenImportadoPorClaveGrupo(grupoClave);
+    if (!examenMatch) {
+      await uiAlert(`No existe examen importado para el grupo ${grupoClave}.`);
+      return;
+    }
+
+    const examenIdReal = Number(examenMatch.id);
+    EXAMEN_ID_ACTUAL = examenIdReal;
+
+    if (!grupoYaFueAleatorizado(examenIdReal, grupoIdSel)) {
+  actualizarEstadoBotonesPostAlea(examenIdReal, grupoIdSel);
+  await uiAlert("Primero debes aleatorizar este grupo al menos una vez.");
+  return;
+}
 
     if (Array.isArray(CLAVES) && CLAVES.length) {
-      await guardarClavesServer(EXAMEN_ID_ACTUAL, grupoIdSel, CLAVES);
+      await guardarClavesServer(examenIdReal, grupoIdSel, CLAVES);
     }
-
-    const examenIds = getExamenIdsImportados();
-
-    if (!examenIds.length) {
-      await uiAlert("Primero importa exámenes.");
-      return;
-    }
-
-    const grupoTexto = selGrupo?.selectedOptions?.[0]?.textContent?.trim() || "";
-    const grupoClave = (grupoTexto.split("—")[0] || "").trim() || `GRUPO_${grupoIdSel}`;
 
     const r = await fetch(apiURL("/api/pruebas/descargar_all"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        examen_ids: examenIds,
+        examen_ids: [examenIdReal],
         solo_temas: true,
         todos_los_grupos: false,
         grupo_id: grupoIdSel
@@ -3123,13 +3910,17 @@ btnDescargar?.addEventListener("click", async () => {
     await uiAlert(e.message || "Fallo la descarga de temas.");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = oldHtml;
+btn.innerHTML = oldHtml;
+actualizarEstadoBotonesPostAlea(
+  EXAMEN_ID_ACTUAL,
+  Number(document.getElementById("selGrupo")?.value || 0)
+);
   }
 });
 
 
 // Imprimir claves de respuesta
-btnImprimirClaves?.addEventListener("click", async () => {
+ btnImprimirClaves?.addEventListener("click", async () => {
   const btn = btnImprimirClaves;
   const oldHtml = btn.innerHTML;
 
@@ -3140,30 +3931,24 @@ btnImprimirClaves?.addEventListener("click", async () => {
     const selGrupo = document.getElementById("selGrupo");
     const grupoIdSel = Number(selGrupo?.value || 0);
 
-    if (!EXAMEN_ID_ACTUAL || !grupoIdSel) {
-      await uiAlert("Selecciona examen y grupo.");
-      return;
-    }
+   if (!grupoYaFueAleatorizado(EXAMEN_ID_ACTUAL, grupoIdSel)) {
+  actualizarEstadoBotonesPostAlea(EXAMEN_ID_ACTUAL, grupoIdSel);
+  await uiAlert("Primero debes aleatorizar este grupo al menos una vez.");
+  return;
+}
 
-    // guardar primero el grupo que estás viendo
     if (Array.isArray(CLAVES) && CLAVES.length) {
       await guardarClavesServer(EXAMEN_ID_ACTUAL, grupoIdSel, CLAVES);
     }
 
-    const examenIds = getExamenIdsImportados();
-    if (!examenIds.length) {
-      await uiAlert("Primero importa exámenes.");
-      return;
-    }
-
     const r = await fetch(apiURL("/api/claves/imprimir"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      examen_ids: [EXAMEN_ID_ACTUAL],
-      grupo_id: grupoIdSel
-    }),
-  });
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        examen_ids: [EXAMEN_ID_ACTUAL],
+        grupo_id: grupoIdSel
+      }),
+    });
 
     const j = await r.json().catch(() => ({}));
     if (!r.ok || j.ok === false) {
@@ -3185,7 +3970,11 @@ btnImprimirClaves?.addEventListener("click", async () => {
     await uiAlert(e.message || "No se pudo imprimir claves.");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = oldHtml;
+btn.innerHTML = oldHtml;
+actualizarEstadoBotonesPostAlea(
+  EXAMEN_ID_ACTUAL,
+  Number(document.getElementById("selGrupo")?.value || 0)
+);
   }
 });
 
@@ -3250,30 +4039,58 @@ btnImprimirClaves?.addEventListener("click", async () => {
 })();
 
 // Abrir Aleatorización (delegado, robusto)
+
+function getModalCuadById(id) {
+  const els = [...document.querySelectorAll(`#${id}`)];
+  if (!els.length) return null;
+
+  return (
+    els.find((el) => el.classList.contains("show")) ||
+    els.find((el) => el.parentElement === document.body) ||
+    els.find((el) => document.getElementById("contenido")?.contains(el)) ||
+    els[els.length - 1]
+  );
+}
+
 (function bindAleaOpenOnce() {
+  if (window.__CUAD_ALEA_OPEN_BOUND__) return;
+  window.__CUAD_ALEA_OPEN_BOUND__ = true;
+
   document.addEventListener("click", async (ev) => {
     const trigger = ev.target.closest("#btn-aleatorizacion");
     if (!trigger) return;
 
+    ev.preventDefault();
+    ev.stopPropagation();
+
     try {
-      // precarga lista (si falla, igual mostramos el modal)
       if (typeof listarExamenesImportados === "function") {
         await listarExamenesImportados().catch(() => {});
       }
     } finally {
-      const el = document.getElementById("modalAleatorizacion");
-      if (!el) return;
+      limpiarDuplicadosModalCuad("modalAleatorizacion");
+      limpiarDuplicadosModalCuad("modalTipoPrueba");
+
+      const el = getModalCuadById("modalAleatorizacion");
+      if (!el) {
+        console.error("No existe #modalAleatorizacion");
+        return;
+      }
+
+      if (el.parentElement !== document.body) {
+        document.body.appendChild(el);
+      }
+
       const modal = bootstrap.Modal.getOrCreateInstance(el, {
         backdrop: "static",
+        keyboard: false,
+        focus: true,
       });
+
       modal.show();
       console.log("Modal Aleatorización: shown");
     }
   });
-
-
-
-
 })();
 
 /* =======================

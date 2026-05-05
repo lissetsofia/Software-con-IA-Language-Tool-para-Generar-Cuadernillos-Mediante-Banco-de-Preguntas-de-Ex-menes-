@@ -1,0 +1,42 @@
+{
+  "masc_nouns": [
+    "número",
+    "vector",
+    "conjunto",
+    "ángulo",
+    "polígono",
+    "intervalo",
+    "resultado",
+    "valor",
+    "punto"
+  ],
+  "fem_nouns": [
+    "fracción",
+    "suma",
+    "resta",
+    "potencia",
+    "matriz",
+    "media",
+    "mediana",
+    "varianza",
+    "raíz",
+    "medida"
+  ],
+  "adjectives": [
+    "entero",
+    "real",
+    "natural",
+    "primo",
+    "compuesto",
+    "racional",
+    "irracional",
+    "positivo",
+    "negativo",
+    "par",
+    "impar",
+    "mínimo",
+    "máximo",
+    "mayor",
+    "menor"
+  ]
+}

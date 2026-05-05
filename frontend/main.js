@@ -13,7 +13,7 @@ let backendProcess = null;
 
 const isDev = !app.isPackaged;
 const BACKEND_PORT = 5050;
-
+/*
 if (isDev) {
   try {
     // watchRenderer vigila todo el cwd (raíz del repo con package.json). Sin ignorar
@@ -33,7 +33,7 @@ if (isDev) {
     });
   } catch (_) {}
 }
-
+*/
 function logMain(...args) {
   console.log("[MAIN]", ...args);
 }
@@ -211,6 +211,13 @@ function crearVentana() {
       nodeIntegration: false,
     },
   });
+  win.once("ready-to-show", () => {
+  win.show();
+
+  if (isDev) {
+    win.webContents.openDevTools({ mode: "detach" });
+  }
+});
 
   // App desktop: ocultamos menu nativo y abrimos maximizada por defecto.
   win.setMenuBarVisibility(false);

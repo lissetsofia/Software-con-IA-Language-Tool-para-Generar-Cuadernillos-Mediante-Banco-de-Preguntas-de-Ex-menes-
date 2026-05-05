@@ -116,14 +116,24 @@ def print_boot_diagnostics():
     check_word_com_boot()
     check_lt_boot()
     bootlog("=" * 70)
+
 def resource_base():
     if getattr(sys, "frozen", False):
         # PyInstaller onedir/onefile
         return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
     return os.path.abspath(os.path.dirname(__file__))
 
-BASE_RUNTIME_DIR = resource_base()
+def writable_base():
+    if getattr(sys, "frozen", False):
+        root = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        return os.path.join(root, "EVALUNIA")
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+BASE_RUNTIME_DIR = resource_base()
+APP_DATA_DIR = writable_base()
+
+
+PREGUNTAS_DIR = os.path.join(APP_DATA_DIR, "temas_archivos")
 # si quieres que descargas/static queden al lado del exe:
 APP_ROOT_DIR = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -142,9 +152,11 @@ def _short83(p: str) -> str:
     return _short_path(p)
 # rutas absolutas
 BACKEND_DIR = BASE_RUNTIME_DIR
-PROYECTO_DIR = APP_ROOT_DIR
-DESCARGAS_DIR = os.path.join(PROYECTO_DIR, "descargas")
-STATIC_DIR = os.path.join(PROYECTO_DIR, "static")   # asegúrate que existe
+PROYECTO_DIR = APP_DATA_DIR  
+DESCARGAS_DIR = os.path.join(APP_DATA_DIR, "descargas")
+DATA_DIR = os.path.join(APP_DATA_DIR, "data")
+STATIC_DIR = os.path.join(APP_DATA_DIR, "static")   # asegúrate que existe
+UPLOAD_DIR = os.path.join(APP_DATA_DIR, "uploads")
 os.makedirs(STATIC_DIR, exist_ok=True)
 os.makedirs(os.path.join(STATIC_DIR, "previews"), exist_ok=True)
 os.makedirs(DESCARGAS_DIR, exist_ok=True)
@@ -170,7 +182,7 @@ NS = {
     "a14": "http://schemas.microsoft.com/office/drawing/2010/main",
     "w10": "urn:schemas-microsoft-com:office:word",
     "wpgls": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
-
+     "wpg": "http://schemas.microsoft.com/office/word/2010/wordprocessingGroup",
 }
 for p, u in NS.items():
     ET.register_namespace(p, u)
@@ -180,9 +192,9 @@ for p, u in NS.items():
 print_boot_diagnostics()
 init_db()
 app.config["DESCARGAS_FOLDER"]  = DESCARGAS_DIR
-app.config['UPLOAD_FOLDER'] = os.path.join(BACKEND_DIR, "uploads")
+app.config["UPLOAD_FOLDER"] = UPLOAD_DIR
 
-EXAM_DIR = os.path.join(BACKEND_DIR , "uploads", "examenes")
+EXAM_DIR = os.path.join(APP_DATA_DIR, "uploads", "examenes")
 app.config["UPLOADS_EXAM_DIR"] = EXAM_DIR
 os.makedirs(EXAM_DIR, exist_ok=True)
 
@@ -200,9 +212,9 @@ print("DESCARGAS_FOLDER =>", app.config["DESCARGAS_FOLDER"])
 print("STATIC_DIR       =>", STATIC_DIR)
 
 
-
-app.config['PREGUNTAS_DIR'] = os.path.join(BACKEND_DIR, "temas_archivos")
+app.config["PREGUNTAS_DIR"] = PREGUNTAS_DIR
 os.makedirs(app.config['PREGUNTAS_DIR'], exist_ok=True)
+
 
 # cerca de los imports superiores
 class DocxVacioError(Exception):
@@ -212,11 +224,11 @@ class DocxVacioError(Exception):
 BASE_DIR = BACKEND_DIR
 GRUPOS_OUT_DIR = os.path.join(app.config['DESCARGAS_FOLDER'], "grupos")
 os.makedirs(GRUPOS_OUT_DIR, exist_ok=True)
-DATA_DIR      = os.path.join(BASE_DIR, "data")
+
 
 UPLOADS_DIR   = os.path.join(DATA_DIR, "uploads")
 OUTPUTS_DIR   = os.path.join(DATA_DIR, "outputs")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+UPLOAD_DIR = os.path.join(APP_DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(UPLOADS_DIR, exist_ok=True)
@@ -224,7 +236,7 @@ os.makedirs(OUTPUTS_DIR, exist_ok=True)
 
 
 # --- CONFIG UPLOADS BANCO ---
-BANCO_DIR = os.path.join(app.root_path, "uploads", "banco")
+BANCO_DIR = os.path.join(APP_DATA_DIR, "uploads", "banco")
 BANCO_PREG_DIR = os.path.join(BANCO_DIR, "preguntas")
 BANCO_SOL_DIR  = os.path.join(BANCO_DIR, "solucionarios")
 os.makedirs(BANCO_PREG_DIR, exist_ok=True)
@@ -4785,26 +4797,30 @@ def _merge_grouped_with_headings(grouped, out_path, merge_step_cb=None, merge_op
     grouped: [(tema_nombre, [docx1, docx2, ...]), ...]
     Une metiendo un doc temporal con el título antes de cada bloque.
     """
+    if Composer is None:
+        raise RuntimeError(
+            "No se puede usar merge sin COM porque falta docxcompose.Composer. "
+            "Instala 'docxcompose' o usa el merge con Word COM."
+        )
+
     if merge_ops is None:
         merge_ops = sum(1 + len(fs) for _, fs in grouped)
     step = 0
 
-    # Documento maestro vacío
     maestro = DocxDocument()
     comp = Composer(maestro)
 
     tmp_titles = []
     try:
         for (tema, files) in grouped:
-            # 1) insertar título como un pequeño DOCX
             tpath = _tmp_heading_doc(tema)
             tmp_titles.append(tpath)
+
             step += 1
             if merge_step_cb:
                 merge_step_cb(step, "merge")
-            comp.append(DocxDocument(tpath))  # añade el título
+            comp.append(DocxDocument(tpath))
 
-            # 2) añadir todas las preguntas del tema
             for f in files:
                 step += 1
                 if merge_step_cb:
@@ -4812,9 +4828,8 @@ def _merge_grouped_with_headings(grouped, out_path, merge_step_cb=None, merge_op
                 comp.append(DocxDocument(os.path.abspath(f)))
 
         comp.save(out_path)
-        return out_path, [], []  # compatibles con tu interfaz
+        return out_path, [], []
     finally:
-        # limpiar temporales
         for p in tmp_titles:
             try:
                 os.remove(p)
@@ -5927,6 +5942,74 @@ def docx_a_pdf(docx_path: str, pdf_path: str) -> str:
 
 
 # boton banco solucionario 
+@app.route("/api/banco_preguntas/<int:id>/preview", methods=["GET"])
+def banco_preview_pregunta_sol(id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT doc_preguntas_nombre, doc_preguntas_ruta,
+                   doc_sol_nombre, doc_sol_ruta
+            FROM tema_docs
+            WHERE id = ?
+        """, (id,))
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if not row:
+            return jsonify({"ok": False, "error": "Registro no encontrado"}), 404
+
+        pregunta_path = row["doc_preguntas_ruta"]
+        sol_path = row["doc_sol_ruta"]
+
+        if not pregunta_path or not os.path.exists(pregunta_path):
+            return jsonify({"ok": False, "error": "Archivo de pregunta no encontrado"}), 404
+
+        # Crear DOCX temporal unido: pregunta + solucionario si existe
+        base_name = f"preview_banco_{id}_{int(time.time())}"
+        out_docx = os.path.join(DESCARGAS_DIR, f"{base_name}.docx")
+
+        doc_base = DocxDocument(pregunta_path)
+
+        if sol_path and os.path.exists(sol_path):
+            try:
+                if Composer:
+                    composer = Composer(doc_base)
+                    doc_base.add_page_break()
+                    doc_sol = DocxDocument(sol_path)
+                    composer.append(doc_sol)
+                    composer.save(out_docx)
+                else:
+                    doc_base.add_page_break()
+                    doc_base.add_paragraph("SOLUCIONARIO")
+                    doc_sol = DocxDocument(sol_path)
+                    for p in doc_sol.paragraphs:
+                        doc_base.add_paragraph(p.text)
+                    doc_base.save(out_docx)
+            except Exception:
+                traceback.print_exc()
+                doc_base.save(out_docx)
+        else:
+            doc_base.save(out_docx)
+
+        # Convertir a PDF para vista
+        pdf_path = generar_pdf_preview(out_docx, nombre_base=base_name)
+        pdf_name = os.path.basename(pdf_path)
+        v = int(os.path.getmtime(pdf_path))
+
+        return jsonify({
+            "ok": True,
+            "url": f"/api/descargas/{pdf_name}?v={v}",
+            "tiene_solucionario": bool(sol_path and os.path.exists(sol_path))
+        })
+
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+
 
 def _save_docx(file_storage, folder):
     filename = secure_filename(file_storage.filename)
@@ -6848,6 +6931,117 @@ def _reconstruir_numbering_desde_documento(docx_path: str):
 
     _safe_rezip(docx_path, files)
         
+
+def _norm_upper_noaccent(s: str) -> str:
+    s = unicodedata.normalize("NFD", s or "")
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    return s.strip().upper()
+
+
+def _docx_requiere_resave_para_matriz(tema_nombre: str, src_docx: str) -> bool:
+    """
+    True solo para DOCX 'de este tipo':
+    - por tema conocido problemático (por ahora TRIGONOMETRÍA)
+    - o porque el document.xml trae estructuras complejas
+      como AlternateContent, drawings, pict, VML, textboxes, grupos, etc.
+    """
+    tema_norm = _norm_upper_noaccent(tema_nombre)
+
+    # 1) regla explícita por tema problemático conocido
+    if tema_norm in {"TRIGONOMETRIA"}:
+        return True
+
+    # 2) regla por tipo de XML complejo
+    try:
+        with zipfile.ZipFile(src_docx, "r") as z:
+            xml = z.read("word/document.xml")
+
+        marcadores = [
+            b"<mc:AlternateContent",
+            b"<w:drawing",
+            b"<w:pict",
+            b"<v:group",
+            b"<wpg:wgp",
+            b"<wps:wsp",
+            b"<w:txbxContent",
+        ]
+        return any(m in xml for m in marcadores)
+    except Exception:
+        return False        
+    
+
+def _cut_docx_to_individual_question_docs(src_docx: str, n: int) -> list[str]:
+    """
+    Parte un DOCX temático en N DOCX individuales (1 pregunta por archivo),
+    reutilizando la misma detección de spans y el mismo reempaque XML.
+    Devuelve una lista de rutas temporales.
+    """
+    out_files = []
+
+    if n <= 0:
+        return out_files
+
+    with tempfile.TemporaryDirectory() as td:
+        with zipfile.ZipFile(src_docx, "r") as z:
+            z.extractall(td)
+
+        doc_xml = os.path.join(td, "word", "document.xml")
+        num_xml = os.path.join(td, "word", "numbering.xml")
+
+        spans = _find_question_spans(doc_xml, num_xml, n)
+        if not spans:
+            # fallback: si no detecta spans, deja el flujo antiguo en 1 archivo
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+            tmp.close()
+            _cut_docx_first_n_questions(src_docx, n, tmp.name)
+            out_files.append(os.path.abspath(tmp.name))
+            return out_files
+
+        tree_doc = ET.parse(doc_xml)
+        root_doc = tree_doc.getroot()
+        body = root_doc.find(f"{W_NS}body")
+        if body is None:
+            raise RuntimeError("No se encontró body en document.xml")
+
+        body_children = list(body)
+
+        for (s, e) in spans:
+            seleccion = []
+            para_idx = -1
+            dentro_span = False
+
+            def _esta_en_este_span(idx: int) -> bool:
+                return s <= idx < e
+
+            for ch in body_children:
+                if ch.tag == f"{W_NS}p":
+                    para_idx += 1
+                    dentro_span = _esta_en_este_span(para_idx)
+                    if dentro_span:
+                        seleccion.append(copy.deepcopy(ch))
+
+                elif ch.tag == f"{W_NS}tbl":
+                    # si la tabla cae dentro de la pregunta actual, la conservamos
+                    if dentro_span:
+                        seleccion.append(copy.deepcopy(ch))
+
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+            tmp.close()
+
+            _reempacar_docx(td, seleccion, tmp.name)
+
+            # validación ligera
+            try:
+                _ = DocxDocument(tmp.name)
+            except Exception:
+                try:
+                    reparar_docx_inplace(tmp.name)
+                except Exception:
+                    pass
+
+            out_files.append(os.path.abspath(tmp.name))
+
+    return out_files
 # POST /api/matriz/<id>/generar  -> une por tema (título + contenido), respetando 'cantidad'
 @app.route("/api/matriz/<int:matriz_id>/generar", methods=["POST"])
 def matriz_generar_db(matriz_id:int):
@@ -6908,112 +7102,173 @@ def matriz_generar_db(matriz_id:int):
 
     # --- Recorte y merge ---
     # --- Recorte y merge (estilo grupos) ---
+        # --- Recorte y merge ---
     temp_files = []
-    grouped = []   # [(tema, [docx_recortado])]
+    temp_meta = {}
+    grouped = []
+
     try:
         for d in dets:
+            src = os.path.abspath(d["archivo_ruta"])
             tema = d["tema_nombre"]
-            src  = os.path.abspath(d["archivo_ruta"])
-            cant = int(d.get("cantidad") or 0)
+            cant = int(d["cantidad"] or 0)
 
-            # en matriz, 0 no debe meter el DOCX completo
             if cant <= 0:
                 continue
 
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-            tmp.close()
-
+            # NUEVO:
+            # usar la misma lógica robusta de partir_y_guardar:
+            # dividir en preguntas individuales reempaquetadas.
             try:
-                _cut_docx_first_n_questions(src, cant, tmp.name)
+                docs_tema = _cut_docx_to_individual_question_docs(src, cant)
             except Exception as e:
+                traceback.print_exc()
                 return jsonify({
                     "ok": False,
-                    "error": f"Falló el DOCX del tema '{tema}': {e}",
-                    "archivo": src
+                    "error": f"Falló el recorte del tema '{tema}': {e}"
                 }), 500
 
-            temp_files.append(tmp.name)
+            # fallback defensivo
+            if not docs_tema:
+                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+                tmp.close()
+                _cut_docx_first_n_questions(src, cant, tmp.name)
+                docs_tema = [os.path.abspath(tmp.name)]
 
-            # validar el temporal recortado
-            try:
-                _ = DocxDocument(tmp.name)
-            except Exception as e:
-                ok_fix, err_fix = reparar_docx_fuerte(tmp.name)
-                if ok_fix:
+            docs_finales = []
+
+            for p in docs_tema:
+                p_abs = os.path.abspath(p)
+                archivo_final = p_abs
+                temp_files.append(p_abs)
+
+                # validar / reparar cada fragmento
+                try:
+                    _ = DocxDocument(p_abs)
+                except Exception:
                     try:
-                        _ = DocxDocument(tmp.name)
-                    except Exception as e2:
-                        return jsonify({
-                            "ok": False,
-                            "error": f"El DOCX recortado del tema '{tema}' sigue inválido.",
-                            "detalle": str(e2),
-                            "archivo": src
-                        }), 500
-                else:
-                    return jsonify({
-                        "ok": False,
-                        "error": f"El DOCX recortado del tema '{tema}' quedó inválido.",
-                        "detalle": err_fix or str(e),
-                        "archivo": src
-                    }), 500
+                        reparar_docx_inplace(p_abs)
+                    except Exception:
+                        pass
 
-            grouped.append((tema, [tmp.name]))
+                # si todavía falla y hay Word COM, regrabar el fragmento
+                try:
+                    _ = DocxDocument(archivo_final)
+                except Exception:
+                    if _com_disponible():
+                        try:
+                            tmp_norm = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+                            tmp_norm.close()
+
+                            resave_docx_formatted(p_abs, tmp_norm.name)
+
+                            if os.path.exists(tmp_norm.name) and os.path.getsize(tmp_norm.name) > 0:
+                                archivo_final = os.path.abspath(tmp_norm.name)
+                                temp_files.append(archivo_final)
+                                print(f"[MATRIZ][FRAG_RESAVE_OK] tema={tema} -> {archivo_final}")
+                            else:
+                                try:
+                                    os.remove(tmp_norm.name)
+                                except Exception:
+                                    pass
+                        except Exception as e:
+                            print(f"[MATRIZ][FRAG_RESAVE_WARN] tema={tema} -> {e}")
+
+                temp_meta[archivo_final] = {
+                    "tema": tema,
+                    "archivo_origen": src,
+                    "archivo_nombre": os.path.basename(src),
+                }
+                docs_finales.append(archivo_final)
+
+            # IMPORTANTE:
+            # ahora cada tema puede llevar varios DOCX individuales
+            grouped.append((tema, docs_finales))
 
         if not grouped:
             return jsonify({
                 "ok": False,
-                "error": "La matriz no tiene temas con cantidad mayor a 0."
+                "error": "La matriz no tiene temas con preguntas para generar."
             }), 400
 
+        destino_docx = out_path
         malos = []
 
-        # mismo criterio que grupos
-        if _com_disponible():
-            out, _, malos = _merge_grouped_with_headings_wordcom(grouped, out_path)
+        usar_com = _com_disponible()
+
+        if usar_com:
+            try:
+                print("[MATRIZ][MERGE] usando WORD COM")
+                destino_docx, _, malos = _merge_grouped_with_headings_wordcom(grouped, destino_docx)
+            except Exception as e:
+                print(f"[MATRIZ][MERGE_COM_WARN] {e}")
+                print("[MATRIZ][MERGE] fallback a XML/docxcompose")
+
+                destino_docx, _, malos = _merge_grouped_with_headings(grouped, destino_docx)
+
+                try:
+                    _post_merge_fix_numbering(destino_docx)
+                except Exception as e2:
+                    print("[MATRIZ][POST_FIX_NUMBERING]", e2)
+
+                try:
+                    bullets_to_numbers_docx(destino_docx)
+                except Exception as e2:
+                    print("[MATRIZ][BULLETS_TO_NUMBERS]", e2)
+
+                try:
+                    reparar_docx_inplace(destino_docx)
+                except Exception as e2:
+                    print("[MATRIZ][REPARAR_DOCX_INPLACE]", e2)
         else:
-            out, _, malos = _merge_grouped_with_headings(grouped, out_path)
+            print("[MATRIZ][MERGE] usando XML/docxcompose (sin COM)")
+            destino_docx, _, malos = _merge_grouped_with_headings(grouped, destino_docx)
+
+            try:
+                _post_merge_fix_numbering(destino_docx)
+            except Exception as e:
+                print("[MATRIZ][POST_FIX_NUMBERING]", e)
+
+            try:
+                bullets_to_numbers_docx(destino_docx)
+            except Exception as e:
+                print("[MATRIZ][BULLETS_TO_NUMBERS]", e)
+
+            try:
+                reparar_docx_inplace(destino_docx)
+            except Exception as e:
+                print("[MATRIZ][REPARAR_DOCX_INPLACE]", e)
 
         if malos:
+            detalles = []
+            for (p, m) in malos:
+                p_abs = os.path.abspath(p)
+                meta = temp_meta.get(p_abs, {})
+                detalles.append({
+                    "tema": meta.get("tema"),
+                    "archivo_origen": meta.get("archivo_origen", p_abs),
+                    "archivo_nombre": meta.get("archivo_nombre", os.path.basename(p_abs)),
+                    "motivo": m,
+                })
+
             return jsonify({
                 "ok": False,
                 "error": "No se pudo armar la matriz completa porque algunos archivos no pudieron insertarse.",
-                "detalles": [{"path": p, "motivo": m} for (p, m) in malos]
+                "detalles": detalles
             }), 409
 
-        # validar resultado final como en grupos
-        try:
-            _ = DocxDocument(out)
-        except Exception as e:
-            return jsonify({
-                "ok": False,
-                "error": f"El DOCX final de la matriz quedó inválido después del merge. Detalle: {e}"
-            }), 500
+        return send_file(
+            destino_docx,
+            as_attachment=True,
+            download_name=os.path.basename(destino_docx),
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
 
-        # opcional: solo reparación ligera, sin tocar numbering.xml
-        try:
-            reparar_docx_inplace(out)
-        except Exception as e:
-            print("[MATRIZ][REPAIR] aviso:", repr(e), flush=True)
-
-        # validar otra vez
-        try:
-            _ = DocxDocument(out)
-        except Exception as e:
-            return jsonify({
-                "ok": False,
-                "error": f"El DOCX final de la matriz quedó inválido después de reparar. Detalle: {e}"
-            }), 500
-
-        return send_file(out, as_attachment=True, download_name=os.path.basename(out))
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
     finally:
         for p in temp_files:
             try:
-                os.remove(p)
+                if p and os.path.exists(p):
+                    os.remove(p)
             except Exception:
                 pass
 
@@ -7201,6 +7456,275 @@ def _contar_preguntas_docx(docx_path: str) -> int:
 #-------
 # BANCO DE PREGUNTAS MATRIZ
 #-------
+
+def _generar_matriz_banco_docx_robusto(grouped_data, out_path, log_prefix="[MATRIZ_BANCO]"):
+    """
+    Genera DOCX desde banco usando la misma lógica robusta de matriz_generar_db:
+    - valida cada DOCX
+    - recorta/normaliza cada pregunta como fragmento individual
+    - repara/regraba fragmentos problemáticos con Word COM
+    - une con Word COM si está disponible
+    - aplica fallback XML/docxcompose y reparación final
+    """
+    temp_files = []
+    temp_meta = {}
+    grouped = []
+
+    try:
+        for _tema_id, tema_nombre, paths in grouped_data:
+            docs_finales = []
+
+            for src in paths:
+                src = os.path.abspath(src)
+
+                if not os.path.isfile(src):
+                    return jsonify({
+                        "ok": False,
+                        "error": "Un archivo seleccionado del banco no existe en disco.",
+                        "detalles": [{
+                            "tema": tema_nombre,
+                            "archivo_origen": src,
+                            "archivo_nombre": os.path.basename(src),
+                            "motivo": "archivo no existe"
+                        }]
+                    }), 400
+
+                # Validación inicial
+                try:
+                    if "_validar_docx_real" in globals():
+                        _validar_docx_real(src)
+                    else:
+                        _ = DocxDocument(src)
+                except Exception as e:
+                    return jsonify({
+                        "ok": False,
+                        "error": f"El DOCX del banco está dañado o no es válido: {os.path.basename(src)}",
+                        "detalles": [{
+                            "tema": tema_nombre,
+                            "archivo_origen": src,
+                            "archivo_nombre": os.path.basename(src),
+                            "motivo": str(e)
+                        }]
+                    }), 400
+
+                # 1) Misma lógica robusta de matriz_db: partir en fragmentos individuales
+                docs_tema = []
+                try:
+                    if "_cut_docx_to_individual_question_docs" in globals():
+                        docs_tema = _cut_docx_to_individual_question_docs(src, 1)
+                except Exception as e:
+                    print(f"{log_prefix}[SPLIT_INDIV_WARN] {os.path.basename(src)} -> {e}")
+
+                # 2) Fallback al recorte antiguo si no se pudo partir por spans
+                if not docs_tema:
+                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+                    tmp.close()
+
+                    try:
+                        _cut_docx_first_n_questions(src, 1, tmp.name)
+                    except Exception as e:
+                        try:
+                            os.remove(tmp.name)
+                        except Exception:
+                            pass
+
+                        return jsonify({
+                            "ok": False,
+                            "error": f"No se pudo recortar la pregunta del banco: {os.path.basename(src)}",
+                            "detalles": [{
+                                "tema": tema_nombre,
+                                "archivo_origen": src,
+                                "archivo_nombre": os.path.basename(src),
+                                "motivo": str(e)
+                            }]
+                        }), 400
+
+                    docs_tema = [os.path.abspath(tmp.name)]
+
+                # 3) Validar/reparar/regrabar cada fragmento
+                for p in docs_tema:
+                    p_abs = os.path.abspath(p)
+                    archivo_final = p_abs
+                    temp_files.append(p_abs)
+
+                    # Reparación ligera si python-docx no lo abre
+                    try:
+                        _ = DocxDocument(p_abs)
+                    except Exception:
+                        try:
+                            reparar_docx_inplace(p_abs)
+                        except Exception as e:
+                            print(f"{log_prefix}[FRAG_REPAIR_WARN] {os.path.basename(p_abs)} -> {e}")
+
+                    # Regrabar con Word COM si sigue inválido o si es complejo
+                    necesita_resave = False
+
+                    try:
+                        _ = DocxDocument(archivo_final)
+                    except Exception:
+                        necesita_resave = True
+
+                    try:
+                        if "_docx_requiere_resave_para_matriz" in globals():
+                            if _docx_requiere_resave_para_matriz(tema_nombre, archivo_final):
+                                necesita_resave = True
+                    except Exception:
+                        pass
+
+                    if necesita_resave and _com_disponible():
+                        try:
+                            tmp_norm = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+                            tmp_norm.close()
+
+                            resave_docx_formatted(archivo_final, tmp_norm.name)
+
+                            if os.path.exists(tmp_norm.name) and os.path.getsize(tmp_norm.name) > 0:
+                                archivo_final = os.path.abspath(tmp_norm.name)
+                                temp_files.append(archivo_final)
+                                print(f"{log_prefix}[FRAG_RESAVE_OK] {tema_nombre} -> {archivo_final}")
+                            else:
+                                try:
+                                    os.remove(tmp_norm.name)
+                                except Exception:
+                                    pass
+                        except Exception as e:
+                            print(f"{log_prefix}[FRAG_RESAVE_WARN] {tema_nombre} -> {e}")
+
+                    temp_meta[archivo_final] = {
+                        "tema": tema_nombre,
+                        "archivo_origen": src,
+                        "archivo_nombre": os.path.basename(src),
+                    }
+
+                    docs_finales.append(archivo_final)
+
+            if docs_finales:
+                grouped.append((tema_nombre, docs_finales))
+
+        if not grouped:
+            return jsonify({
+                "ok": False,
+                "error": "No hay preguntas válidas del banco para generar la matriz."
+            }), 400
+
+        destino_docx = out_path
+        malos = []
+
+        # 4) Merge igual que matriz_db: primero Word COM, fallback XML/docxcompose
+        if _com_disponible():
+            try:
+                print(f"{log_prefix}[MERGE] usando WORD COM")
+                destino_docx, _, malos = _merge_grouped_with_headings_wordcom(
+                    grouped,
+                    destino_docx
+                )
+            except Exception as e:
+                print(f"{log_prefix}[MERGE_COM_WARN] {e}")
+                print(f"{log_prefix}[MERGE] fallback XML/docxcompose")
+
+                destino_docx, _, malos = _merge_grouped_with_headings(
+                    grouped,
+                    destino_docx
+                )
+
+                try:
+                    _post_merge_fix_numbering(destino_docx)
+                except Exception as e2:
+                    print(f"{log_prefix}[POST_FIX_NUMBERING] {e2}")
+
+                try:
+                    bullets_to_numbers_docx(destino_docx)
+                except Exception as e2:
+                    print(f"{log_prefix}[BULLETS_TO_NUMBERS] {e2}")
+        else:
+            print(f"{log_prefix}[MERGE] usando XML/docxcompose sin COM")
+            destino_docx, _, malos = _merge_grouped_with_headings(
+                grouped,
+                destino_docx
+            )
+
+            try:
+                _post_merge_fix_numbering(destino_docx)
+            except Exception as e:
+                print(f"{log_prefix}[POST_FIX_NUMBERING] {e}")
+
+            try:
+                bullets_to_numbers_docx(destino_docx)
+            except Exception as e:
+                print(f"{log_prefix}[BULLETS_TO_NUMBERS] {e}")
+
+        if malos:
+            detalles = []
+            for p, motivo in malos:
+                p_abs = os.path.abspath(p)
+                meta = temp_meta.get(p_abs, {})
+                detalles.append({
+                    "tema": meta.get("tema"),
+                    "archivo_origen": meta.get("archivo_origen", p_abs),
+                    "archivo_nombre": meta.get("archivo_nombre", os.path.basename(p_abs)),
+                    "motivo": motivo,
+                })
+
+            return jsonify({
+                "ok": False,
+                "error": "No se pudo armar la matriz completa porque algunos archivos no pudieron insertarse.",
+                "detalles": detalles
+            }), 409
+
+        # 5) Reparación final del DOCX generado
+        try:
+            reparar_docx_inplace(destino_docx)
+        except Exception as e:
+            print(f"{log_prefix}[FINAL_REPAIR_WARN] {e}")
+
+        # 6) Último intento: regrabar el DOCX final con Word COM
+        try:
+            _ = DocxDocument(destino_docx)
+        except Exception as e:
+            if _com_disponible():
+                try:
+                    tmp_final = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
+                    tmp_final.close()
+
+                    resave_docx_formatted(destino_docx, tmp_final.name)
+
+                    if os.path.exists(tmp_final.name) and os.path.getsize(tmp_final.name) > 0:
+                        shutil.move(tmp_final.name, destino_docx)
+                        print(f"{log_prefix}[FINAL_RESAVE_OK] {destino_docx}")
+                    else:
+                        try:
+                            os.remove(tmp_final.name)
+                        except Exception:
+                            pass
+                except Exception as e2:
+                    return jsonify({
+                        "ok": False,
+                        "error": "El DOCX final quedó inválido después del merge.",
+                        "detalle": f"{e} | Regrabado final falló: {e2}"
+                    }), 500
+            else:
+                return jsonify({
+                    "ok": False,
+                    "error": "El DOCX final quedó inválido después del merge.",
+                    "detalle": str(e)
+                }), 500
+
+        return send_file(
+            destino_docx,
+            as_attachment=True,
+            download_name=os.path.basename(destino_docx),
+            mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+
+    finally:
+        for p in temp_files:
+            try:
+                if p and os.path.exists(p):
+                    os.remove(p)
+            except Exception:
+                pass
+
+
 @app.route("/api/matriz/generar_desde_banco", methods=["POST"])
 def matriz_generar_desde_banco():
     """
@@ -7329,62 +7853,11 @@ def matriz_generar_desde_banco():
 
     # === Recortar cada DOCX del banco para dejar SOLO la pregunta
     #     y crear docx vacío cuando un tema no tiene preguntas ===
-    temp_files = []
-    try:
-        grouped_recortado = []
-
-        for _tema_id, tema_nombre, paths in grouped_data:
-            new_paths = []
-
-            if paths:
-                # Hay preguntas: recortamos cada DOCX a 1 pregunta
-                for src in paths:
-                    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-                    tmp.close()
-                    _cut_docx_first_n_questions(src, 1, tmp.name)
-                    temp_files.append(tmp.name)
-                    new_paths.append(tmp.name)
-            else:
-                # No hay preguntas en el banco para este tema:
-                # creamos un DOCX vacío para que al menos aparezca el título.
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-                tmp.close()
-                d = DocxDocument()
-                d.add_paragraph("")  # solo un espacio en blanco
-                d.save(tmp.name)
-                temp_files.append(tmp.name)
-                new_paths.append(tmp.name)
-
-            grouped_recortado.append((tema_nombre, new_paths))
-
-        # Merge final con encabezados por tema
-        out, _, _ = _merge_grouped_with_headings(grouped_recortado, out_path)
-
-        try:
-            _post_merge_fix_numbering(out)
-        except Exception:
-            pass
-        try:
-            bullets_to_numbers_docx(out)
-        except Exception:
-            pass
-        try:
-            reparar_docx_inplace(out)
-        except Exception:
-            pass
-
-        return send_file(out, as_attachment=True,
-                         download_name=os.path.basename(out))
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        for p in temp_files:
-            try:
-                os.remove(p)
-            except Exception:
-                pass
+    return _generar_matriz_banco_docx_robusto(
+        grouped_data,
+        out_path,
+        log_prefix="[MATRIZ_BANCO]"
+    )
 
 @app.route("/api/matriz/generar_desde_banco/solucionario", methods=["POST"])
 def matriz_generar_desde_banco_solucionario():
@@ -7526,88 +7999,17 @@ def matriz_generar_desde_banco_solucionario():
     out_path  = os.path.join(app.config['DESCARGAS_FOLDER'], base_name)
 
     # 🔸 AHORA SÍ recortamos también los solucionarios a 1 pregunta
-    temp_files = []
-    try:
-        grouped_sol = []
+    return _generar_matriz_banco_docx_robusto(
+        grouped_data,
+        out_path,
+        log_prefix="[MATRIZ_BANCO_SOL]"
+    )
 
-        for _tema_id, tema_nombre, paths in grouped_data:
-            new_paths = []
-
-            if paths:
-                # Igual que en matriz_generar_desde_banco: 1 pregunta por DOCX
-               for src in paths:
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-                tmp.close()
-                try:
-                    _validar_docx_real(src)
-                    _cut_docx_first_n_questions(src, 1, tmp.name)
-                except Exception as e:
-                    try:
-                        os.remove(tmp.name)
-                    except Exception:
-                        pass
-                    return jsonify({
-                        "error": f"Error procesando DOCX '{os.path.basename(src)}': {e}"
-                    }), 400
-
-                temp_files.append(tmp.name)
-                new_paths.append(tmp.name)
-            else:
-                # Tema sin preguntas seleccionadas: docx vacío para que salga el título
-                tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
-                tmp.close()
-                d = DocxDocument()
-                d.add_paragraph("")
-                d.save(tmp.name)
-                temp_files.append(tmp.name)
-                new_paths.append(tmp.name)
-
-            grouped_sol.append((tema_nombre, new_paths))
-
-        out, _, _ = _merge_grouped_with_headings(grouped_sol, out_path)
-
-        try:
-            _post_merge_fix_numbering(out)
-        except Exception:
-            pass
-        try:
-            bullets_to_numbers_docx(out)
-        except Exception:
-            pass
-        try:
-            reparar_docx_inplace(out)
-        except Exception:
-            pass
-
-        return send_file(out, as_attachment=True,
-                         download_name=os.path.basename(out))
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        for p in temp_files:
-            try:
-                os.remove(p)
-            except Exception:
-                pass
 
 @app.route("/api/banco_preguntas/resumen_temas", methods=["GET"])
 def banco_resumen_temas():
     """
-    Devuelve TODOS los temas (activos) con un resumen de banco:
-
-    [
-      {
-        "tema_id": 1,
-        "tema_nombre": "ÁLGEBRA",
-        "n_docs": 3,            # cuántos DOCX de banco hay para ese tema
-        "n_docs_con_sol": 2     # cuántos de esos tienen solucionario
-      },
-      ...
-    ]
-
-    Incluye también los temas que NO tienen preguntas en el banco (n_docs = 0).
+    Devuelve solo los temas activos que tienen preguntas registradas en el banco.
     """
     try:
         conn = get_connection()
@@ -7615,19 +8017,23 @@ def banco_resumen_temas():
 
         cur.execute("""
             SELECT
-                t.id   AS tema_id,
+                t.id AS tema_id,
                 t.nombre AS tema_nombre,
                 COUNT(td.id) AS n_docs,
-                SUM(
+                COALESCE(SUM(
                     CASE
-                        WHEN td.doc_sol_ruta IS NOT NULL AND td.doc_sol_ruta <> ''
+                        WHEN td.doc_sol_ruta IS NOT NULL 
+                             AND TRIM(td.doc_sol_ruta) <> ''
                         THEN 1 ELSE 0
                     END
-                ) AS n_docs_con_sol
+                ), 0) AS n_docs_con_sol
             FROM temario t
-            LEFT JOIN tema_docs td ON td.tema_id = t.id
+            INNER JOIN tema_docs td ON td.tema_id = t.id
             WHERE t.activo = 1
+              AND td.doc_preguntas_ruta IS NOT NULL
+              AND TRIM(td.doc_preguntas_ruta) <> ''
             GROUP BY t.id, t.nombre
+            HAVING COUNT(td.id) > 0
             ORDER BY t.nombre
         """)
 
@@ -7635,9 +8041,9 @@ def banco_resumen_temas():
         cur.close()
         conn.close()
         return jsonify(rows)
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ---------------------------
 # CRUD TEMAS PARA CUADERNILLOS (sin conteo de preguntas)
@@ -9077,7 +9483,7 @@ def api_aleatorizar_tipos():
         else:
             tipos_req = tipos_bd or ["P", "Q"]
 
-        api_claves_ensure_internal(examen_id, grupo_id, tipos_req)
+        api_claves_ensure_internal(examen_id, grupo_id, tipos_req, exclude_origen=False)
 
         conn = get_connection()
         curD = conn.cursor()
@@ -9118,7 +9524,7 @@ def api_aleatorizar_tipos():
 
             # regla: generar N letras distintas (sin repetir entre sí)
             # si NO quieres excluir el origen, usa exclude=None
-            letras = pick_distinct_for_tipos(len(tipos), exclude_origen=origen)
+            letras = pick_distinct_for_tipos(len(tipos), exclude_origen=None)
 
 
             for idx, t in enumerate(tipos):
@@ -9593,7 +9999,15 @@ def api_descargar_pruebas_all():
         tipos = item["tipos"]
 
         for t in tipos:
-            nombre_doc = f"{clave_grupo}_{t}"
+            ex_id = item.get("ex_id") or item.get("examen_id") or 0
+
+            if solo_temas:
+                # Para "Descargar temas": sin ID del examen
+                nombre_doc = f"TEMAS_{clave_grupo}_{t}"
+            else:
+                # Para descarga normal de cuadernillos: conserva el ID
+                nombre_doc = f"EXAMEN_{ex_id}_{clave_grupo}_{t}"
+
             docx_bytes = generar_docx_tipo_para_grupo(ruta_docx, filas_pivot, t)
             docx_bytes = _asegurar_docx_bytes_valido_como_grupo(docx_bytes, nombre_doc)
             zf.writestr(f"{nombre_doc}.docx", docx_bytes)

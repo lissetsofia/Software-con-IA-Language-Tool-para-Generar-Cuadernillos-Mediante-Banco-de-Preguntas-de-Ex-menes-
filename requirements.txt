@@ -10,3 +10,4 @@ pywin32==311
 reportlab==4.4.6
 Requests==2.33.1
 Werkzeug==3.1.8
+docxcompose==2.1.0

@@ -238,6 +238,53 @@ footer {
 /* =======================
    NAVBAR (HEADER)
 ========================== */
+
+/* ===== NAVBAR: todos los títulos del mismo tamaño ===== */
+.navbar .nav.menu-simetrico {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem !important;
+  width: 100%;
+  margin: 0 auto;
+  align-items: stretch;
+}
+
+.navbar .nav.menu-simetrico .nav-item {
+  min-width: 0;
+}
+
+.navbar .nav.menu-simetrico .nav-link {
+  width: 100%;
+  min-height: 64px;
+  padding: 0.75rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  text-align: center;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.navbar .nav.menu-simetrico .nav-link .nav-link-icon {
+  flex-shrink: 0;
+  margin-right: 0.2rem;
+}
+
+/* En pantallas pequeñas */
+@media (max-width: 768px) {
+  .navbar .nav.menu-simetrico {
+    grid-template-columns: 1fr;
+    gap: 0.5rem !important;
+  }
+
+  .navbar .nav.menu-simetrico .nav-link {
+    min-height: 54px;
+  }
+}
 .navbar-gris-claro {
   background: linear-gradient(180deg, var(--lunia-navy-deep) 0%, #141c2c 100%) !important;
   min-height: auto;
@@ -369,6 +416,7 @@ body > main.flex-grow-1 {
   border-radius: 0;
   overflow: hidden;
   box-shadow: none;
+  background: #0f1729;
 }
 
 #contenido:has(.home-page) .home-hero,
@@ -382,7 +430,7 @@ body > main.flex-grow-1 {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   object-position: center center;
   display: block;
 }
@@ -1086,6 +1134,36 @@ main {
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
 }
 
+
+
+/* ===== Banco de preguntas: que el footer no tape el botón final ===== */
+#contenido:has(.banco-examenes-page) {
+  flex: 1 1 auto;
+  min-height: auto;
+  overflow-y: auto;
+}
+
+.banco-examenes-page {
+  flex: 0 0 auto;
+  min-height: auto;
+  padding-bottom: 2rem;
+}
+
+.banco-examenes-page__main {
+  padding-bottom: 1rem;
+}
+
+.banco-page__cta {
+  margin-top: 0.35rem;
+  padding: 0.25rem 0 1.25rem;
+}
+
+.banco-page__cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+}
 /* =======================
    TOOLTIP IMPORTAR (DEBAJO DEL BOTÓN)
 =========================== */
@@ -4716,6 +4794,101 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
 }
 
 /* Modal “Generar matriz”: ancho, aire, tabla redondeada, altura única de controles */
+
+#modalMatriz .modal-content.modal-evalunia {
+  position: relative;
+  overflow: hidden;
+}
+
+#modalMatriz .cuad-matriz-generar-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+#modalMatriz .cuad-matriz-generar-overlay:not(.d-none) {
+  display: flex;
+}
+
+#modalMatriz .cuad-matriz-generar-overlay-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    118deg,
+    #d8e0ea 0%,
+    #e4e9f1 18%,
+    #dce3ed 36%,
+    #e8edf3 52%,
+    #d5dde8 68%,
+    #e2e8f0 84%,
+    #d8e0ea 100%
+  );
+  background-size: 240% 240%;
+  animation: cuad-matriz-overlay-skel 3.6s ease-in-out infinite;
+}
+
+@keyframes cuad-matriz-overlay-skel {
+  0% {
+    background-position: 90% 40%;
+  }
+  100% {
+    background-position: -90% 60%;
+  }
+}
+
+#modalMatriz
+  .cuad-matriz-generar-overlay.cuad-matriz-generar-overlay--success
+  .cuad-matriz-generar-overlay-bg {
+  animation: none;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 45%, #ecfdf5 100%);
+  opacity: 0.97;
+}
+
+#modalMatriz .cuad-matriz-generar-overlay-main {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 560px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+#modalMatriz .cuad-matriz-generar-msg {
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+#modalMatriz .cuad-matriz-generar-track {
+  height: 1.25rem;
+  border-radius: 999px;
+  background: rgba(26, 45, 69, 0.1);
+  overflow: hidden;
+  margin-bottom: 0.2rem;
+}
+
+#modalMatriz .cuad-matriz-generar-track .progress-bar {
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+#modalMatriz .cuad-matriz-generar-pct {
+  display: inline-block;
+  min-width: 2.6rem;
+}
+
+#modalMatriz
+  .cuad-matriz-generar-overlay.cuad-matriz-generar-overlay--success
+  .cuad-matriz-generar-msg {
+  color: #166534;
+}
+
 #modalMatriz {
   --cuad-matriz-control-h: 2.5rem;
 }
@@ -5209,6 +5382,103 @@ body.modal-open.gen-modal-grupo-nested-scrim::after {
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.99));
   border: none !important;
 }
+
+/*descargar grupos*/
+#modalGrupos .modal-content.modal-evalunia {
+  position: relative;
+  overflow: hidden;
+}
+
+#modalGrupos .cuad-grupos-generar-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+#modalGrupos .cuad-grupos-generar-overlay:not(.d-none) {
+  display: flex;
+}
+
+#modalGrupos .cuad-grupos-generar-overlay-bg {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    118deg,
+    #d8e0ea 0%,
+    #e4e9f1 18%,
+    #dce3ed 36%,
+    #e8edf3 52%,
+    #d5dde8 68%,
+    #e2e8f0 84%,
+    #d8e0ea 100%
+  );
+  background-size: 240% 240%;
+  animation: cuad-grupos-overlay-skel 3.6s ease-in-out infinite;
+}
+
+@keyframes cuad-grupos-overlay-skel {
+  0% {
+    background-position: 90% 40%;
+  }
+  100% {
+    background-position: -90% 60%;
+  }
+}
+
+#modalGrupos
+  .cuad-grupos-generar-overlay.cuad-grupos-generar-overlay--success
+  .cuad-grupos-generar-overlay-bg {
+  animation: none;
+  background: linear-gradient(180deg, #ecfdf5 0%, #f0fdf4 45%, #ecfdf5 100%);
+  opacity: 0.97;
+}
+
+#modalGrupos .cuad-grupos-generar-overlay-main {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 560px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+#modalGrupos .cuad-grupos-generar-msg {
+  margin: 0;
+  text-align: center;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+#modalGrupos .cuad-grupos-generar-track {
+  height: 1.25rem;
+  border-radius: 999px;
+  background: rgba(26, 45, 69, 0.1);
+  overflow: hidden;
+  margin-bottom: 0.2rem;
+}
+
+#modalGrupos .cuad-grupos-generar-track .progress-bar {
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+#modalGrupos .cuad-grupos-generar-pct {
+  display: inline-block;
+  min-width: 2.6rem;
+}
+
+#modalGrupos
+  .cuad-grupos-generar-overlay.cuad-grupos-generar-overlay--success
+  .cuad-grupos-generar-msg {
+  color: #166534;
+}
+
+/*tipo pruebas*/
 
 #modalTipoPrueba .cuad-modal-tipo-prueba-dialog {
   width: min(92vw, 960px);

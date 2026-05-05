@@ -1,6 +1,6 @@
 <div class="cuadernillos-page">
   <header class="cuadernillos-page__head">
-    <h1 class="cuadernillos-page__title">Cuadernillos</h1>
+    <h1 class="cuadernillos-page__title">Generacion de Cuadernillos</h1>
     <p class="cuadernillos-page__lead">
       Matrices, grupos y tipos de tema para tus exámenes.
     </p>
@@ -194,7 +194,7 @@
         >
           <button type="button" id="btn-add-fila" class="btn btn-primary">
             <i class="bi bi-plus-lg" aria-hidden="true"></i>
-            Agregar fila
+            + Agregar curso
           </button>
           <div class="small text-muted cuad-matriz-totals">
             <i class="bi bi-calculator" aria-hidden="true"></i>
@@ -211,6 +211,37 @@
           >
         </p>
       </div>
+
+      <div
+  id="matriz-generar-progress"
+  class="cuad-matriz-generar-overlay d-none"
+  role="status"
+  aria-live="polite"
+>
+  <div class="cuad-matriz-generar-overlay-bg" aria-hidden="true"></div>
+
+  <div class="cuad-matriz-generar-overlay-main">
+    <p id="matriz-generar-progress-label" class="cuad-matriz-generar-msg">
+      Preparando matriz…
+    </p>
+
+    <div class="progress cuad-matriz-generar-track shadow-sm">
+      <div
+        id="matriz-generar-progress-bar"
+        class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+        role="progressbar"
+        style="width: 0%"
+        aria-valuenow="0"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        <span id="matriz-generar-progress-pct" class="cuad-matriz-generar-pct">
+          0%
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
 
       <div class="modal-footer">
         <button
@@ -291,6 +322,7 @@
                     <th style="width:60px" class="text-center">Sel.</th>
                     <th style="width:90px">ID</th>
                     <th>Archivo / pregunta</th>
+                    <th style="width:170px" class="text-center">Solucionario</th>
                     <th style="width:120px" class="text-end">Acciones</th>
                   </tr>
                 </thead>
@@ -401,6 +433,37 @@
           </button>
         </div>
       </div>
+
+      <div
+  id="grupos-generar-progress"
+  class="cuad-grupos-generar-overlay d-none"
+  role="status"
+  aria-live="polite"
+>
+  <div class="cuad-grupos-generar-overlay-bg" aria-hidden="true"></div>
+
+  <div class="cuad-grupos-generar-overlay-main">
+    <p id="grupos-generar-progress-label" class="cuad-grupos-generar-msg">
+      Preparando grupos…
+    </p>
+
+    <div class="progress cuad-grupos-generar-track shadow-sm">
+      <div
+        id="grupos-generar-progress-bar"
+        class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+        role="progressbar"
+        style="width: 0%"
+        aria-valuenow="0"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        <span id="grupos-generar-progress-pct" class="cuad-grupos-generar-pct">
+          0%
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
     </div>
   </div>
 </div>
@@ -577,20 +640,44 @@
       <div class="modal-body">
         <div class="cuad-modal-toolbar cuad-modal-toolbar--alea align-items-center flex-wrap gap-2">
           <input
-            id="inpImportExams"
-            type="file"
-            accept=".doc,.docx,.pdf"
-            multiple
-            hidden
-          />
-          <button id="btnImportarExamenes" type="button" class="btn btn-success d-inline-flex align-items-center gap-2">
-            <i class="bi bi-upload" aria-hidden="true"></i>
-            Importar grupos
-          </button>
-          <button id="btnGenerarTipoPrueba" type="button" class="btn btn-primary d-inline-flex align-items-center gap-2">
-            <i class="bi bi-diagram-3" aria-hidden="true"></i>
-            Generar tipo de tema
-          </button>
+  id="inpImportExams"
+  type="file"
+  accept=".doc,.docx,.pdf"
+  multiple
+  hidden
+/>
+
+<div class="grupo-tooltip cuad-import-grupos-tooltip-wrap">
+  <button
+    id="btnImportarExamenes"
+    type="button"
+    class="btn btn-success d-inline-flex align-items-center gap-2"
+  >
+    <i class="bi bi-upload" aria-hidden="true"></i>
+    Importar grupos
+  </button>
+
+  <div class="info-tooltip">
+    <div class="tooltip-arrow"></div>
+    <div class="tooltip-content">
+      <strong>Información:</strong><br />
+      Importa los exámenes de cada grupo según esta estructura:<br />
+      <strong>grupo_X.docx</strong><br /><br />
+
+      <strong>Ejemplos:</strong><br />
+      grupo_A.docx<br />
+
+
+      <strong>Importante:</strong> La letra debe coincidir con la clave del grupo
+      registrado en el sistema.
+    </div>
+  </div>
+</div>
+
+<button id="btnGenerarTipoPrueba" type="button" class="btn btn-primary d-inline-flex align-items-center gap-2">
+  <i class="bi bi-diagram-3" aria-hidden="true"></i>
+  Generar tipo de tema
+</button>
         </div>
 
         <div class="cuad-data-panel cuad-alea-table-panel">

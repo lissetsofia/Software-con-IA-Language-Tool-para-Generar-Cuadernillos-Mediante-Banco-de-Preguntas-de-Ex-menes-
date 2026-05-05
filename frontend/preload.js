@@ -15,18 +15,27 @@ contextBridge.exposeInMainWorld("api", {
   },
 
   checkSession: async (token) => {
-    if (!token) return { ok: false };
-    try {
-      const res = await fetch(`${API_BASE}/api/session`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) return { ok: false };
-      const data = await res.json();
-      return { ok: true, usuario: data.usuario };
-    } catch {
-      return { ok: false };
+  if (!token) return { ok: false, reason: "missing-token" };
+
+  try {
+    const res = await fetch(`${API_BASE}/api/session`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (res.status === 401) {
+      return { ok: false, reason: "invalid-token" };
     }
-  },
+
+    if (!res.ok) {
+      return { ok: true, transient: true };
+    }
+
+    const data = await res.json();
+    return { ok: true, usuario: data.usuario };
+  } catch (e) {
+    return { ok: true, transient: true, error: String(e) };
+  }
+},
 
   logoutRemote: async (token) => {
     try {
