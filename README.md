@@ -66,9 +66,6 @@ Permite almacenar, organizar y reutilizar preguntas para la generación de nuevo
 
 Utiliza LanguageTool de forma local para analizar textos y generar sugerencias relacionadas con ortografía, puntuación y adecuación léxica.
 
-### Exportación de documentos
-
-Permite generar documentos en formato Word y PDF, manteniendo la estructura de los cuadernillos y las claves de respuesta.
 
 ---
 
