@@ -1,7 +1,24 @@
 [run]
+branch = True
+relative_files = True
+source =
+    backend
 omit =
-    backend/app.py
-    backend/db.py
-    backend\login_api.py
-    backend\main.py  
-    backend\test\conftest.py 
+    backend/test/*
+    */site-packages/*
+    */__pycache__/*
+    */dist/*
+    */build/*
+
+[report]
+show_missing = True
+skip_empty = True
+
+[xml]
+output = coverage.xml
+
+[paths]
+source =
+    backend
+    */backend
+    *\backend
