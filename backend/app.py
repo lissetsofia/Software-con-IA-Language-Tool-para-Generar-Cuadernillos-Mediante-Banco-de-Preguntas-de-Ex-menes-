@@ -6548,22 +6548,32 @@ def matriz_listar_db():
 
 # GET /api/matriz/<id>  -> cabecera + detalle
 @app.route("/api/matriz/<int:matriz_id>", methods=["GET"])
-def matriz_get_db(matriz_id:int):
+def matriz_get_db(matriz_id: int):
     try:
-        conn = get_connection(); cur = conn.cursor()
-        cur.execute("SELECT id, nombre, fecha_creacion FROM matriz WHERE id=?", (matriz_id,))
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT id, nombre, fecha_creacion FROM matriz WHERE id=?",
+            (matriz_id,)
+        )
         head = cur.fetchone()
+
         if not head:
-            cur.close(); conn.close()
+            cur.close()
+            conn.close()
             return jsonify({"error": "Matriz no existe"}), 404
+
+        # Convertir a dict para que funcione con sqlite3.Row y con dict
+        head = dict(head)
 
         cur.execute("""
             SELECT md.id,
-                md.tema_id,
-                t.nombre AS tema_nombre,
-                md.cantidad,
-                COALESCE(md.orden, 0) AS orden,
-                md.archivo_ruta
+                   md.tema_id,
+                   t.nombre AS tema_nombre,
+                   md.cantidad,
+                   COALESCE(md.orden, 0) AS orden,
+                   md.archivo_ruta
             FROM matriz_detalle md
             JOIN temario t ON t.id = md.tema_id
             WHERE md.matriz_id = ?
@@ -6574,13 +6584,20 @@ def matriz_get_db(matriz_id:int):
                 END,
                 md.id
         """, (matriz_id,))
-        items = cur.fetchall()
-        cur.close(); conn.close()
+
+        items = _row_to_dict_list(cur)
+
+        cur.close()
+        conn.close()
 
         head["n_items"] = len(items)
-        head["n_archivos_subidos"] = sum(1 for x in items if x["archivo_ruta"])
+        head["n_archivos_subidos"] = sum(
+            1 for x in items if x.get("archivo_ruta")
+        )
         head["items"] = items
+
         return jsonify(head)
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
