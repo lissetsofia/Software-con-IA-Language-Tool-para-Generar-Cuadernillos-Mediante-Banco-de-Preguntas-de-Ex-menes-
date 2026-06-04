@@ -3593,7 +3593,7 @@ except AssertionError:
 # ⭐ alias: si alguien hace GET /api/examenes/<id> redirige a /temas
 @app.route("/api/examenes/<int:idexamen>", methods=["GET"])
 def examenes_alias_temas(idexamen):
-    return redirect(url_for("temas_de_examen", idexamen=idexamen), code=308)
+    return redirect(f"/api/examenes/{idexamen}/temas", code=308)
 
 
 # === LISTAR PREGUNTAS (filtrable por examen y/o tema) ===
