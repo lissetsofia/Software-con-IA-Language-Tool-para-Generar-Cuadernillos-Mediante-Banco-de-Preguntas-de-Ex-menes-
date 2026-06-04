@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS matriz_detalle (
     matriz_id INTEGER NOT NULL,
     tema_id INTEGER NOT NULL,
     cantidad INTEGER NOT NULL DEFAULT 0,
+    orden INTEGER NOT NULL DEFAULT 0,
     archivo_ruta TEXT,
     UNIQUE(matriz_id, tema_id),
     FOREIGN KEY (matriz_id) REFERENCES matriz(id) ON DELETE CASCADE,

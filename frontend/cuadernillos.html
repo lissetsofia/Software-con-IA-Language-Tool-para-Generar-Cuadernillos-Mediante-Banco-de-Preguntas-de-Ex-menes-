@@ -1,6 +1,6 @@
 <div class="cuadernillos-page">
   <header class="cuadernillos-page__head">
-    <h1 class="cuadernillos-page__title">Generacion de Cuadernillos</h1>
+    <h1 class="cuadernillos-page__title">Generación de cuadernillos</h1>
     <p class="cuadernillos-page__lead">
       Matrices, grupos y tipos de tema para tus exámenes.
     </p>
@@ -38,6 +38,8 @@
       </svg>
     </div>
     <div class="shortcut__label">Generar Matriz</div>
+    
+<div class="shortcut__key">1</div>
   </div>
 
   <div
@@ -72,6 +74,7 @@
       </svg>
     </div>
     <div class="shortcut__label">Gestionar Grupos</div>
+    <div class="shortcut__key">2</div>
   </div>
 
   <div
@@ -110,6 +113,7 @@
       </svg>
     </div>
     <div class="shortcut__label">Gestionar Tipo de Tema</div>
+    <div class="shortcut__key">3</div>
   </div>
   </div>
 
@@ -758,10 +762,29 @@
           </div>
         </div>
 
+        <div
+          id="tipoPruebaBloqueoInfo"
+          class="cuad-tipo-prueba-lock-info d-none"
+          role="note"
+          aria-hidden="true"
+        >
+          <i class="bi bi-info-circle" aria-hidden="true"></i>
+          <span>Primero debe aleatorizar para desbloquear.</span>
+        </div>
+
         <div class="cuad-data-panel cuad-tipo-prueba-table-panel">
-          <div class="cuad-data-panel__head">
-            Claves de respuesta (Origen / P / Q)
-          </div>
+          <div class="cuad-data-panel__head cuad-tipo-prueba-head">
+              <span>Claves de respuesta (Origen / P / Q)</span>
+
+              <span
+                id="tipoPruebaAleaTexto"
+                class="cuad-alea-status-text"
+                title="Cantidad de aleatorizaciones aplicadas"
+              >
+                <i class="bi bi-shuffle" aria-hidden="true"></i>
+                <span id="tipoPruebaAleaStatusValue">Aleatorizado 0 veces</span>
+              </span>
+            </div>
           <div class="cuad-data-panel__body">
             <div class="table-responsive">
               <table
@@ -781,6 +804,7 @@
             </div>
           </div>
         </div>
+
 
         <small class="text-muted d-block mt-2 cuad-tipo-prueba-regla">
           <i class="bi bi-info-circle me-1" aria-hidden="true"></i>

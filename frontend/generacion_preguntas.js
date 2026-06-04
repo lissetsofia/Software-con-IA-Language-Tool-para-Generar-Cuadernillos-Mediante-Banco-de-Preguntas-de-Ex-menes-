@@ -1788,14 +1788,26 @@ function leerCuotasDe(containerSel) {
   const filas = [...document.querySelectorAll(`${containerSel} .cuota-row`)];
   const cuotas = [];
   const seen = new Set();
-  for (const row of filas) {
+
+  filas.forEach((row, idx) => {
     const temaId = row.querySelector(".sel-tema")?.value;
     const cant = row.querySelector(".inp-cant")?.value;
-    if (!temaId || !cant) continue;
-    if (seen.has(temaId)) throw new Error("No repitas el mismo tema.");
+
+    if (!temaId || !cant) return;
+
+    if (seen.has(temaId)) {
+      throw new Error("No repitas el mismo tema.");
+    }
+
     seen.add(temaId);
-    cuotas.push({ tema_id: Number(temaId), cantidad: Number(cant) });
-  }
+
+    cuotas.push({
+      tema_id: Number(temaId),
+      cantidad: Number(cant),
+      orden: idx + 1,
+    });
+  });
+
   return cuotas;
 }
 
@@ -2188,19 +2200,14 @@ $(document).on("submit", "#formGrupoCrear", async function (e) {
   const clave = $("#grupoClaveCrear").val().trim();
   const nombre = $("#grupoNombreCrear").val().trim();
 
-  const cuotas = [];
-  const seen = new Set();
-  for (const row of document.querySelectorAll("#cuotasContainer .cuota-row")) {
-    const temaId = row.querySelector(".sel-tema").value;
-    const cant = row.querySelector(".inp-cant").value;
-    if (!temaId || !cant) continue;
-    if (seen.has(temaId)) {
-      await uiAlert("No repitas el mismo tema.");
+  let cuotas;
+
+    try {
+      cuotas = leerCuotasDe("#cuotasContainer");
+    } catch (err) {
+      await uiAlert(err.message);
       return;
     }
-    seen.add(temaId);
-    cuotas.push({ tema_id: Number(temaId), cantidad: Number(cant) });
-  }
   if (!clave || cuotas.length === 0) {
     await uiAlert("Completa la clave y al menos una cuota.");
     return;

@@ -28,19 +28,122 @@
             y herramientas de corrección lingüística para la comunidad
             universitaria.
           </p>
-          <div class="home-hero__actions">
-            <a
-              href="./docs/guia.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="btn btn-home-primary"
-            >
-              <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
-              Manual y acerca del software
-            </a>
-          </div>
+          
+
+                <div class="home-hero__actions">
+          <a
+            href="./docs/manual.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-home-primary"
+          >
+            <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i>
+            Manual
+          </a>
+
+                  <button
+          type="button"
+          class="btn btn-home-primary"
+          data-bs-toggle="modal"
+          data-bs-target="#modalAcercaSoftware"
+        >
+          <i class="bi bi-info-circle" aria-hidden="true"></i>
+          Acerca del software
+        </button>
+        </div>
         </div>
       </div>
     </div>
   </section>
 </main>
+
+
+<div
+  class="modal fade modal-acerca-software"
+  id="modalAcercaSoftware"
+  tabindex="-1"
+  aria-labelledby="modalAcercaSoftwareTitle"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content modal-evalunia acerca-software-card">
+      <div class="modal-header acerca-software-header">
+        <h5 class="modal-title d-flex align-items-center gap-2" id="modalAcercaSoftwareTitle">
+          <i class="bi bi-stars" aria-hidden="true"></i>
+          Acerca del software
+        </h5>
+        <button
+          type="button"
+          class="btn-close btn-close-white"
+          data-bs-dismiss="modal"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+
+      <div class="modal-body acerca-software-body">
+        <div class="acerca-software-brand">
+          <div class="acerca-software-logo">
+            <i class="bi bi-shield-check" aria-hidden="true"></i>
+          </div>
+
+          <div>
+            <h4>EVALUNIA</h4>
+            <p>
+              Sistema de gestión de exámenes, generación de cuadernillos,
+              banco de preguntas y apoyo a la corrección lingüística para la
+              comunidad universitaria.
+            </p>
+          </div>
+        </div>
+
+        <div class="acerca-software-section">
+          <h6>
+            <i class="bi bi-people-fill" aria-hidden="true"></i>
+            Desarrolladores y creadores del software
+          </h6>
+
+          <div class="acerca-dev-grid">
+            <div class="acerca-dev-card">
+              <div class="acerca-dev-avatar">YA</div>
+              <div>
+                <strong>Yessica Aguilar  </strong>
+                <span>181191@unamba.edu.pe</span>
+              </div>
+            </div>
+
+            <div class="acerca-dev-card">
+              <div class="acerca-dev-avatar">LV</div>
+              <div>
+                <strong>Lisset Valero </strong>
+                <span>181250@unamba.edu.pe</span>
+              </div>
+            </div>
+
+            <div class="acerca-dev-card">
+              <div class="acerca-dev-avatar">EM</div>
+              <div>
+                <strong>Ecler Mamani Vilca</strong>
+                <span>emamani@unamba.edu.pe</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="acerca-software-rights">
+          <i class="bi bi-c-circle" aria-hidden="true"></i>
+          <span>
+            © 2025 <strong>EVALUNIA</strong> · Universidad Nacional Micaela
+            Bastidas de Apurímac. Todos los derechos reservados.
+          </span>
+        </div>
+      </div>
+
+      <div class="modal-footer acerca-software-footer">
+        <button type="button" class="btn btn-home-primary" data-bs-dismiss="modal">
+          <i class="bi bi-check2-circle" aria-hidden="true"></i>
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

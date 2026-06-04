@@ -876,10 +876,11 @@ $btnGen.onclick = async () => {
       nombre: (
         document.getElementById("matriz-nombre")?.value || "Matriz"
       ).trim(),
-      items: FILAS.map((r) => ({
+      items: FILAS.map((r, idx) => ({
         tema_id: r.tema_id,
         tema_nombre: r.tema_nombre,
         cantidad: r.cantidad || 0,
+        orden: idx + 1,
       })),
     });
 
@@ -895,6 +896,7 @@ $btnGen.onclick = async () => {
       fd.append("file", r.file);
       fd.append("tema_id", String(r.tema_id));
       fd.append("cantidad", String(r.cantidad || 0));
+      fd.append("orden", String(i + 1));
 
       updateMatrizProgress(
         15 + Math.round((i / totalFiles) * 45),
@@ -2066,6 +2068,20 @@ document.addEventListener("hidden.bs.modal", (ev) => {
 
 // ====== Generar/Descargar grupos ======
 // ====== Generar/Descargar grupos ======
+function fechaActualPCParaArchivo() {
+  const d = new Date();
+
+  const dia = String(d.getDate()).padStart(2, "0");
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const anio = d.getFullYear();
+
+  return `${dia}-${mes}-${anio}`;
+}
+
+
+
+
+
 (function bindGenerarGruposOnce() {
   document.addEventListener("click", async (ev) => {
     const btn = ev.target.closest("#btnGenerarGrupos");
@@ -2150,7 +2166,7 @@ document.addEventListener("hidden.bs.modal", (ev) => {
         const blob = await resZip.blob();
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `grupos_${j.lote_id}.zip`;
+        a.download = `grupos_${j.lote_id}_${fechaActualPCParaArchivo()}.zip`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -2847,6 +2863,22 @@ function renderAleaCounter(examenId, grupoId) {
     icon.className = "alea-counter-fallback";
     icon.textContent = String(value);
   }
+  renderAleaStatusText(examenId, grupoId);
+}
+
+function renderAleaStatusText(examenId, grupoId) {
+  const txt = document.getElementById("tipoPruebaAleaStatusValue");
+  const box = document.getElementById("tipoPruebaAleaTexto");
+
+  if (!txt || !box) return;
+
+  const value = getAleaCounter(examenId, grupoId);
+
+  txt.textContent = `Aleatorizado ${value} ${value === 1 ? "vez" : "veces"}`;
+  box.setAttribute(
+    "title",
+    `Este grupo fue aleatorizado ${value} ${value === 1 ? "vez" : "veces"}`
+  );
 }
 
 const ALEA_DONE_KEY = "evalunia_alea_done_v1";
@@ -2915,6 +2947,12 @@ function actualizarEstadoBotonesPostAlea(examenId, grupoId) {
   setBotonPostAlea(document.getElementById("btnNuevoTema"), ok);
   setBotonPostAlea(document.getElementById("btnImprimirClaves"), ok);
   setBotonPostAlea(document.getElementById("btnDescargarPruebas"), ok);
+
+  const info = document.getElementById("tipoPruebaBloqueoInfo");
+  if (info) {
+    info.classList.toggle("d-none", ok);
+    info.setAttribute("aria-hidden", ok ? "true" : "false");
+  }
 
   return ok;
 }
@@ -3955,16 +3993,21 @@ actualizarEstadoBotonesPostAlea(
       throw new Error(j.error || `HTTP ${r.status}`);
     }
 
-    if (!j.ruta_rel_pdf) {
-      throw new Error("No se generó el PDF de claves.");
-    }
+    if (!j.ruta_pdf_abs) {
+  throw new Error("No se generó el PDF de claves.");
+      }
 
-    if (window.api?.openPdfFromUrl) {
-      const rr = await window.api.openPdfFromUrl(apiURL(j.ruta_rel_pdf));
-      if (!rr?.ok) throw new Error(rr?.message || "No se pudo abrir el PDF.");
-    } else {
-      window.open(apiURL(j.ruta_rel_pdf), "_blank", "noopener");
-    }
+      if (window.api?.printPdfFile) {
+        const rr = await window.api.printPdfFile(j.ruta_pdf_abs);
+
+        if (!rr?.ok) {
+          throw new Error(rr?.message || "No se pudo imprimir el PDF.");
+        }
+      } else {
+        await uiAlert(
+          "No está configurada la impresión directa. Revisa preload.js y main.js."
+        );
+      }
   } catch (e) {
     console.error(e);
     await uiAlert(e.message || "No se pudo imprimir claves.");

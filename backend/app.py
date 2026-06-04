@@ -3813,7 +3813,12 @@ def grupos_cuotas_get(clave):
             JOIN grupos g ON g.idgrupo = gt.grupos_idgrupo
             JOIN temario  t ON t.id     = gt.tema_id
             WHERE g.clave = ?
-            ORDER BY t.nombre
+            ORDER BY
+                CASE
+                    WHEN gt.orden IS NULL OR gt.orden = 0 THEN 999999
+                    ELSE gt.orden
+                END,
+                t.nombre
         """, (clave.upper(),))
         rows = _row_to_dict_list(cur)
         cur.close(); conn.close()
@@ -3829,11 +3834,19 @@ def grupo_cuotas_get(idgrupo):
     try:
         conn = get_connection(); cur = conn.cursor()
         cur.execute("""
-            SELECT gt.tema_id, t.nombre AS tema, gt.cantidad
+            SELECT gt.tema_id,
+                t.nombre AS tema,
+                gt.cantidad,
+                COALESCE(gt.orden, 0) AS orden
             FROM grupo_tema gt
             JOIN temario t ON t.id = gt.tema_id
             WHERE gt.grupos_idgrupo = ?
-            ORDER BY gt.orden, t.nombre
+            ORDER BY
+                CASE
+                    WHEN COALESCE(gt.orden, 0) <= 0 THEN gt.idgrupo_tema
+                    ELSE gt.orden
+                END,
+                gt.idgrupo_tema
         """, (idgrupo,))
         rows = _row_to_dict_list(cur)
         cur.close(); conn.close()
@@ -3862,7 +3875,9 @@ def grupo_cuotas_put(idgrupo):
             cur.execute("DELETE FROM grupo_tema WHERE grupos_idgrupo=?", (idgrupo,))
 
         # Upsert de cada cuota (asegúrate de tener UNIQUE (grupos_idgrupo, tema_id))
-        for c in cuotas:
+        for idx, c in enumerate(cuotas, start=1):
+            orden = int(c.get("orden") or idx)
+
             cur.execute("""
                 INSERT INTO grupo_tema (grupos_idgrupo, tema_id, cantidad, orden)
                 VALUES (?, ?, ?, ?)
@@ -3874,7 +3889,7 @@ def grupo_cuotas_put(idgrupo):
                 idgrupo,
                 int(c["tema_id"]),
                 int(c["cantidad"]),
-                int(c.get("orden", 0))
+                orden
             ))
 
         conn.commit()
@@ -3914,12 +3929,20 @@ def _grupos_generar_doc_run(idgrupo: int, formato: str, req_args: dict, progress
 
         # Cuotas
         cur.execute("""
-            SELECT gt.tema_id, t.nombre AS tema, gt.cantidad
-            FROM grupo_tema gt
-            JOIN temario t ON t.id = gt.tema_id
-            WHERE gt.grupos_idgrupo = ?
-            ORDER BY t.nombre
-        """, (idgrupo,))
+                SELECT gt.tema_id,
+                    t.nombre AS tema,
+                    gt.cantidad,
+                    IFNULL(gt.orden, 0) AS orden_tema
+                FROM grupo_tema gt
+                JOIN temario t ON t.id = gt.tema_id
+                WHERE gt.grupos_idgrupo = ?
+                ORDER BY
+                    CASE
+                        WHEN gt.orden IS NULL OR gt.orden = 0 THEN 999999
+                        ELSE gt.orden
+                    END,
+                    t.nombre
+            """, (idgrupo,))
         cuotas = cur.fetchall()
         if not cuotas:
             cur.close(); conn.close()
@@ -6425,15 +6448,18 @@ def matriz_crear_db():
 
     # valida
     norm = []
-    for it in items:
+    for idx, it in enumerate(items, start=1):
         try:
             tema_id = int(it.get("tema_id"))
             cantidad = int(it.get("cantidad") or 0)
+            orden = int(it.get("orden") or idx)
         except Exception:
             return jsonify({"error": "items inválidos"}), 400
+
         if tema_id <= 0:
             return jsonify({"error": "tema_id inválido"}), 400
-        norm.append((tema_id, max(0, cantidad)))
+
+        norm.append((tema_id, max(0, cantidad), max(1, orden)))
 
     try:
         conn = get_connection(); cur = conn.cursor()
@@ -6441,11 +6467,17 @@ def matriz_crear_db():
         matriz_id = cur.lastrowid
 
         # inserta detalle
-        for tema_id, cantidad in norm:
+        for tema_id, cantidad, orden in norm:
             cur.execute(
-                "INSERT INTO matriz_detalle (matriz_id, tema_id, cantidad) VALUES (?,?,?) "
-                "ON CONFLICT(matriz_id, tema_id) DO UPDATE SET cantidad=excluded.cantidad",
-                (matriz_id, tema_id, cantidad)
+                """
+                INSERT INTO matriz_detalle (matriz_id, tema_id, cantidad, orden)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(matriz_id, tema_id)
+                DO UPDATE SET
+                    cantidad = excluded.cantidad,
+                    orden = excluded.orden
+                """,
+                (matriz_id, tema_id, cantidad, orden)
             )
 
         conn.commit()
@@ -6489,11 +6521,17 @@ def matriz_listar_db():
             ids = [r["id"] for r in rows]
             fmt = ",".join(["?"]*len(ids))
             cur.execute(f"""
-                SELECT md.id, md.matriz_id, md.tema_id, t.nombre AS tema_nombre, md.cantidad, md.archivo_ruta
+                SELECT md.id, md.matriz_id, md.tema_id, t.nombre AS tema_nombre, md.cantidad,COALESCE(md.orden, 0) AS orden, md.archivo_ruta
                 FROM matriz_detalle md
                 JOIN temario t ON t.id = md.tema_id
                 WHERE md.matriz_id IN ({fmt})
-                ORDER BY md.matriz_id, t.nombre
+                ORDER BY
+                        md.matriz_id,
+                        CASE
+                            WHEN COALESCE(md.orden, 0) <= 0 THEN md.id
+                            ELSE md.orden
+                        END,
+                        md.id
             """, tuple(ids))
             dets = _row_to_dict_list(cur)
             by_m = {}
@@ -6520,11 +6558,21 @@ def matriz_get_db(matriz_id:int):
             return jsonify({"error": "Matriz no existe"}), 404
 
         cur.execute("""
-            SELECT md.id, md.tema_id, t.nombre AS tema_nombre, md.cantidad, md.archivo_ruta
+            SELECT md.id,
+                md.tema_id,
+                t.nombre AS tema_nombre,
+                md.cantidad,
+                COALESCE(md.orden, 0) AS orden,
+                md.archivo_ruta
             FROM matriz_detalle md
             JOIN temario t ON t.id = md.tema_id
             WHERE md.matriz_id = ?
-            ORDER BY t.nombre
+            ORDER BY
+                CASE
+                    WHEN COALESCE(md.orden, 0) <= 0 THEN md.id
+                    ELSE md.orden
+                END,
+                md.id
         """, (matriz_id,))
         items = cur.fetchall()
         cur.close(); conn.close()
@@ -7047,6 +7095,7 @@ def _cut_docx_to_individual_question_docs(src_docx: str, n: int) -> list[str]:
 def matriz_generar_db(matriz_id:int):
     try:
         # --- Lee cabecera + detalle ---
+
         conn = get_connection(); cur = conn.cursor()
         cur.execute("SELECT id, nombre FROM matriz WHERE id=?", (matriz_id,))
         head = cur.fetchone()
@@ -7055,13 +7104,28 @@ def matriz_generar_db(matriz_id:int):
             return jsonify({"error": "Matriz no existe"}), 404
 
         cur.execute("""
-            SELECT md.tema_id, t.nombre AS tema_nombre, md.cantidad, md.archivo_ruta
+            SELECT md.id,
+                md.tema_id,
+                t.nombre AS tema_nombre,
+                md.cantidad,
+                COALESCE(md.orden, 0) AS orden,
+                md.archivo_ruta
             FROM matriz_detalle md
             JOIN temario t ON t.id = md.tema_id
-            WHERE md.matriz_id=?
-            ORDER BY t.nombre
+            WHERE md.matriz_id = ?
+            ORDER BY
+                CASE
+                    WHEN COALESCE(md.orden, 0) <= 0 THEN md.id
+                    ELSE md.orden
+                END,
+                md.id
         """, (matriz_id,))
         dets = _row_to_dict_list(cur)
+        print(
+                "[ORDEN_MATRIZ]",
+                [d["tema_nombre"] for d in dets],
+                flush=True
+            )
         cur.close(); conn.close()
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -8104,19 +8168,26 @@ def api_list_matrices():
 
 def _leer_matriz_detalle(cur, matriz_id: int):
     """
-    Lee el detalle de la matriz desde BD.
-    Devuelve: [{'tema_id', 'tema_nombre', 'cantidad', 'archivo_ruta'}, ...]
+    Lee el detalle de la matriz desde BD respetando el orden visual
+    configurado en el modal Generar matriz.
     """
     cur.execute(
         """
-        SELECT d.tema_id,
+        SELECT d.id,
+               d.tema_id,
                t.nombre AS tema_nombre,
                d.cantidad,
+               COALESCE(d.orden, 0) AS orden,
                d.archivo_ruta
         FROM matriz_detalle d
         JOIN temario t ON t.id = d.tema_id
         WHERE d.matriz_id = ?
-        ORDER BY t.nombre          -- orden alfabético de la matriz
+        ORDER BY
+            CASE
+                WHEN COALESCE(d.orden, 0) <= 0 THEN d.id
+                ELSE d.orden
+            END,
+            d.id
         """,
         (matriz_id,),
     )
@@ -8125,15 +8196,8 @@ def _leer_matriz_detalle(cur, matriz_id: int):
 
 def _leer_config_grupos(cur):
     """
-    Devuelve:
-      {
-        idgrupo: {
-          idgrupo, clave, nombre,
-          temario: [ {tema_id, tema_nombre, cantidad}, ... ]
-                 # en el MISMO orden que ves en el modal
-        },
-        ...
-      }
+    Devuelve los grupos activos con sus temas en el orden configurado
+    en el modal de edición del grupo.
     """
     cur.execute("""
         SELECT g.idgrupo,
@@ -8141,7 +8205,8 @@ def _leer_config_grupos(cur):
                g.nombre,
                g.activo,
                gt.tema_id,
-               IFNULL(gt.cantidad,0) AS cant_tema,
+               COALESCE(gt.cantidad, 0) AS cant_tema,
+               COALESCE(gt.orden, 0) AS orden_tema,
                t.nombre AS tema_nombre
         FROM grupos g
         LEFT JOIN grupo_tema gt
@@ -8149,26 +8214,38 @@ def _leer_config_grupos(cur):
         LEFT JOIN temario t
                ON t.id = gt.tema_id
         WHERE g.activo = 1
-        ORDER BY g.idgrupo, t.nombre   -- 👈 mismo orden que el modal (por nombre de tema)
+        ORDER BY
+            g.idgrupo,
+            CASE
+                WHEN COALESCE(gt.orden, 0) <= 0 THEN 999999
+                ELSE gt.orden
+            END,
+            t.nombre
     """)
+
     rows = _row_to_dict_list(cur)
 
     grupos = {}
+
     for r in rows:
         gid = r["idgrupo"]
+
         if gid not in grupos:
             grupos[gid] = {
                 "idgrupo": gid,
                 "clave": r["clave"],
                 "nombre": r["nombre"],
-                "temas": []   # se llenan ya ordenados por t.nombre
+                "temas": []
             }
+
         if r["tema_id"] is not None:
             grupos[gid]["temas"].append({
-                "tema_id": r["tema_id"],
+                "tema_id": int(r["tema_id"]),
                 "tema_nombre": r["tema_nombre"],
-                "cantidad": int(r["cant_tema"] or 0)
+                "cantidad": int(r["cant_tema"] or 0),
+                "orden": int(r["orden_tema"] or 0)
             })
+
     return grupos
 
 
@@ -8424,6 +8501,12 @@ def api_generar_por_grupos():
         docxs_generados = []
 
         for gid, ginfo in grupos_cfg.items():
+            print(
+                    "[ORDEN_GRUPO]",
+                    ginfo.get("clave"),
+                    [x.get("tema_nombre") for x in ginfo["temas"]],
+                    flush=True
+                )
             bloques = []
             for rel in ginfo["temas"]:
                 t_id = int(rel["tema_id"])
@@ -10066,30 +10149,60 @@ def api_claves_imprimir():
     if not claves_all:
         return jsonify(ok=False, error="No hay claves para imprimir"), 409
 
-    nombre_docx = "CLAVES_RESPUESTA.docx"
-    ruta_docx = os.path.join(app.config["DESCARGAS_FOLDER"], nombre_docx)
+    def _nombre_archivo_claves_desde_grupos(claves_all, todos_los_grupos=False):
+        grupos = []
+        vistos = set()
 
-    docx_bytes = generar_docx_claves_all_dinamico(tipos_global or ["P", "Q"], claves_all)
+        for r in claves_all or []:
+            g = str(r.get("grupo", "")).strip()
+            if g and g not in vistos:
+                grupos.append(g)
+                vistos.add(g)
+
+        if todos_los_grupos or len(grupos) > 1:
+            nombre = "claves de respuesta todos los grupos"
+        elif len(grupos) == 1:
+            nombre = f"claves de respuesta grupo {grupos[0]}"
+        else:
+            nombre = "claves de respuesta"
+
+        # limpiar caracteres inválidos para Windows
+        nombre = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "_", nombre)
+        nombre = re.sub(r"\s+", " ", nombre).strip()
+        return nombre
+    
+    nombre_base = _nombre_archivo_claves_desde_grupos(
+    claves_all,
+    todos_los_grupos=todos_los_grupos
+        )       
+
+
+    ruta_docx = os.path.join(tempfile.gettempdir(), f"{nombre_base}.docx")
+
+    docx_bytes = generar_docx_claves_all_dinamico(
+        tipos_global or ["P", "Q"],
+        claves_all
+    )
+
     with open(ruta_docx, "wb") as f:
         f.write(docx_bytes)
 
-    nombre_pdf = "CLAVES_RESPUESTA.pdf"
-    ruta_pdf = os.path.join(app.config["DESCARGAS_FOLDER"], nombre_pdf)
-
     try:
         pdf_tmp = generar_pdf(ruta_docx)
-        shutil.copy2(pdf_tmp, ruta_pdf)
+    except Exception as e:
         try:
-            os.remove(pdf_tmp)
+            if os.path.exists(ruta_docx):
+                os.remove(ruta_docx)
         except Exception:
             pass
-    except Exception as e:
+
         return jsonify(ok=False, error=f"No se pudo generar PDF de claves: {e}"), 500
 
     return jsonify(
         ok=True,
-        archivo_pdf=nombre_pdf,
-        ruta_rel_pdf=f"/api/descargas/{nombre_pdf}"
+        archivo_pdf=os.path.basename(pdf_tmp),
+        ruta_pdf_abs=pdf_tmp,
+        ruta_docx_abs=ruta_docx
     )
 
 # ---------- CONFIG ----------

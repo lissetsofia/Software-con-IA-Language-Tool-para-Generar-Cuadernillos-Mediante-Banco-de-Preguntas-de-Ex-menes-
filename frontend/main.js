@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, dialog, shell, session, Menu } = require("electron");
 const path = require("path");
+const { pathToFileURL } = require("url");
 const { spawn } = require("child_process");
 const fetch = require("node-fetch");
 const fs = require("fs/promises");
@@ -13,6 +14,7 @@ let backendProcess = null;
 
 const isDev = !app.isPackaged;
 const BACKEND_PORT = 5050;
+
 /*
 if (isDev) {
   try {
@@ -406,6 +408,134 @@ ipcMain.handle("open-pdf-from-url", async (_event, rawUrl) => {
     return { ok: false, message: String(err) };
   }
 });
+
+
+ipcMain.handle("print-pdf-file", async (_event, filePath) => {
+  let printWin = null;
+  let downloadBlocker = null;
+
+  const cleanup = () => {
+    try {
+      if (printWin?.webContents?.session && downloadBlocker) {
+        printWin.webContents.session.removeListener("will-download", downloadBlocker);
+      }
+    } catch (_) {}
+
+    try {
+      if (printWin && !printWin.isDestroyed()) {
+        printWin.close();
+      }
+    } catch (_) {}
+
+    try {
+      if (filePath && fsSync.existsSync(filePath)) {
+        fsSync.unlinkSync(filePath);
+      }
+    } catch (_) {}
+  };
+
+  try {
+    if (!filePath || !fsSync.existsSync(filePath)) {
+      return {
+        ok: false,
+        message: "No existe el archivo temporal de claves.",
+      };
+    }
+
+    printWin = new BrowserWindow({
+      parent: win && !win.isDestroyed() ? win : undefined,
+      modal: false,
+      show: true,
+      width: 780,
+      height: 900,
+      title: "Vista previa de claves de respuesta",
+      autoHideMenuBar: true,
+      backgroundColor: "#f3f6fb",
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+      },
+    });
+
+    printWin.setMenuBarVisibility(false);
+    printWin.removeMenu();
+
+    // Bloquea atajos típicos para guardar / abrir / recargar.
+    printWin.webContents.on("before-input-event", (event, input) => {
+      const key = String(input.key || "").toLowerCase();
+
+      if (
+        (input.control || input.meta) &&
+        ["s", "o", "r", "p"].includes(key)
+      ) {
+        event.preventDefault();
+      }
+
+      if (key === "f5") {
+        event.preventDefault();
+      }
+    });
+
+    // Evita descargas desde la ventana de vista previa.
+    downloadBlocker = (event) => {
+      event.preventDefault();
+    };
+
+    printWin.webContents.session.on("will-download", downloadBlocker);
+
+    // Evita ventanas externas.
+    printWin.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
+    // Carga el PDF con toolbar oculto si Chromium lo respeta.
+    const pdfUrl =
+      pathToFileURL(filePath).toString() +
+      "#toolbar=0&navpanes=0&scrollbar=1";
+
+    await printWin.loadURL(pdfUrl);
+
+    printWin.show();
+    printWin.focus();
+
+    // Pequeña pausa para que la vista previa se pinte antes de abrir impresión.
+    await new Promise((resolve) => setTimeout(resolve, 900));
+
+    return await new Promise((resolve) => {
+      printWin.webContents.print(
+        {
+          silent: false,
+          printBackground: true,
+        },
+        (success, failureReason) => {
+          cleanup();
+
+          if (!success) {
+            const msg = failureReason || "Impresión cancelada.";
+
+            return resolve({
+              ok: false,
+              canceled: /cancel/i.test(msg),
+              message: msg,
+            });
+          }
+
+          resolve({ ok: true });
+        }
+      );
+    });
+  } catch (err) {
+    cleanup();
+
+    return {
+      ok: false,
+      message: String(err?.message || err),
+    };
+  }
+});
+
+
+
+
 
 ipcMain.handle("open-docx-from-url", async (_event, payload) => {
   try {
