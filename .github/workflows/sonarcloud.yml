@@ -10,7 +10,7 @@ on:
 jobs:
   sonarcloud:
     name: Analisis SonarCloud con cobertura Python
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Descargar codigo
@@ -34,6 +34,6 @@ jobs:
           python -m pytest backend/test --cov=backend --cov-report=xml:coverage.xml
 
       - name: Analizar con SonarCloud
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v7
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
