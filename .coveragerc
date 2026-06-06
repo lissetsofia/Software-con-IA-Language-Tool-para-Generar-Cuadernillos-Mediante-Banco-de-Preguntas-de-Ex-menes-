@@ -5,6 +5,7 @@ source =
     backend
 omit =
     backend/test/*
+    backend/test/conftest.py
     */site-packages/*
     */__pycache__/*
     */dist/*
