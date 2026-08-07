@@ -43,7 +43,16 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22.11.0"
+      
+      - name: Configurar Node para Sonar
+        shell: pwsh
+        run: |
+          node -v
+          $nodePath = (Get-Command node).Source
+          echo "Node path: $nodePath"
+          Add-Content -Path "sonar-project.properties" -Value ""
+          Add-Content -Path "sonar-project.properties" -Value "sonar.nodejs.executable=$nodePath"
 
       - name: Instalar dependencias frontend
         run: npm install
@@ -63,4 +72,5 @@ jobs:
             -Dsonar.tests=backend/test,frontend/__tests__
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
+            
             -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**
