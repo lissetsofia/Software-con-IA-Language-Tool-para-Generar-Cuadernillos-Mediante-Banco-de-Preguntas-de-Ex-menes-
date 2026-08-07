@@ -11,6 +11,9 @@ jobs:
   sonarcloud:
     name: Analisis SonarCloud con cobertura Python
     runs-on: windows-latest
+  
+    env:
+        ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
       - name: Habilitar rutas largas en Git
@@ -40,7 +43,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Instalar dependencias frontend
         run: npm install
