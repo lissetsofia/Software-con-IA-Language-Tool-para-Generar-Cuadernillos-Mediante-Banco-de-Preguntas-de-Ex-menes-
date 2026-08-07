@@ -50,7 +50,8 @@ jobs:
         run: |
           node -v
           $nodePath = (Get-Command node).Source
-          echo "Node path: $nodePath"
+          $nodePath = $nodePath -replace '\\', '/'
+          echo "Node path para Sonar: $nodePath"
           Add-Content -Path "sonar-project.properties" -Value ""
           Add-Content -Path "sonar-project.properties" -Value "sonar.nodejs.executable=$nodePath"
 
