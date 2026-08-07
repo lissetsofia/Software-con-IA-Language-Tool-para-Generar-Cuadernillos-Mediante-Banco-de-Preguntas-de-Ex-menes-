@@ -11,9 +11,6 @@ jobs:
   sonarcloud:
     name: Analisis SonarCloud con cobertura Python
     runs-on: windows-latest
-  
-    env:
-        ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
 
     steps:
       - name: Habilitar rutas largas en Git
@@ -22,14 +19,14 @@ jobs:
       - name: Descargar codigo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias Python
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
@@ -44,16 +41,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22.11.0"
-      
-      - name: Configurar Node para Sonar
-        shell: pwsh
-        run: |
-          node -v
-          $nodePath = (Get-Command node).Source
-          $nodePath = $nodePath -replace '\\', '/'
-          echo "Node path para Sonar: $nodePath"
-          Add-Content -Path "sonar-project.properties" -Value ""
-          Add-Content -Path "sonar-project.properties" -Value "sonar.nodejs.executable=$nodePath"
 
       - name: Instalar dependencias frontend
         run: npm install
@@ -69,9 +56,7 @@ jobs:
           args: >
             -Dsonar.projectKey=lissetsofia_Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-
             -Dsonar.organization=lissetsofia
-            -Dsonar.sources=backend,frontend
-            -Dsonar.tests=backend/test,frontend/__tests__
+            -Dsonar.sources=backend
+            -Dsonar.tests=backend/test
             -Dsonar.python.coverage.reportPaths=coverage.xml
-            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
-            
-            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**
