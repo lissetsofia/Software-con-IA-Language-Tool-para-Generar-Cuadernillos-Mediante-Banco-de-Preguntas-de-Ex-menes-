@@ -7,13 +7,17 @@
     "start": "electron .",
     "dist": "electron-builder --win nsis",
     "pack": "electron-builder --dir",
-    "test": "jest --coverage"
+    "test": "jest --coverage",
+    "test:frontend": "jest --config ./frontend/jest.frontend.config.js --coverage"
   },
-   "jest": {
+  "jest": {
     "testEnvironment": "jsdom",
     "collectCoverage": true,
     "coverageDirectory": "coverage",
-    "coverageReporters": ["lcov", "text"],
+    "coverageReporters": [
+      "lcov",
+      "text"
+    ],
     "collectCoverageFrom": [
       "frontend/**/*.js",
       "*.js",
@@ -36,8 +40,9 @@
     "electron": "^39.8.3",
     "electron-builder": "^26.8.1",
     "electron-reloader": "^1.2.3",
-    "jest": "^30.4.2",
-    "jest-environment-jsdom": "^30.4.1",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "jsdom": "^22.1.0",
     "standard": "^17.1.2"
   },
   "build": {
@@ -65,5 +70,4 @@
       "allowToChangeInstallationDirectory": true
     }
   }
-  
 }

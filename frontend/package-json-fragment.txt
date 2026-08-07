@@ -1,0 +1,10 @@
+Agrega esto a package.json sin borrar tus scripts actuales:
+
+"scripts": {
+  "test:frontend": "jest --config jest.frontend.config.js --coverage"
+},
+"devDependencies": {
+  "jest": "^30.0.0",
+  "jest-environment-jsdom": "^30.0.0",
+  "jsdom": "^26.0.0"
+}
