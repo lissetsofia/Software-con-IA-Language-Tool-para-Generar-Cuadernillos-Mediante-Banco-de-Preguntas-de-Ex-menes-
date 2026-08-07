@@ -5,33 +5,37 @@ on:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+    types: [opened, synchronize, reopened]
 
 jobs:
   sonarcloud:
+    name: Analisis SonarCloud con cobertura Python
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Habilitar rutas largas en Git
+        run: git config --global core.longpaths true
+
+      - name: Descargar codigo
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Python
+      - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Instalar dependencias Python
+      - name: Instalar dependencias
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov
+          pip install flask flask-cors werkzeug requests python-docx pypdf mammoth reportlab docx2pdf pywin32
 
-      - name: Ejecutar tests backend
+      - name: Ejecutar pruebas Python y generar cobertura
         run: |
-          python -m pytest backend/test --cov=backend --cov-config=.coveragerc --cov-report=term-missing --cov-report=xml:coverage.xml
+          python -m pytest backend/test --cov=backend --cov-report=xml:coverage.xml
 
       - name: Setup Node
         uses: actions/setup-node@v4
