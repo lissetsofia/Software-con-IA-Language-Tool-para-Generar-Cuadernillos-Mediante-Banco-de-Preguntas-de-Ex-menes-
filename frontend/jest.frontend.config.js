@@ -17,9 +17,7 @@ module.exports = {
   coveragePathIgnorePatterns: [
     '/node_modules/',
     '/coverage/',
-    '\\coverage\\',
-    '/lcov-report/',
-    '\\lcov-report\\'
+    '/lcov-report/'
   ],
   coverageDirectory: '<rootDir>/../coverage/frontend',
   coverageReporters: ['text', 'lcov', 'cobertura'],

@@ -57,7 +57,7 @@ describe('estructura básica del frontend', () => {
     const files = [...requiredFiles, ...optionalFiles].filter((f) => fs.existsSync(abs(f)) && /\.(html|css|js)$/.test(f));
     for (const rel of files) {
       const txt = readFrontendFile(rel);
-      expect(txt).not.toMatch(/<<<<<<<|=======\n|>>>>>>>/);
+      expect(txt).not.toMatch(/^\s*(<<<<<<<|=======|>>>>>>>)\s/m);
     }
   });
 
