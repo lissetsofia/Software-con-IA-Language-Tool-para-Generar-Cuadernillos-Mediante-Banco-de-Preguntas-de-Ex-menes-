@@ -8,8 +8,8 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  sonarcloud:
-    name: Analisis SonarCloud con cobertura Python
+  tests-backend:
+    name: Tests backend Python
     runs-on: windows-latest
 
     steps:
@@ -37,6 +37,29 @@ jobs:
         run: |
           python -m pytest backend/test --cov=backend --cov-report=xml:coverage.xml
 
+      - name: Guardar cobertura Python
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: coverage.xml
+
+  sonarcloud:
+    name: SonarCloud backend y frontend
+    runs-on: ubuntu-latest
+    needs: tests-backend
+
+    steps:
+      - name: Descargar codigo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Descargar cobertura Python
+        uses: actions/download-artifact@v4
+        with:
+          name: python-coverage
+          path: .
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -48,6 +71,11 @@ jobs:
       - name: Ejecutar tests frontend
         run: npm run test:frontend
 
+      - name: Configurar Node para Sonar
+        run: |
+          node -v
+          echo "sonar.nodejs.executable=$(which node)" >> sonar-project.properties
+
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
         env:
@@ -56,7 +84,8 @@ jobs:
           args: >
             -Dsonar.projectKey=lissetsofia_Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-
             -Dsonar.organization=lissetsofia
-            -Dsonar.sources=backend
-            -Dsonar.tests=backend/test
+            -Dsonar.sources=backend,frontend
+            -Dsonar.tests=backend/test,frontend/__tests__
             -Dsonar.python.coverage.reportPaths=coverage.xml
-            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**
+            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**,frontend/img/**,frontend/docs/**
