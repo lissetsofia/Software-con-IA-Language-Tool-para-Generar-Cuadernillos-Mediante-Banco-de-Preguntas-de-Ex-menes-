@@ -1,5 +1,7 @@
 import sqlite3
 
+import pytest
+
 
 def _connect(db_path):
     conn = sqlite3.connect(str(db_path))
@@ -67,11 +69,9 @@ def test_claves_ensure_internal_crea_y_reusa_detalles(client, app_module, tmp_pa
 
 def test_claves_ensure_internal_errores_y_sin_suficientes_letras(app_module, tmp_path, monkeypatch):
     _patch_db(app_module, tmp_path, monkeypatch, total=0)
-    try:
+    with pytest.raises(Exception) as excinfo:
         app_module.api_claves_ensure_internal(1, 7, tipos=["P"])
-        assert False, "debió fallar por examen sin preguntas"
-    except Exception as e:
-        assert "sin preguntas" in str(e).lower()
+    assert "sin preguntas" in str(excinfo.value).lower()
 
     # Con una sola pregunta, la implementación puede reutilizar letras evitando solo el origen.
     # Validamos que no reviente y que cree la clave para esa pregunta.

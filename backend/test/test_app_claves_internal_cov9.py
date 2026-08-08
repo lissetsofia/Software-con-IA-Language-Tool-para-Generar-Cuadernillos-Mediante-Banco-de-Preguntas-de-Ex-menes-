@@ -2,6 +2,8 @@
 import sqlite3
 from pathlib import Path
 
+import pytest
+
 
 def _connect(db_path: Path):
     conn = sqlite3.connect(db_path)
@@ -109,18 +111,14 @@ def test_api_claves_ensure_internal_errores_y_ruta_ensure(client, app_module, tm
     cur.execute("INSERT INTO examenes_importados (id, nombre, total_preguntas) VALUES (3, 'muchos tipos', 1)")
     conn.commit(); cur.close(); conn.close()
 
-    try:
+    with pytest.raises(Exception) as excinfo:
         app_module.api_claves_ensure_internal(2, 1, tipos=("P",))
-        assert False, "Debió fallar por total_preguntas <= 0"
-    except Exception as e:
-        assert "sin preguntas" in str(e).lower()
+    assert "sin preguntas" in str(excinfo.value).lower()
 
     # Con 6 tipos no hay suficientes letras disponibles (solo A-E).
-    try:
+    with pytest.raises(ValueError) as excinfo:
         app_module.api_claves_ensure_internal(3, 1, tipos=("P", "Q", "R", "S", "T", "U"), exclude_origen=True)
-        assert False, "Debió fallar por letras insuficientes"
-    except ValueError as e:
-        assert "No hay suficientes letras" in str(e)
+    assert "No hay suficientes letras" in str(excinfo.value)
 
     # Ruta: la implementación actual acepta body vacío y usa valores por defecto.
     r_empty = client.post("/api/claves/ensure", json={})

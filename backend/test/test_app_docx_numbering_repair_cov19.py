@@ -6,6 +6,8 @@ import xml.etree.ElementTree as ET
 
 from docx import Document
 
+import pytest
+
 
 NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 W = "{%s}" % NS_W
@@ -60,28 +62,21 @@ def test_validar_docx_real_y_errores_basicos(app_module, tmp_path):
 
     not_zip = tmp_path / "nozip.docx"
     not_zip.write_text("no soy zip", encoding="utf-8")
-    try:
+    with pytest.raises(ValueError) as excinfo:
         app_module._validar_docx_real(str(not_zip))
-        assert False, "Debió fallar si no es ZIP"
-    except ValueError as e:
-        assert "zip" in str(e).lower()
+    assert "zip" in str(excinfo.value).lower()
 
     missing_doc = tmp_path / "missing.docx"
     with zipfile.ZipFile(missing_doc, "w") as z:
         z.writestr("[Content_Types].xml", "<Types/>")
-    try:
+    with pytest.raises(ValueError) as excinfo:
         app_module._validar_docx_real(str(missing_doc))
-        assert False, "Debió fallar sin document.xml"
-    except ValueError as e:
-        assert "document.xml" in str(e).lower()
+    assert "document.xml" in str(excinfo.value).lower()
 
     bad_xml = _make_docx(tmp_path / "bad_xml.docx")
     _rewrite_docx(bad_xml, {"word/document.xml": b"<w:document>"})
-    try:
+    with pytest.raises(Exception):
         app_module._validar_docx_real(str(bad_xml))
-        assert False, "Debió fallar con XML inválido"
-    except Exception:
-        pass
 
 
 def test_reconstruir_numbering_relaciones_y_content_types(app_module, tmp_path):
@@ -135,11 +130,10 @@ def test_reparar_bytes_y_asegurar_docx_bytes(app_module, tmp_path, monkeypatch):
     ensured = app_module._asegurar_docx_bytes_valido_como_grupo(data, "cov19_ok")
     assert ensured and ensured.startswith(b"PK")
 
-    try:
+    with pytest.raises(RuntimeError) as excinfo:
         app_module._asegurar_docx_bytes_valido_como_grupo(b"no zip", "cov19_bad")
-        assert False, "Debió fallar con bytes inválidos"
-    except RuntimeError as e:
-        assert "inválido" in str(e).lower() or "invalido" in str(e).lower()
+    msg = str(excinfo.value).lower()
+    assert "inválido" in msg or "invalido" in msg
 
 
 def test_docx_requiere_resave_y_reparar_generado_con_warnings(app_module, tmp_path, monkeypatch):
