@@ -75,6 +75,11 @@ jobs:
         run: |
           node -v
           echo "sonar.nodejs.executable=$(which node)" >> sonar-project.properties
+      
+      - name: Verificar cobertura frontend
+        run: |
+          ls -la coverage/frontend
+          cat coverage/frontend/lcov.info | head
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v6
@@ -87,5 +92,5 @@ jobs:
             -Dsonar.sources=backend,frontend
             -Dsonar.tests=backend/test,frontend/__tests__
             -Dsonar.python.coverage.reportPaths=coverage.xml
-            -Dsonar.javascript.lcov.reportPaths=frontend/coverage/frontend/lcov.info
+            -Dsonar.javascript.lcov.reportPaths=coverage/frontend/lcov.info
             -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**,frontend/img/**,frontend/docs/**
