@@ -159,6 +159,14 @@ describe('main.js handlers IPC de Electron', () => {
     fs.writeFileSync(oldFile, 'old');
     fs.writeFileSync(newFile, 'new');
 
+    // En GitHub Actions (Linux) ambos archivos pueden quedar con el mismo mtime
+    // si se escriben en el mismo tick. Forzamos fechas distintas para que el
+    // orden por fecha sea determinista.
+    const older = new Date(Date.now() - 60_000);
+    const newer = new Date(Date.now());
+    fs.utimesSync(oldFile, older, older);
+    fs.utimesSync(newFile, newer, newer);
+
     await expect(ctx.handlers['save-last-from-folder']({}, {
       sourceDir: dir,
       pattern: 'docx$',
@@ -206,8 +214,8 @@ describe('main.js handlers IPC de Electron', () => {
 
     await expect(ctx.handlers['print-pdf-file']({}, pdf)).resolves.toEqual({ ok: true });
     expect(fs.existsSync(pdf)).toBe(false);
-    expect(ctx.windows.length).toBeGreaterThanOrEqual(1);
-    expect(ctx.windows[0].webContents.print).toHaveBeenCalled();
+    const printWindow = ctx.windows.find((w) => w.webContents.print.mock.calls.length > 0);
+    expect(printWindow).toBeTruthy();
   });
 
   test('eventos de cierre invocan stopBackend sin romper', () => {
