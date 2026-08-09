@@ -9,7 +9,8 @@ module.exports = {
     '!<rootDir>/__tests__/**',
     '!<rootDir>/libs/**',
     '!<rootDir>/coverage/**',
-    '!<rootDir>/../coverage/**'
+    '!<rootDir>/../coverage/**',
+    '!<rootDir>/jest.frontend.config.js'
   ],
   coveragePathIgnorePatterns: [
     '/node_modules/',
