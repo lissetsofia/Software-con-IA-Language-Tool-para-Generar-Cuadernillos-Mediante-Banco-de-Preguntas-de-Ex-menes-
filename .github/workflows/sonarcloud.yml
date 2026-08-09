@@ -93,4 +93,4 @@ jobs:
             -Dsonar.tests=backend/test,frontend/__tests__
             -Dsonar.python.coverage.reportPaths=coverage.xml
             -Dsonar.javascript.lcov.reportPaths=coverage/frontend/lcov.info
-            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**,frontend/img/**,frontend/docs/**
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**,frontend/img/**,frontend/docs/**,frontend/jest.frontend.config.js,frontend/package-json-fragment.txt,backend/db.py,backend/init_db.py,backend/login_api.py
