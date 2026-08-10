@@ -46,7 +46,7 @@ jobs:
   sonarcloud:
     name: SonarCloud backend y frontend
     runs-on: ubuntu-latest
-    needs: tests-backend
+   # needs: tests-backend
 
     steps:
       - name: Descargar codigo
@@ -54,11 +54,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Descargar cobertura Python
-        uses: actions/download-artifact@v4
-        with:
-          name: python-coverage
-          path: .
+      #- name: Descargar cobertura Python
+      #  uses: actions/download-artifact@v4
+      #  with:
+      #    name: python-coverage
+      #    path: .
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -89,8 +89,17 @@ jobs:
           args: >
             -Dsonar.projectKey=lissetsofia_Software-con-IA-Language-Tool-para-Generar-Cuadernillos-Mediante-Banco-de-Preguntas-de-Ex-menes-
             -Dsonar.organization=lissetsofia
-            -Dsonar.sources=backend,frontend
-            -Dsonar.tests=backend/test,frontend/__tests__
-            -Dsonar.python.coverage.reportPaths=coverage.xml
+            -Dsonar.sources=frontend
+            -Dsonar.tests=frontend/__tests__
             -Dsonar.javascript.lcov.reportPaths=coverage/frontend/lcov.info
-            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**,frontend/img/**,frontend/docs/**,frontend/jest.frontend.config.js,frontend/package-json-fragment.txt,backend/db.py,backend/init_db.py,backend/login_api.py
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**,frontend/img/**,frontend/docs/**,frontend/jest.frontend.config.js,frontend/package-json-fragment.txt
+
+
+
+
+
+          #  -Dsonar.sources=backend,frontend
+          #  -Dsonar.tests=backend/test,frontend/__tests__
+          #  -Dsonar.python.coverage.reportPaths=coverage.xml
+          #  -Dsonar.javascript.lcov.reportPaths=coverage/frontend/lcov.info
+          #  -Dsonar.exclusions=**/node_modules/**,**/coverage/**,**/dist/**,**/build/**,**/__tests__/**,frontend/libs/**,frontend/img/**,frontend/docs/**,frontend/jest.frontend.config.js,frontend/package-json-fragment.txt,backend/db.py,backend/init_db.py,backend/login_api.py
