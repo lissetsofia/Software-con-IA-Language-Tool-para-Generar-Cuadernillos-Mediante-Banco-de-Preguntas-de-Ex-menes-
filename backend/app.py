@@ -4970,6 +4970,319 @@ def _tmp_heading_doc(texto: str, page_size=None) -> str:
     return path
 
 
+
+def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
+    """
+    Reinicia las alternativas en A para cada pregunta,
+    aunque no exista una línea vacía entre preguntas.
+    """
+    NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    W = f"{{{NS_W}}}"
+    ns = {"w": NS_W}
+
+    if not zipfile.is_zipfile(docx_path):
+        return 0
+
+    with zipfile.ZipFile(docx_path, "r") as zin:
+        files = {
+            nombre: zin.read(nombre)
+            for nombre in zin.namelist()
+        }
+
+    if (
+        "word/document.xml" not in files
+        or "word/numbering.xml" not in files
+    ):
+        return 0
+
+    document_root = ET.fromstring(
+        files["word/document.xml"]
+    )
+    numbering_root = ET.fromstring(
+        files["word/numbering.xml"]
+    )
+
+    formatos_abstractos = {}
+
+    for abstract_num in numbering_root.findall(
+        "./w:abstractNum",
+        ns
+    ):
+        abstract_id = abstract_num.get(
+            W + "abstractNumId"
+        )
+
+        for nivel in abstract_num.findall("./w:lvl", ns):
+            ilvl = nivel.get(W + "ilvl", "0")
+            formato = nivel.find("./w:numFmt", ns)
+
+            if abstract_id is not None and formato is not None:
+                formatos_abstractos[
+                    (abstract_id, ilvl)
+                ] = formato.get(W + "val")
+
+    num_a_abstracto = {}
+    formatos_numeracion = {}
+    num_ids_usados = []
+
+    for numeracion in numbering_root.findall("./w:num", ns):
+        num_id = numeracion.get(W + "numId")
+        abstract_element = numeracion.find(
+            "./w:abstractNumId",
+            ns
+        )
+
+        if num_id is None or abstract_element is None:
+            continue
+
+        abstract_id = abstract_element.get(W + "val")
+        num_a_abstracto[num_id] = abstract_id
+
+        try:
+            num_ids_usados.append(int(num_id))
+        except (TypeError, ValueError):
+            pass
+
+        for (
+            identificador_abstracto,
+            ilvl
+        ), formato in formatos_abstractos.items():
+
+            if identificador_abstracto == abstract_id:
+                formatos_numeracion[
+                    (num_id, ilvl)
+                ] = formato
+
+        for override in numeracion.findall(
+            "./w:lvlOverride",
+            ns
+        ):
+            ilvl = override.get(W + "ilvl", "0")
+            formato = override.find(
+                "./w:lvl/w:numFmt",
+                ns
+            )
+
+            if formato is not None:
+                formatos_numeracion[
+                    (num_id, ilvl)
+                ] = formato.get(W + "val")
+
+    body = document_root.find("./w:body", ns)
+
+    if body is None:
+        return 0
+
+    paragraphs = body.findall("./w:p", ns)
+
+    def obtener_numeracion(paragraph):
+        num_pr = paragraph.find(
+            "./w:pPr/w:numPr",
+            ns
+        )
+
+        if num_pr is None:
+            return None
+
+        num_id_element = num_pr.find(
+            "./w:numId",
+            ns
+        )
+        ilvl_element = num_pr.find(
+            "./w:ilvl",
+            ns
+        )
+
+        if num_id_element is None:
+            return None
+
+        num_id = num_id_element.get(W + "val")
+
+        ilvl = (
+            ilvl_element.get(W + "val", "0")
+            if ilvl_element is not None
+            else "0"
+        )
+
+        formato = formatos_numeracion.get(
+            (num_id, ilvl)
+        )
+
+        return {
+            "element": num_id_element,
+            "num_id": num_id,
+            "ilvl": ilvl,
+            "formato": formato,
+        }
+
+    inicios_preguntas = []
+
+    for indice, paragraph in enumerate(paragraphs):
+        numeracion = obtener_numeracion(paragraph)
+
+        texto = "".join(
+            elemento.text or ""
+            for elemento in paragraph.findall(
+                ".//w:t",
+                ns
+            )
+        ).strip()
+
+        pregunta_automatica = (
+            numeracion is not None
+            and numeracion["ilvl"] == "0"
+            and numeracion["formato"] in {
+                "decimal",
+                "decimalZero",
+            }
+        )
+
+        pregunta_escrita = (
+            re.match(
+                r"^\d+[.)]\s+\S",
+                texto
+            )
+            is not None
+        )
+
+        if pregunta_automatica or pregunta_escrita:
+            inicios_preguntas.append(indice)
+
+    if not inicios_preguntas:
+        return 0
+
+    siguiente_num_id = max(
+        num_ids_usados,
+        default=0
+    ) + 1
+
+    listas_reiniciadas = 0
+
+    for posicion, inicio in enumerate(
+        inicios_preguntas
+    ):
+        fin = (
+            inicios_preguntas[posicion + 1]
+            if posicion + 1 < len(inicios_preguntas)
+            else len(paragraphs)
+        )
+
+        alternativas = []
+        abstract_id_alternativas = None
+
+        for paragraph in paragraphs[inicio + 1:fin]:
+            numeracion = obtener_numeracion(paragraph)
+
+            if (
+                numeracion is None
+                or numeracion["ilvl"] != "0"
+                or numeracion["formato"] != "upperLetter"
+            ):
+                continue
+
+            abstract_id = num_a_abstracto.get(
+                numeracion["num_id"]
+            )
+
+            if abstract_id is None:
+                continue
+
+            if abstract_id_alternativas is None:
+                abstract_id_alternativas = abstract_id
+
+            alternativas.append(
+                numeracion["element"]
+            )
+
+        if (
+            len(alternativas) < 2
+            or abstract_id_alternativas is None
+        ):
+            continue
+
+        nueva_numeracion = ET.Element(
+            W + "num",
+            {
+                W + "numId": str(
+                    siguiente_num_id
+                )
+            },
+        )
+
+        ET.SubElement(
+            nueva_numeracion,
+            W + "abstractNumId",
+            {
+                W + "val": abstract_id_alternativas
+            },
+        )
+
+        nivel_override = ET.SubElement(
+            nueva_numeracion,
+            W + "lvlOverride",
+            {
+                W + "ilvl": "0"
+            },
+        )
+
+        ET.SubElement(
+            nivel_override,
+            W + "startOverride",
+            {
+                W + "val": "1"
+            },
+        )
+
+        numbering_root.append(nueva_numeracion)
+
+        for num_id_element in alternativas:
+            num_id_element.set(
+                W + "val",
+                str(siguiente_num_id)
+            )
+
+        siguiente_num_id += 1
+        listas_reiniciadas += 1
+
+    if listas_reiniciadas == 0:
+        return 0
+
+    files["word/document.xml"] = ET.tostring(
+        document_root,
+        encoding="utf-8",
+        xml_declaration=True,
+    )
+
+    files["word/numbering.xml"] = ET.tostring(
+        numbering_root,
+        encoding="utf-8",
+        xml_declaration=True,
+    )
+
+    temporal = docx_path + ".numbering.tmp"
+
+    try:
+        with zipfile.ZipFile(
+            temporal,
+            "w",
+            zipfile.ZIP_DEFLATED,
+        ) as zout:
+
+            for nombre, contenido in files.items():
+                zout.writestr(nombre, contenido)
+
+        os.replace(temporal, docx_path)
+
+    finally:
+        if os.path.exists(temporal):
+            os.remove(temporal)
+
+    return listas_reiniciadas
+
+
+
+
+
 def _merge_grouped_with_headings(grouped, out_path, merge_step_cb=None, merge_ops=None):
     """
     grouped: [(tema_nombre, [docx1, docx2, ...]), ...]
@@ -5013,6 +5326,7 @@ def _merge_grouped_with_headings(grouped, out_path, merge_step_cb=None, merge_op
                 comp.append(DocxDocument(os.path.abspath(f)))
 
         comp.save(out_path)
+        _reiniciar_alternativas_por_pregunta(out_path)
         return out_path, [], []
     finally:
         for p in tmp_titles:
@@ -5044,8 +5358,13 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path, merge_step_cb=None, 
 
     try:
         out, _, malos = _merge_with_word(
-            flat, out_path, merge_step_cb=merge_step_cb, merge_ops_hint=merge_ops
+            flat,
+            out_path,
+            merge_step_cb=merge_step_cb,
+            merge_ops_hint=merge_ops
         )
+
+        _reiniciar_alternativas_por_pregunta(out)
         # Si TODO lo que no es título falló, verás solo títulos → devuélvelo en JSON
         return out, [], malos
     finally:
