@@ -23,6 +23,7 @@ import traceback
 import uuid
 import pythoncom
 import mammoth
+from lxml import etree as LET
 from docx import Document
 
 from flask_cors import CORS
@@ -4995,10 +4996,11 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
     ):
         return 0
 
-    document_root = ET.fromstring(
-        files["word/document.xml"]
+    document_root = LET.fromstring(
+    files["word/document.xml"]
     )
-    numbering_root = ET.fromstring(
+
+    numbering_root = LET.fromstring(
         files["word/numbering.xml"]
     )
 
@@ -5205,7 +5207,7 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
         ):
             continue
 
-        nueva_numeracion = ET.Element(
+        nueva_numeracion = LET.Element(
             W + "num",
             {
                 W + "numId": str(
@@ -5214,7 +5216,7 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
             },
         )
 
-        ET.SubElement(
+        LET.SubElement(
             nueva_numeracion,
             W + "abstractNumId",
             {
@@ -5222,7 +5224,7 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
             },
         )
 
-        nivel_override = ET.SubElement(
+        nivel_override = LET.SubElement(
             nueva_numeracion,
             W + "lvlOverride",
             {
@@ -5230,7 +5232,7 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
             },
         )
 
-        ET.SubElement(
+        LET.SubElement(
             nivel_override,
             W + "startOverride",
             {
@@ -5238,7 +5240,22 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
             },
         )
 
-        numbering_root.append(nueva_numeracion)
+        # Insertar w:num antes de elementos finales como
+        # w:numIdMacAtCleanup para conservar el orden válido de Word.
+        posicion_insercion = 0
+
+        for indice, elemento in enumerate(list(numbering_root)):
+            if elemento.tag in {
+                W + "numPicBullet",
+                W + "abstractNum",
+                W + "num",
+            }:
+                posicion_insercion = indice + 1
+
+        numbering_root.insert(
+            posicion_insercion,
+            nueva_numeracion
+        )
 
         for num_id_element in alternativas:
             num_id_element.set(
@@ -5298,19 +5315,21 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
         if siguiente_es_parrafo_vacio:
             continue
 
-        parrafo_vacio = ET.Element(W + "p")
+        parrafo_vacio = LET.Element(W + "p")
         body.insert(posicion + 1, parrafo_vacio)
 
-    files["word/document.xml"] = ET.tostring(
-        document_root,
-        encoding="utf-8",
-        xml_declaration=True,
+    files["word/document.xml"] = LET.tostring(
+    document_root,
+    encoding="utf-8",
+    xml_declaration=True,
+    standalone=True,
     )
 
-    files["word/numbering.xml"] = ET.tostring(
+    files["word/numbering.xml"] = LET.tostring(
         numbering_root,
         encoding="utf-8",
         xml_declaration=True,
+        standalone=True,
     )
 
     temporal = docx_path + ".numbering.tmp"
@@ -5419,6 +5438,16 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path, merge_step_cb=None, 
         )
 
         _reiniciar_alternativas_por_pregunta(out)
+
+        # Word vuelve a guardar el resultado final y normaliza
+        # encabezados, pies, secciones, relaciones y numeración.
+        reparado, error_reparacion = reparar_docx_fuerte(out)
+
+        if not reparado:
+            raise RuntimeError(
+                "El DOCX final no pudo normalizarse: "
+                + str(error_reparacion)
+            )
         # Si TODO lo que no es título falló, verás solo títulos → devuélvelo en JSON
         return out, [], malos
     finally:
