@@ -5158,6 +5158,8 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
 
     listas_reiniciadas = 0
 
+    finales_preguntas = []
+
     for posicion, inicio in enumerate(
         inicios_preguntas
     ):
@@ -5169,6 +5171,7 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
 
         alternativas = []
         abstract_id_alternativas = None
+        ultimo_parrafo_alternativa = None
 
         for paragraph in paragraphs[inicio + 1:fin]:
             numeracion = obtener_numeracion(paragraph)
@@ -5193,6 +5196,8 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
             alternativas.append(
                 numeracion["element"]
             )
+
+            ultimo_parrafo_alternativa = paragraph
 
         if (
             len(alternativas) < 2
@@ -5244,8 +5249,57 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
         siguiente_num_id += 1
         listas_reiniciadas += 1
 
+        finales_preguntas.append(
+        ultimo_parrafo_alternativa
+    )
+
     if listas_reiniciadas == 0:
         return 0
+
+    # Insertar un párrafo vacío después de cada pregunta.
+    # Se procesa desde el final para no alterar las posiciones anteriores.
+    for ultimo_parrafo in reversed(finales_preguntas):
+        elementos_body = list(body)
+        posicion = elementos_body.index(ultimo_parrafo)
+
+        siguiente_elemento = (
+            elementos_body[posicion + 1]
+            if posicion + 1 < len(elementos_body)
+            else None
+        )
+
+        # No agregar un párrafo después de la última pregunta del documento.
+        if (
+            siguiente_elemento is None
+            or siguiente_elemento.tag == W + "sectPr"
+        ):
+            continue
+
+        siguiente_es_parrafo_vacio = (
+            siguiente_elemento.tag == W + "p"
+            and not "".join(
+                elemento.text or ""
+                for elemento in siguiente_elemento.findall(
+                    ".//w:t",
+                    ns
+                )
+            ).strip()
+            and siguiente_elemento.find(
+                ".//w:drawing",
+                ns
+            ) is None
+            and siguiente_elemento.find(
+                ".//w:pict",
+                ns
+            ) is None
+        )
+
+        # Evitar duplicar el salto si ya existe una línea en blanco.
+        if siguiente_es_parrafo_vacio:
+            continue
+
+        parrafo_vacio = ET.Element(W + "p")
+        body.insert(posicion + 1, parrafo_vacio)
 
     files["word/document.xml"] = ET.tostring(
         document_root,
