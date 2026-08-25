@@ -4790,24 +4790,115 @@ def _hacer_secciones_continuas(docx_path: str):
             else:
                 zout.writestr(n, b)
 
+def _obtener_tamano_pagina_docx(docx_path: str):
+    """
+    Obtiene el tamaño real de página del primer sectPr del DOCX.
+    Los valores se devuelven en twips.
+    """
+    NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    W = f"{{{NS_W}}}"
+    ns = {"w": NS_W}
+
+    try:
+        if not zipfile.is_zipfile(docx_path):
+            return None
+
+        with zipfile.ZipFile(docx_path, "r") as z:
+            if "word/document.xml" not in z.namelist():
+                return None
+            root = ET.fromstring(z.read("word/document.xml"))
+
+        pg_sz = root.find(".//w:sectPr/w:pgSz", ns)
+        if pg_sz is None:
+            pg_sz = root.find(".//w:pgSz", ns)
+
+        if pg_sz is None:
+            return None
+
+        width = int(pg_sz.get(W + "w") or 0)
+        height = int(pg_sz.get(W + "h") or 0)
+
+        if width <= 0 or height <= 0:
+            return None
+
+        orientation = pg_sz.get(W + "orient")
+        if orientation not in {"portrait", "landscape"}:
+            orientation = "landscape" if width > height else "portrait"
+
+        return {
+            "width_twips": width,
+            "height_twips": height,
+            "orientation": orientation,
+        }
+
+    except Exception as e:
+        print("[PAGE_SIZE][READ_WARN]", docx_path, repr(e), flush=True)
+        return None
 
 
+def _primer_tamano_pagina_grouped(grouped):
+    """Obtiene el tamaño del primer DOCX real de la matriz."""
+    for _tema, files in grouped:
+        for path in files:
+            page_size = _obtener_tamano_pagina_docx(path)
+            if page_size:
+                return page_size
+    return None
 
 
+def _aplicar_tamano_pagina_python_docx(doc, page_size):
+    if not page_size:
+        return
 
-def _tmp_heading_doc(texto: str) -> str:
-    """Crea un DOCX temporal con un párrafo centrado y en negrita como título de sección."""
+    from docx.shared import Twips
+
+    for section in doc.sections:
+        section.page_width = Twips(page_size["width_twips"])
+        section.page_height = Twips(page_size["height_twips"])
+
+
+def _aplicar_tamano_pagina_wordcom(doc, page_size):
+    if not page_size:
+        return
+
+    try:
+        setup = doc.PageSetup
+
+        # Word COM: 0 = vertical, 1 = horizontal
+        setup.Orientation = (
+            1 if page_size["orientation"] == "landscape" else 0
+        )
+
+        # Word COM trabaja en puntos: 20 twips = 1 punto
+        setup.PageWidth = page_size["width_twips"] / 20.0
+        setup.PageHeight = page_size["height_twips"] / 20.0
+
+        print(
+            "[PAGE_SIZE][WORD]",
+            page_size,
+            flush=True,
+        )
+    except Exception as e:
+        print("[PAGE_SIZE][WORD_WARN]", repr(e), flush=True)
+
+
+def _tmp_heading_doc(texto: str, page_size=None) -> str:
     from docx import Document as DocxDocument
-    import tempfile, os
+    import tempfile
+    import os
+
     doc = DocxDocument()
+
+    # El título también tendrá el tamaño del documento original
+    _aplicar_tamano_pagina_python_docx(doc, page_size)
+
     p = doc.add_paragraph()
     run = p.add_run(texto)
     run.bold = True
-    # centrado
+
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    # un poquito de espacio abajo
-    p.paragraph_format.space_after = 300  # 15pt aprox
+    p.paragraph_format.space_after = 300
 
     fd, path = tempfile.mkstemp(suffix=".docx", prefix="titulo_")
     os.close(fd)
@@ -4829,14 +4920,18 @@ def _merge_grouped_with_headings(grouped, out_path, merge_step_cb=None, merge_op
     if merge_ops is None:
         merge_ops = sum(1 + len(fs) for _, fs in grouped)
     step = 0
+    page_size = _primer_tamano_pagina_grouped(grouped)
 
     maestro = DocxDocument()
+    _aplicar_tamano_pagina_python_docx(maestro, page_size)
+
     comp = Composer(maestro)
+
 
     tmp_titles = []
     try:
         for (tema, files) in grouped:
-            tpath = _tmp_heading_doc(tema)
+            tpath = _tmp_heading_doc(tema, page_size)
             tmp_titles.append(tpath)
 
             step += 1
@@ -4867,10 +4962,11 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path, merge_step_cb=None, 
     - Inserta con Word/COM.
     - NO pone salto de página después del título; SÍ después de cada pregunta.
     """
+    page_size = _primer_tamano_pagina_grouped(grouped)
     tmp_titles = []
     flat = []  # [(path, is_title)]
     for (tema, files) in grouped:
-        tpath = _tmp_heading_doc(tema)
+        tpath = _tmp_heading_doc(tema, page_size)
         tmp_titles.append(tpath)
         flat.append((tpath, True))
         for f in files:
@@ -4900,6 +4996,16 @@ def _merge_with_word(marked_paths, out_path, merge_step_cb=None, merge_ops_hint=
     wdPageBreak = 7
 
     cleaned = []
+
+    page_size = None
+
+    for path, is_title in cleaned:
+        if is_title:
+            continue
+
+        page_size = _obtener_tamano_pagina_docx(path)
+        if page_size:
+            break
     for p, is_title in marked_paths:
         if not p or not os.path.isfile(p):
             continue
@@ -4918,6 +5024,8 @@ def _merge_with_word(marked_paths, out_path, merge_step_cb=None, merge_ops_hint=
     malos = []
     try:
         doc_dest = word.Documents.Add()
+
+        _aplicar_tamano_pagina_wordcom(doc_dest, page_size)
 
         def end_range():
             r = doc_dest.Content
