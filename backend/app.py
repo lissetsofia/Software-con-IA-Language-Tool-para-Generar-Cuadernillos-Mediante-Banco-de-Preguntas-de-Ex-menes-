@@ -4835,6 +4835,70 @@ def _obtener_tamano_pagina_docx(docx_path: str):
         print("[PAGE_SIZE][READ_WARN]", docx_path, repr(e), flush=True)
         return None
 
+def _primer_docx_real_grouped(grouped):
+    """
+    Devuelve el primer DOCX real según el orden de la matriz.
+    Omite los documentos temporales de títulos.
+    """
+    for _tema, files in grouped:
+        for path in files:
+            path_abs = os.path.abspath(path)
+
+            if (
+                os.path.isfile(path_abs)
+                and zipfile.is_zipfile(path_abs)
+            ):
+                return path_abs
+
+    return None
+
+
+def _primer_tamano_pagina_grouped(grouped):
+    primero = _primer_docx_real_grouped(grouped)
+
+    if not primero:
+        return None
+
+    return _obtener_tamano_pagina_docx(primero)
+
+
+def _crear_maestro_desde_primer_docx(grouped):
+    """
+    Usa el primer DOCX como plantilla de la matriz.
+
+    Conserva:
+    - encabezados;
+    - pies de página;
+    - imágenes de encabezados/pies;
+    - configuración de primera página y páginas pares;
+    - márgenes;
+    - tamaño y orientación.
+
+    Elimina únicamente el contenido del cuerpo.
+    """
+    primero = _primer_docx_real_grouped(grouped)
+
+    if not primero:
+        return DocxDocument(), None
+
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    maestro = DocxDocument(primero)
+    body = maestro._element.body
+    sect_pr = body.find(qn("w:sectPr"))
+
+    # Eliminar preguntas, tablas e imágenes del cuerpo,
+    # conservando el sectPr que referencia encabezados y pies.
+    for child in list(body):
+        if child is sect_pr:
+            continue
+        body.remove(child)
+
+    # Word necesita al menos un párrafo en el cuerpo.
+    body.insert(0, OxmlElement("w:p"))
+
+    return maestro, primero
 
 def _primer_tamano_pagina_grouped(grouped):
     """Obtiene el tamaño del primer DOCX real de la matriz."""
@@ -4922,7 +4986,10 @@ def _merge_grouped_with_headings(grouped, out_path, merge_step_cb=None, merge_op
     step = 0
     page_size = _primer_tamano_pagina_grouped(grouped)
 
-    maestro = DocxDocument()
+    # El primer archivo es el maestro:
+    # sus encabezados y pies serán los únicos utilizados.
+    maestro, primer_docx = _crear_maestro_desde_primer_docx(grouped)
+
     _aplicar_tamano_pagina_python_docx(maestro, page_size)
 
     comp = Composer(maestro)
@@ -4987,91 +5054,242 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path, merge_step_cb=None, 
             except: pass
 
 
-def _merge_with_word(marked_paths, out_path, merge_step_cb=None, merge_ops_hint=None):
-    import os, pythoncom
+def _merge_with_word(
+    marked_paths,
+    out_path,
+    merge_step_cb=None,
+    merge_ops_hint=None
+):
+    import os
+    import pythoncom
     import win32com.client as win32
 
     wdCollapseEnd = 0
     wdFormatXMLDocument = 12
-    wdPageBreak = 7
 
     cleaned = []
 
-    page_size = None
-
-    for path, is_title in cleaned:
-        if is_title:
+    # Primero se validan y ordenan todos los archivos.
+    for path, is_title in marked_paths:
+        if not path or not os.path.isfile(path):
             continue
 
-        page_size = _obtener_tamano_pagina_docx(path)
-        if page_size:
-            break
-    for p, is_title in marked_paths:
-        if not p or not os.path.isfile(p):
-            continue
         try:
-            if _tiene_texto_o_contenido(p):
-                cleaned.append((os.path.abspath(p), is_title))
+            if _tiene_texto_o_contenido(path):
+                cleaned.append((
+                    os.path.abspath(path),
+                    is_title
+                ))
         except Exception:
             continue
 
-    merge_ops = merge_ops_hint if merge_ops_hint is not None else len(cleaned)
+    # Primer archivo real, omitiendo títulos temporales.
+    first_source = next(
+        (
+            path
+            for path, is_title in cleaned
+            if not is_title
+        ),
+        None
+    )
+
+    page_size = (
+        _obtener_tamano_pagina_docx(first_source)
+        if first_source
+        else None
+    )
+
+    merge_ops = (
+        merge_ops_hint
+        if merge_ops_hint is not None
+        else len(cleaned)
+    )
 
     pythoncom.CoInitialize()
     word = win32.DispatchEx("Word.Application")
     word.Visible = False
     word.DisplayAlerts = 0
-    malos = []
-    try:
-        doc_dest = word.Documents.Add()
 
-        _aplicar_tamano_pagina_wordcom(doc_dest, page_size)
+    doc_dest = None
+    malos = []
+
+    try:
+        if first_source:
+            # Abrir el primer archivo como plantilla.
+            # Esto conserva encabezados, pies, imágenes,
+            # márgenes y configuración de secciones.
+            doc_dest = word.Documents.Open(
+                first_source,
+                ReadOnly=True,
+                ConfirmConversions=False,
+                AddToRecentFiles=False,
+                Revert=False,
+                Visible=False,
+                OpenAndRepair=True,
+            )
+
+            # Guardar inmediatamente como documento de salida.
+            doc_dest.SaveAs(
+                os.path.abspath(out_path),
+                FileFormat=wdFormatXMLDocument,
+            )
+
+            # Vaciar solamente el cuerpo.
+            # Se conserva el último marcador de párrafo y su sección.
+            body_range = doc_dest.Content
+
+            if body_range.End > body_range.Start:
+                body_range.End = body_range.End - 1
+                body_range.Delete()
+
+        else:
+            doc_dest = word.Documents.Add()
+
+        _aplicar_tamano_pagina_wordcom(
+            doc_dest,
+            page_size,
+        )
 
         def end_range():
-            r = doc_dest.Content
-            r.Collapse(wdCollapseEnd)
-            return r
+            current_range = doc_dest.Content
+            current_range.Collapse(wdCollapseEnd)
+            return current_range
 
-        for idx, (p_abs, is_title) in enumerate(cleaned, start=1):
+        for idx, (path_abs, is_title) in enumerate(
+            cleaned,
+            start=1
+        ):
             inserted = False
+
             try:
-                r = end_range()
-                r.InsertFile(p_abs)
+                current_range = end_range()
+                current_range.InsertFile(path_abs)
                 inserted = True
+
             except Exception as e:
-                malos.append((p_abs, f"InsertFile: {e}"))
+                malos.append((
+                    path_abs,
+                    f"InsertFile: {e}"
+                ))
+
                 try:
                     doc_src = word.Documents.Open(
-                        p_abs, ReadOnly=True, ConfirmConversions=False,
-                        AddToRecentFiles=False, Revert=False, Visible=False,
-                        OpenAndRepair=True
+                        path_abs,
+                        ReadOnly=True,
+                        ConfirmConversions=False,
+                        AddToRecentFiles=False,
+                        Revert=False,
+                        Visible=False,
+                        OpenAndRepair=True,
                     )
+
                     try:
-                        r = end_range()
-                        r.FormattedText = doc_src.Range().FormattedText
+                        current_range = end_range()
+                        current_range.FormattedText = (
+                            doc_src.Range().FormattedText
+                        )
                         inserted = True
                     finally:
                         doc_src.Close(False)
+
                 except Exception as e2:
-                    malos.append((p_abs, f"FormattedText: {e2}"))
+                    malos.append((
+                        path_abs,
+                        f"FormattedText: {e2}"
+                    ))
                     continue
 
             if inserted and merge_step_cb:
                 merge_step_cb(idx, "merge")
 
-            # salto SOLO después de pregunta, nunca después del título
-            
+        # Todos los encabezados y pies posteriores quedan
+        # vinculados al primer archivo.
+        _forzar_encabezados_pies_primera_seccion_wordcom(
+            doc_dest
+        )
 
-        doc_dest.SaveAs(out_path, FileFormat=wdFormatXMLDocument)
+        if first_source:
+            doc_dest.Save()
+        else:
+            doc_dest.SaveAs(
+                os.path.abspath(out_path),
+                FileFormat=wdFormatXMLDocument,
+            )
+
         doc_dest.Close(False)
+        doc_dest = None
+
         return out_path, None, malos
 
     finally:
+        if doc_dest is not None:
+            try:
+                doc_dest.Close(False)
+            except Exception:
+                pass
+
         try:
             word.Quit()
         except Exception:
             pass
+
         pythoncom.CoUninitialize()
+
+
+def _forzar_encabezados_pies_primera_seccion_wordcom(doc):
+    """
+    Hace que todas las secciones utilicen los encabezados y pies
+    de la primera sección del documento maestro.
+    """
+    try:
+        if doc.Sections.Count <= 1:
+            return
+
+        # Word:
+        # 1 = principal/default
+        # 2 = primera página
+        # 3 = páginas pares
+        tipos = (1, 2, 3)
+
+        primera = doc.Sections.Item(1)
+
+        for numero in range(2, doc.Sections.Count + 1):
+            section = doc.Sections.Item(numero)
+
+            # Conservar la misma configuración de primera página
+            # y páginas pares que posee el primer archivo.
+            try:
+                section.PageSetup.DifferentFirstPageHeaderFooter = (
+                    primera.PageSetup.DifferentFirstPageHeaderFooter
+                )
+            except Exception:
+                pass
+
+            try:
+                section.PageSetup.OddAndEvenPagesHeaderFooter = (
+                    primera.PageSetup.OddAndEvenPagesHeaderFooter
+                )
+            except Exception:
+                pass
+
+            for tipo in tipos:
+                try:
+                    section.Headers.Item(tipo).LinkToPrevious = True
+                except Exception:
+                    pass
+
+                try:
+                    section.Footers.Item(tipo).LinkToPrevious = True
+                except Exception:
+                    pass
+
+    except Exception as e:
+        print(
+            "[HEADER_FOOTER][LINK_WARN]",
+            repr(e),
+            flush=True,
+        ) 
+
 
 def aplanar_listas_a_texto(docx_path: str):
     """
