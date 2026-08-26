@@ -5208,6 +5208,8 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
 
     finales_preguntas = []
 
+    parrafos_alternativa_vacios = []
+
     for posicion, inicio in enumerate(
         inicios_preguntas
     ):
@@ -5229,6 +5231,35 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
                 or numeracion["ilvl"] != "0"
                 or numeracion["formato"] != "upperLetter"
             ):
+                continue
+
+                        # No contar como alternativa los párrafos numerados
+            # que no contienen texto, imagen, objeto ni ecuación.
+            texto_alternativa = "".join(
+                elemento.text or ""
+                for elemento in paragraph.findall(
+                    ".//w:t",
+                    ns
+                )
+            ).strip()
+
+            tiene_contenido_real = (
+                bool(texto_alternativa)
+                or paragraph.find(".//w:drawing", ns) is not None
+                or paragraph.find(".//w:pict", ns) is not None
+                or paragraph.find(".//w:object", ns) is not None
+                or paragraph.find(
+                    ".//{http://schemas.openxmlformats.org/"
+                    "officeDocument/2006/math}oMath"
+                ) is not None
+                or paragraph.find(
+                    ".//{http://schemas.openxmlformats.org/"
+                    "officeDocument/2006/math}oMathPara"
+                ) is not None
+            )
+
+            if not tiene_contenido_real:
+                parrafos_alternativa_vacios.append(paragraph)
                 continue
 
             abstract_id = num_a_abstracto.get(
@@ -5320,7 +5351,52 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
         return 0
 
     # Insertar un párrafo vacío después de cada pregunta.
-    # Se procesa desde el final para no alterar las posiciones anteriores.
+    def neutralizar_numeracion(paragraph):
+        """
+        Convierte el párrafo en una línea vacía real,
+        evitando que Word lo muestre como F), G), etc.
+        """
+        p_pr = paragraph.find("./w:pPr", ns)
+
+        if p_pr is None:
+            p_pr = LET.Element(W + "pPr")
+            paragraph.insert(0, p_pr)
+
+        # Evitar que herede un estilo de lista.
+        p_style = p_pr.find("./w:pStyle", ns)
+
+        if p_style is None:
+            p_style = LET.Element(
+                W + "pStyle",
+                {W + "val": "Normal"}
+            )
+            p_pr.insert(0, p_style)
+        else:
+            p_style.set(W + "val", "Normal")
+
+        # Eliminar cualquier numeración anterior.
+        for num_pr_anterior in p_pr.findall("./w:numPr", ns):
+            p_pr.remove(num_pr_anterior)
+
+        # numId=0 desactiva explícitamente la numeración.
+        num_pr = LET.Element(W + "numPr")
+        num_id = LET.SubElement(num_pr, W + "numId")
+        num_id.set(W + "val", "0")
+
+        posicion_num_pr = 0
+
+        for indice, elemento in enumerate(list(p_pr)):
+            if elemento.tag == W + "pStyle":
+                posicion_num_pr = indice + 1
+
+        p_pr.insert(posicion_num_pr, num_pr)
+        # Los párrafos vacíos que Word convirtió en F), G), etc.
+    # se reutilizan como separadores sin numeración.
+    for paragraph in parrafos_alternativa_vacios:
+        neutralizar_numeracion(paragraph)
+
+    # Insertar un párrafo vacío sin numeración
+    # después de cada pregunta.
     for ultimo_parrafo in reversed(finales_preguntas):
         elementos_body = list(body)
         posicion = elementos_body.index(ultimo_parrafo)
@@ -5331,7 +5407,6 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
             else None
         )
 
-        # No agregar un párrafo después de la última pregunta del documento.
         if (
             siguiente_elemento is None
             or siguiente_elemento.tag == W + "sectPr"
@@ -5355,14 +5430,24 @@ def _reiniciar_alternativas_por_pregunta(docx_path: str) -> int:
                 ".//w:pict",
                 ns
             ) is None
+            and siguiente_elemento.find(
+                ".//w:object",
+                ns
+            ) is None
         )
 
-        # Evitar duplicar el salto si ya existe una línea en blanco.
+        # Si ya existe la línea vacía, quitarle la numeración.
         if siguiente_es_parrafo_vacio:
+            neutralizar_numeracion(siguiente_elemento)
             continue
 
         parrafo_vacio = LET.Element(W + "p")
-        body.insert(posicion + 1, parrafo_vacio)
+        neutralizar_numeracion(parrafo_vacio)
+
+        body.insert(
+            posicion + 1,
+            parrafo_vacio
+        )
 
     files["word/document.xml"] = LET.tostring(
     document_root,
