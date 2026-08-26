@@ -2440,7 +2440,51 @@ def is_centered_bold_heading(p):
     txt = _norm(paragraph_text(p))
     return (centered or bold) and len(txt) <= 30 and re.fullmatch(r"[a-z\s]+", txt or "") is not None
 
-def _reempacar_docx(work_dir: str, elementos_xml, destino_docx: str):
+def _convertir_ole_a_imagen_vml(fragmento):
+    """
+    Convierte w:object/OLE en una imagen VML estática.
+    Conserva tamaño, posición, diseño y numeración.
+    """
+    V_NS = "{urn:schemas-microsoft-com:vml}"
+    O_NS = "{urn:schemas-microsoft-com:office:office}"
+
+    parent_map = {
+        child: parent
+        for parent in fragmento.iter()
+        for child in list(parent)
+    }
+
+    for objeto in list(fragmento.iter(W + "object")):
+        parent = parent_map.get(objeto)
+        shape = objeto.find(V_NS + "shape")
+        ole = objeto.find(O_NS + "OLEObject")
+
+        if parent is None or shape is None or ole is None:
+            continue
+
+        pict = ET.Element(W + "pict")
+
+        # Conservar shapetype, shape e imagedata.
+        for child in list(objeto):
+            if isinstance(child.tag, str) and child.tag.startswith(V_NS):
+                objeto.remove(child)
+                pict.append(child)
+
+        # Ya no será un objeto OLE, sino una imagen normal.
+        for v_shape in pict.iter(V_NS + "shape"):
+            v_shape.attrib.pop(O_NS + "ole", None)
+
+        posicion = list(parent).index(objeto)
+        parent.remove(objeto)
+        parent.insert(posicion, pict)
+
+
+def _reempacar_docx(
+    work_dir: str,
+    elementos_xml,
+    destino_docx: str,
+    convertir_ole_visual: bool = False
+):
     tmp = tempfile.mkdtemp(prefix="docx_")
     try:
         shutil.copytree(work_dir, tmp, dirs_exist_ok=True)
@@ -2485,6 +2529,8 @@ def _reempacar_docx(work_dir: str, elementos_xml, destino_docx: str):
         for el in elementos_xml:
             frag = copy.deepcopy(el)
             _sanear_fragmento(frag)
+            if convertir_ole_visual:
+                 _convertir_ole_a_imagen_vml(frag)
 
             # SOLO párrafos o tablas
             if frag.tag not in {W + "p", W + "tbl"}:
@@ -5441,13 +5487,26 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path, merge_step_cb=None, 
 
         # Word vuelve a guardar el resultado final y normaliza
         # encabezados, pies, secciones, relaciones y numeración.
-        reparado, error_reparacion = reparar_docx_fuerte(out)
+        # OpenAndRepair puede eliminar objetos OLE de CorelDRAW.
+        if _docx_tiene_ole_vml(out):
+            _validar_docx_real(out)
 
-        if not reparado:
-            raise RuntimeError(
-                "El DOCX final no pudo normalizarse: "
-                + str(error_reparacion)
+            print(
+                "[MATRIZ][OLE] Se conservaron los objetos "
+                "CorelDRAW sin ejecutar OpenAndRepair.",
+                flush=True,
             )
+
+        else:
+            reparado, error_reparacion = (
+                reparar_docx_fuerte(out)
+            )
+
+            if not reparado:
+                raise RuntimeError(
+                    "El DOCX final no pudo normalizarse: "
+                    + str(error_reparacion)
+                )
         # Si TODO lo que no es título falló, verás solo títulos → devuélvelo en JSON
         return out, [], malos
     finally:
@@ -5456,6 +5515,23 @@ def _merge_grouped_with_headings_wordcom(grouped, out_path, merge_step_cb=None, 
             except: pass
 
 
+
+def _docx_tiene_ole_vml(docx_path: str) -> bool:
+    try:
+        with zipfile.ZipFile(docx_path, "r") as archivo:
+            xml = archivo.read("word/document.xml")
+
+        return any(
+            etiqueta in xml
+            for etiqueta in (
+                b"<w:object",
+                b"<o:OLEObject",
+                b"<v:imagedata",
+            )
+        )
+    except Exception:
+        return False
+    
 def _merge_with_word(
     marked_paths,
     out_path,
@@ -5562,19 +5638,19 @@ def _merge_with_word(
             start=1
         ):
             inserted = False
+            es_documento_ole = _docx_tiene_ole_vml(
+                path_abs
+            )
+
+            doc_src = None
+            error_primario = None
 
             try:
                 current_range = end_range()
-                current_range.InsertFile(path_abs)
-                inserted = True
 
-            except Exception as e:
-                malos.append((
-                    path_abs,
-                    f"InsertFile: {e}"
-                ))
-
-                try:
+                if es_documento_ole:
+                    # Para objetos CorelDRAW se debe utilizar el
+                    # portapapeles de Word. FormattedText puede eliminarlos.
                     doc_src = word.Documents.Open(
                         path_abs,
                         ReadOnly=True,
@@ -5582,24 +5658,81 @@ def _merge_with_word(
                         AddToRecentFiles=False,
                         Revert=False,
                         Visible=False,
-                        OpenAndRepair=True,
+                        OpenAndRepair=False,
                     )
 
-                    try:
-                        current_range = end_range()
-                        current_range.FormattedText = (
-                            doc_src.Range().FormattedText
-                        )
-                        inserted = True
-                    finally:
-                        doc_src.Close(False)
+                    doc_src.Content.Copy()
 
-                except Exception as e2:
+                    # 16 = wdFormatOriginalFormatting
+                    current_range.PasteAndFormat(16)
+
+                else:
+                    current_range.InsertFile(
+                        path_abs,
+                        ConfirmConversions=False,
+                        Link=False,
+                        Attachment=False,
+                    )
+
+                inserted = True
+
+            except Exception as error:
+                error_primario = error
+
+                if doc_src is not None:
+                    try:
+                        doc_src.Close(False)
+                    except Exception:
+                        pass
+                    doc_src = None
+
+                try:
+                    current_range = end_range()
+
+                    if es_documento_ole:
+                        # Segundo intento para documentos con objetos OLE.
+                        current_range.InsertFile(
+                            path_abs,
+                            ConfirmConversions=False,
+                            Link=False,
+                            Attachment=False,
+                        )
+
+                    else:
+                        doc_src = word.Documents.Open(
+                            path_abs,
+                            ReadOnly=True,
+                            ConfirmConversions=False,
+                            AddToRecentFiles=False,
+                            Revert=False,
+                            Visible=False,
+                            OpenAndRepair=True,
+                        )
+
+                        current_range.FormattedText = (
+                            doc_src.Content.FormattedText
+                        )
+
+                    inserted = True
+
+                except Exception as error_secundario:
                     malos.append((
                         path_abs,
-                        f"FormattedText: {e2}"
+                        (
+                            f"Copia principal: {error_primario} | "
+                            f"Copia alternativa: {error_secundario}"
+                        )
                     ))
                     continue
+
+            finally:
+                if doc_src is not None:
+                    try:
+                        doc_src.Close(False)
+                    except Exception:
+                        pass
+
+            
 
             if inserted and merge_step_cb:
                 merge_step_cb(idx, "merge")
@@ -6574,25 +6707,86 @@ def to_pdf_insert_only(src, dst):
     raise RuntimeError("no pdf")
 
 def resave_docx_formatted(src, dst_docx):
-    src = _short83(src); dst_docx = _short83(dst_docx)
+    src = _short83(src)
+    dst_docx = _short83(dst_docx)
+
     pythoncom.CoInitialize()
-    w = win32.DispatchEx("Word.Application"); w.Visible=False; w.DisplayAlerts=0
+
+    word = None
+    documento_origen = None
+    documento_destino = None
+
     try:
-        # Abrir con reparación si se puede; si no, InsertFile
-        try:
-            s = w.Documents.Open(src, ReadOnly=True, ConfirmConversions=False, Visible=False, OpenAndRepair=True)
-            d = w.Documents.Add()
-            d.Range(0,0).FormattedText = s.Content.FormattedText
-            s.Close(False)
-        except Exception:
-            d = w.Documents.Add()
-            d.Range(0,0).InsertFile(src, ConfirmConversions=False, Link=False, Attachment=False)
-        d.SaveAs2(dst_docx, FileFormat=12)  # DOCX normalizado
-        d.Close(False)
+        word = win32.DispatchEx(
+            "Word.Application"
+        )
+        word.Visible = False
+        word.DisplayAlerts = 0
+
+        documento_destino = word.Documents.Add()
+
+        if _docx_tiene_ole_vml(src):
+            documento_origen = word.Documents.Open(
+                src,
+                ReadOnly=True,
+                ConfirmConversions=False,
+                AddToRecentFiles=False,
+                Visible=False,
+                OpenAndRepair=False,
+            )
+
+            documento_origen.Content.Copy()
+
+            documento_destino.Range(
+                0,
+                0
+            ).PasteAndFormat(16)
+
+        else:
+            documento_destino.Range(
+                0,
+                0
+            ).InsertFile(
+                src,
+                ConfirmConversions=False,
+                Link=False,
+                Attachment=False,
+            )
+
+        documento_destino.SaveAs2(
+            dst_docx,
+            FileFormat=12,
+        )
+
+        documento_destino.Close(False)
+        documento_destino = None
+
+        if documento_origen is not None:
+            documento_origen.Close(False)
+            documento_origen = None
+
+        return dst_docx
+
     finally:
-        try: w.Quit()
-        finally: pythoncom.CoUninitialize()
-    return dst_docx
+        if documento_destino is not None:
+            try:
+                documento_destino.Close(False)
+            except Exception:
+                pass
+
+        if documento_origen is not None:
+            try:
+                documento_origen.Close(False)
+            except Exception:
+                pass
+
+        if word is not None:
+            try:
+                word.Quit()
+            except Exception:
+                pass
+
+        pythoncom.CoUninitialize()
 
 def docx_a_pdf(docx_path: str, pdf_path: str) -> str:
     """
@@ -7821,7 +8015,12 @@ def _cut_docx_to_individual_question_docs(src_docx: str, n: int) -> list[str]:
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".docx")
             tmp.close()
 
-            _reempacar_docx(td, seleccion, tmp.name)
+            _reempacar_docx(
+                td,
+                seleccion,
+                tmp.name,
+                convertir_ole_visual=True
+            )
 
             # validación ligera
             try:
